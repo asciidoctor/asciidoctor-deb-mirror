@@ -1,0 +1,17 @@
+From: Per Andersson <avtobiff@gmail.com>
+Date: Wed, 20 Mar 2013 16:29:36 +0100
+Subject: Comment out rubygems require
+
+---
+ lib/asciidoctor.rb |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/lib/asciidoctor.rb
++++ b/lib/asciidoctor.rb
+@@ -1,5 +1,5 @@
+ if RUBY_VERSION < '1.9'
+-  require 'rubygems'
++#  require 'rubygems'
+ end
+ require 'strscan'
+ require 'set'

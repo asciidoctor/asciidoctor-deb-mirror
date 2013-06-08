@@ -1,0 +1,32 @@
+#!/usr/bin/make -f
+#export DH_VERBOSE=1
+#
+# Uncomment to ignore all test failures (but the tests will run anyway)
+#export DH_RUBY_IGNORE_TESTS=all
+#
+# Uncomment to ignore some test failures (but the tests will run anyway).
+# Valid values:
+#export DH_RUBY_IGNORE_TESTS=ruby1.8 ruby1.9.1 require-rubygems
+#
+# If you need to specify the .gemspec (eg there is more than one)
+#export DH_RUBY_GEMSPEC=gem.gemspec
+
+%:
+	dh $@ --buildsystem=ruby --with ruby
+
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -rf doc
+
+override_dh_auto_build:
+	dh_auto_build
+	# build documentation
+	rdoc --main=README.adoc lib
+
+override_dh_auto_install:
+	# use utf-8 locale so test cases work
+	LC_ALL=C.UTF-8 dh_auto_install
+	# remove asciidoctor-safe
+	rm -f debian/asciidoctor/usr/bin/asciidoctor-safe
+	# remove bundled jquery.js
+	rm -f debian/asciidoctor-doc/usr/share/doc/asciidoctor-doc/html/js/jquery.js

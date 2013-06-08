@@ -1,0 +1,58 @@
+Source: asciidoctor
+Section: ruby
+Priority: optional
+Maintainer: Debian Ruby Extras Maintainers <pkg-ruby-extras-maintainers@lists.alioth.debian.org>
+Uploaders: Per Andersson <avtobiff@gmail.com>
+Build-Depends:
+ debhelper (>= 7.0.50~),
+ gem2deb (>= 0.3.0~),
+ coderay,
+ erubis,
+ locales,
+ rake,
+ ruby-htmlentities,
+ ruby-mocha,
+ ruby-nokogiri,
+ ruby-tilt
+Standards-Version: 3.9.4
+Vcs-Git: git://anonscm.debian.org/pkg-ruby-extras/asciidoctor.git
+Vcs-Browser: http://anonscm.debian.org/gitweb?p=pkg-ruby-extras/asciidoctor.git;a=summary
+Homepage: http://asciidoctor.org/
+XS-Ruby-Versions: all
+
+Package: asciidoctor
+Architecture: all
+XB-Ruby-Versions: ${ruby:Versions}
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+ ruby | ruby-interpreter
+Suggests:
+ asciidoctor-doc
+Description: AsciiDoc to HTML rendering for Ruby
+ Asciidoctor is a pure Ruby processor for converting AsciiDoc source files and
+ strings into HTML 5, DocBook 4.5 and other formats.
+ .
+ Asciidoctor uses a set of built-in ERB templates to render the document to
+ HTML 5 or DocBook 4.5. We've matched the rendered output as close as possible
+ to the default output of the native Python processor. You can override this
+ behavior by providing Tilt-compatible templates.
+
+Package: asciidoctor-doc
+Architecture: all
+Section: doc
+Depends:
+ ${misc:Depends},
+ libjs-jquery
+Suggests:
+ asciidoctor
+Description: AsciiDoc to HTML rendering for Ruby (documentation)
+ Asciidoctor is a pure Ruby processor for converting AsciiDoc source files and
+ strings into HTML 5, DocBook 4.5 and other formats.
+ .
+ Asciidoctor uses a set of built-in ERB templates to render the document to
+ HTML 5 or DocBook 4.5. We've matched the rendered output as close as possible
+ to the default output of the native Python processor. You can override this
+ behavior by providing Tilt-compatible templates.
+ .
+ This package contains the documentation for asciidoctor.

@@ -12,8 +12,10 @@ Build-Depends:
  rake,
  ruby-htmlentities,
  ruby-mocha,
- ruby-nokogiri,
- ruby-tilt
+ ruby-nokogiri (>= 1.5.10),
+ ruby-tilt,
+ ruby-slim,
+ ruby-haml,
 Standards-Version: 3.9.4
 Vcs-Git: git://anonscm.debian.org/pkg-ruby-extras/asciidoctor.git
 Vcs-Browser: http://anonscm.debian.org/gitweb?p=pkg-ruby-extras/asciidoctor.git;a=summary

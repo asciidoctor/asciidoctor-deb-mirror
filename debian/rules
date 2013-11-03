@@ -29,3 +29,6 @@ override_dh_auto_install:
 	rm -f debian/asciidoctor/usr/bin/asciidoctor-safe
 	# remove bundled jquery.js
 	rm -f debian/asciidoctor-doc/usr/share/doc/asciidoctor-doc/html/js/jquery.js
+
+override_dh_installchangelogs:
+	dh_installchangelogs -O--buildsystem=ruby CHANGELOG.adoc

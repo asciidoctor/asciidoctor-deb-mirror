@@ -33,12 +33,7 @@ Suggests:
  asciidoctor-doc
 Description: AsciiDoc to HTML rendering for Ruby
  Asciidoctor is a pure Ruby processor for converting AsciiDoc source files and
- strings into HTML 5, DocBook 4.5 and other formats.
- .
- Asciidoctor uses a set of built-in ERB templates to render the document to
- HTML 5 or DocBook 4.5. We've matched the rendered output as close as possible
- to the default output of the native Python processor. You can override this
- behavior by providing Tilt-compatible templates.
+ strings into HTML 5, DocBook 4.5, DocBook 5.0 and other formats.
 
 Package: asciidoctor-doc
 Architecture: all
@@ -50,11 +45,6 @@ Suggests:
  asciidoctor
 Description: AsciiDoc to HTML rendering for Ruby (documentation)
  Asciidoctor is a pure Ruby processor for converting AsciiDoc source files and
- strings into HTML 5, DocBook 4.5 and other formats.
- .
- Asciidoctor uses a set of built-in ERB templates to render the document to
- HTML 5 or DocBook 4.5. We've matched the rendered output as close as possible
- to the default output of the native Python processor. You can override this
- behavior by providing Tilt-compatible templates.
+ strings into HTML 5, DocBook 4.5, DocBook 5.0 and other formats.
  .
  This package contains the documentation for asciidoctor.

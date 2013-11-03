@@ -1,3 +1,6 @@
+if RUBY_VERSION < '1.9'
+  require 'rubygems'
+end
 require 'fileutils'
 require 'pathname'
 require 'test/unit'
@@ -5,9 +8,10 @@ require 'test/unit'
 require "#{File.expand_path(File.dirname(__FILE__))}/../lib/asciidoctor.rb"
 
 require 'nokogiri'
-require 'pending'
 
 ENV['SUPPRESS_DEBUG'] ||= 'true'
+
+RE_XMLNS_ATTRIBUTE = / xmlns="[^"]+"/
 
 class Test::Unit::TestCase
   def windows?
@@ -16,6 +20,15 @@ class Test::Unit::TestCase
 
   def disk_root
     "#{windows? ? File.expand_path(__FILE__).split('/').first : nil}/"
+  end
+
+  def empty_document options = {}
+    Asciidoctor::Document.new [], options
+  end
+
+  def empty_safe_document options = {}
+    options[:safe] = :safe
+    Asciidoctor::Document.new [], options
   end
 
   def sample_doc_path(name)
@@ -36,8 +49,7 @@ class Test::Unit::TestCase
   end
 
   def example_document(name, opts = {})
-    opts[:header_footer] = true unless opts.has_key?(:header_footer)
-    Asciidoctor::Document.new(File.readlines(sample_doc_path(name)), opts)
+    document_from_string File.read(sample_doc_path(name)), opts
   end
 
   def assert_difference(expression, difference = 1, message = nil, &block)
@@ -69,7 +81,8 @@ class Test::Unit::TestCase
     doc = xmldoc_from_string content
     case type
       when :xpath
-        results = doc.xpath("#{path.sub('/', './')}")
+        namespaces = doc.respond_to?(:root) ? doc.root.namespaces : {}
+        results = doc.xpath("#{path.sub('/', './')}", namespaces)
       when :css
         results = doc.css(path)
     end
@@ -115,10 +128,14 @@ class Test::Unit::TestCase
   end
 
   def xmldoc_from_string(content)
-    match = content.match(/\s*<!DOCTYPE (.*)/)
-    if !match
-      doc = Nokogiri::HTML::DocumentFragment.parse(content)
-    elsif match[1].start_with? 'html'
+    doctype_match = content.match(/\s*<!DOCTYPE (.*)/)
+    if !doctype_match
+      if content.match(RE_XMLNS_ATTRIBUTE)
+        doc = Nokogiri::XML::Document.parse(content)
+      else
+        doc = Nokogiri::HTML::DocumentFragment.parse(content)
+      end
+    elsif doctype_match[1].start_with? 'html'
       doc = Nokogiri::HTML::Document.parse(content)
     else
       doc = Nokogiri::XML::Document.parse(content)
@@ -126,18 +143,26 @@ class Test::Unit::TestCase
   end
 
   def document_from_string(src, opts = {})
-    opts[:header_footer] = true unless opts.has_key?(:header_footer)
+    assign_default_test_options opts
     Asciidoctor::Document.new(src.lines.entries, opts)
   end
 
   def block_from_string(src, opts = {})
     opts[:header_footer] = false
-    doc = Asciidoctor::Document.new(src.lines.entries, opts)
+    doc = document_from_string src, opts
     doc.blocks.first
   end
 
   def render_string(src, opts = {})
-    document_from_string(src, opts).render
+    keep_namespaces = opts.delete(:keep_namespaces)
+    if keep_namespaces
+      document_from_string(src, opts).render
+    else
+      # this is required because nokogiri is ignorant
+      result = document_from_string(src, opts).render
+      result = result.sub(RE_XMLNS_ATTRIBUTE, '')
+      result
+    end
   end
 
   def render_embedded_string(src, opts = {})
@@ -150,10 +175,51 @@ class Test::Unit::TestCase
     [Asciidoctor::Lexer.parse_header_metadata(reader), reader]
   end
 
-  # Expand the character for an entity such as &#8212; so
-  # it can be used to match in an XPath expression
+  def assign_default_test_options(opts)
+    opts[:header_footer] = true unless opts.has_key?(:header_footer)
+    if opts[:header_footer]
+      # don't embed stylesheet unless test requests the default behavior
+      if opts.has_key? :linkcss_default
+        opts.delete(:linkcss_default)
+      else
+        opts[:attributes] ||= {}
+        opts[:attributes]['linkcss'] = ''
+      end
+    end
+    #opts[:template_dir] = File.join(File.dirname(__FILE__), '..', '..', 'asciidoctor-backends', 'slim')
+    nil
+  end
+
+  # Expand the character for an entity such as &#8212; into a glyph
+  # so it can be used to match in an XPath expression
+  #
+  # Examples
+  #
+  #   expand_entity 60
+  #   # => "<"
+  #
+  # Returns the String entity expanded to its equivalent UTF-8 glyph
   def expand_entity(number)
     [number].pack('U*')
+  end
+  alias :entity :expand_entity
+
+  def invoke_cli_with_filenames(argv = [], filenames = [], &block)
+    
+    filepaths = Array.new
+
+    filenames.each { |filename|
+      if filenames.nil?|| ::Pathname.new(filename).absolute?
+        filepaths.push(filename)
+      else
+        filepaths.push(File.join(File.dirname(__FILE__), 'fixtures', filename))
+      end
+    }
+
+    invoker = Asciidoctor::Cli::Invoker.new(argv + filepaths)
+
+    invoker.invoke!(&block)
+    invoker
   end
 
   def invoke_cli_to_buffer(argv = [], filename = 'sample.asciidoc', &block)

@@ -7,6 +7,12 @@ context "Lexer" do
     assert Asciidoctor::Lexer.is_section_title?('=== AsciiDoc Home Page')
   end
 
+  test 'sanitize attribute name' do
+    assert_equal 'foobar', Asciidoctor::Lexer.sanitize_attribute_name("Foo Bar")
+    assert_equal 'foo', Asciidoctor::Lexer.sanitize_attribute_name("foo")
+    assert_equal 'foo3-bar', Asciidoctor::Lexer.sanitize_attribute_name("Foo 3^ # - Bar[")
+  end
+
   test "collect unnamed attribute" do
     attributes = {}
     line = 'quote'
@@ -201,15 +207,17 @@ context "Lexer" do
     assert_equal 'style#id.role', attributes[1]
   end
 
-  test 'parse style attribute with style, role and id' do
-    attributes = {1 => 'style.role#id'}
+  test 'parse style attribute with style, role, id and option' do
+    attributes = {1 => 'style.role#id%fragment'}
     style, original_style = Asciidoctor::Lexer.parse_style_attribute(attributes)
     assert_equal 'style', style
     assert_nil original_style
     assert_equal 'style', attributes['style']
     assert_equal 'id', attributes['id']
     assert_equal 'role', attributes['role']
-    assert_equal 'style.role#id', attributes[1]
+    assert_equal '', attributes['fragment-option']
+    assert_equal 'fragment', attributes['options']
+    assert_equal 'style.role#id%fragment', attributes[1]
   end
 
   test 'parse style attribute with style, id and multiple roles' do
@@ -261,6 +269,16 @@ context "Lexer" do
     assert_nil attributes['id']
     assert_nil attributes['role']
     assert_nil attributes[1]
+  end
+
+  test 'parse style attribute with option should preserve existing options' do
+    attributes = {1 => '%header', 'options' => 'footer', 'footer-option' => ''}
+    style, original_style = Asciidoctor::Lexer.parse_style_attribute(attributes)
+    assert_nil style
+    assert_nil original_style
+    assert_equal 'header,footer', attributes['options']
+    assert_equal '', attributes['header-option']
+    assert_equal '', attributes['footer-option']
   end
 
   test "parse author first" do

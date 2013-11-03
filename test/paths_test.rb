@@ -42,6 +42,10 @@ context 'Path Resolver' do
       assert_equal './assets/images', @resolver.web_path('./images', './assets')
     end
 
+    test 'target with relative path appended to url start path' do
+      assert_equal 'http://www.example.com/assets/images', @resolver.web_path('images', 'http://www.example.com/assets')
+    end
+
     test 'normalize target' do
       assert_equal '../images', @resolver.web_path('../images/../images')
     end
@@ -169,6 +173,24 @@ context 'Path Resolver' do
       assert_equal 'C:/data/docs', @resolver.system_path('..', "C:\\data\\docs\\assets", 'C:\\data\\docs')
       assert_equal 'C:/data/docs', @resolver.system_path('..\\..', "C:\\data\\docs\\assets", 'C:\\data\\docs')
       assert_equal 'C:/data/docs/css', @resolver.system_path('..\\..\\css', "C:\\data\\docs\\assets", 'C:\\data\\docs')
+    end
+
+    test 'should calculate relative path' do
+      filename = @resolver.system_path('part1/chapter1/section1.adoc', nil, JAIL)
+      assert_equal "#{JAIL}/part1/chapter1/section1.adoc", filename
+      assert_equal 'part1/chapter1/section1.adoc', @resolver.relative_path(filename, JAIL)
+    end
+  end
+
+  context 'Helpers' do
+    test 'rootname should return file name without extension' do
+      assert_equal 'master', Asciidoctor::Helpers.rootname('master.adoc')
+      assert_equal 'docs/master', Asciidoctor::Helpers.rootname('docs/master.adoc')
+    end
+
+    test 'rootname should file name if it has no extension' do
+      assert_equal 'master', Asciidoctor::Helpers.rootname('master')
+      assert_equal 'docs/master', Asciidoctor::Helpers.rootname('docs/master')
     end
   end
 end

@@ -16,8 +16,8 @@ context "Text" do
 
   test "proper encoding to handle utf8 characters in document using docbook backend" do
     output = example_document(:encoding, :attributes => {'backend' => 'docbook'}).render
-    assert_xpath '//simpara', output, 4
-    assert_xpath '//ulink', output, 1
+    assert_xpath '//xmlns:simpara', output, 4
+    assert_xpath '//xmlns:ulink', output, 1
   end
 
   test "proper encoding to handle utf8 characters in embedded document using docbook backend" do
@@ -27,22 +27,22 @@ context "Text" do
   end
 
   # NOTE this test ensures we have the encoding line on block templates too
-  test "proper encoding to handle utf8 characters in arbitrary block" do
+  test 'proper encoding to handle utf8 characters in arbitrary block' do
     input = []
     input << "[verse]\n"
     input.concat(File.readlines(sample_doc_path(:encoding)))
-    doc = Asciidoctor::Document.new
-    reader = Asciidoctor::Reader.new(input, doc, true)
+    doc = empty_document
+    reader = Asciidoctor::PreprocessorReader.new doc, input
     block = Asciidoctor::Lexer.next_block(reader, doc)
     assert_xpath '//pre', block.render.gsub(/^\s*\n/, ''), 1
   end
 
-  test "proper encoding to handle utf8 characters from included file" do
+  test 'proper encoding to handle utf8 characters from included file' do
     input = <<-EOS
 include::fixtures/encoding.asciidoc[tags=romé]
     EOS
-    doc = Asciidoctor::Document.new [], :safe => Asciidoctor::SafeMode::SAFE, :base_dir => File.expand_path(File.dirname(__FILE__))
-    reader = Asciidoctor::Reader.new(input, doc, true)
+    doc = empty_safe_document :base_dir => File.expand_path(File.dirname(__FILE__))
+    reader = Asciidoctor::PreprocessorReader.new doc, input
     block = Asciidoctor::Lexer.next_block(reader, doc)
     output = block.render
     assert_css '.paragraph', output, 1
@@ -63,9 +63,109 @@ include::fixtures/encoding.asciidoc[tags=romé]
     assert_match(/&#8216;The New Yorker.&#8217;/, rendered)
   end
 
-  test "separator" do
-    # for some reason, the html enclosure breaks the xpath //*[@id='content']//hr
-    assert_xpath "//*[@id='content']//hr", render_string("This is separated.\n\n'''\n\n...from this!"), 1
+  test 'horizontal rule' do
+    input = <<-EOS
+This line is separated by a horizontal rule...
+
+'''
+
+...from this line.
+    EOS
+    output = render_embedded_string input
+    assert_xpath "//hr", output, 1
+    assert_xpath "/*[@class='paragraph']", output, 2
+    assert_xpath "(/*[@class='paragraph'])[1]/following-sibling::hr", output, 1
+    assert_xpath "/hr/following-sibling::*[@class='paragraph']", output, 1
+  end
+
+  test 'markdown horizontal rules' do
+    variants = [
+      '---',
+      '- - -',
+      '***',
+      '* * *',
+      '___',
+      '_ _ _'
+    ]
+
+    offsets = [
+      '',
+      ' ',
+      '  ',
+      '   '
+    ]
+
+    variants.each do |variant|
+      offsets.each do |offset|
+        input = <<-EOS
+This line is separated by a horizontal rule...
+
+#{offset}#{variant}
+
+...from this line.
+        EOS
+        output = render_embedded_string input
+        assert_xpath "//hr", output, 1
+        assert_xpath "/*[@class='paragraph']", output, 2
+        assert_xpath "(/*[@class='paragraph'])[1]/following-sibling::hr", output, 1
+        assert_xpath "/hr/following-sibling::*[@class='paragraph']", output, 1
+      end
+    end
+  end
+
+  test 'markdown horizontal rules negative case' do
+
+    bad_variants = [
+      '- - - -',
+      '* * * *',
+      '_ _ _ _'
+    ]
+
+    good_offsets = [
+      '',
+      ' ',
+      '  ',
+      '   '
+    ]
+
+    bad_variants.each do |variant|
+      good_offsets.each do |offset|
+        input = <<-EOS
+This line is separated something that is not a horizontal rule...
+
+#{offset}#{variant}
+
+...from this line.
+        EOS
+        output = render_embedded_string input
+        assert_xpath '//hr', output, 0
+      end
+    end
+
+    good_variants = [
+      '- - -',
+      '* * *',
+      '_ _ _'
+    ]
+
+    bad_offsets = [
+      "\t",
+      '    '
+    ]
+
+    good_variants.each do |variant|
+      bad_offsets.each do |offset|
+        input = <<-EOS
+This line is separated something that is not a horizontal rule...
+
+#{offset}#{variant}
+
+...from this line.
+        EOS
+        output = render_embedded_string input
+        assert_xpath '//hr', output, 0
+      end
+    end
   end
 
   test "emphasized text" do

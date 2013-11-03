@@ -312,7 +312,7 @@ class PathResolver
           elsif !recover
             raise SecurityError, "#{opts[:target_name] || 'path'} #{target} refers to location outside jail: #{jail} (disallowed in safe mode)"
           elsif !warned
-            puts "asciidoctor: WARNING: #{opts[:target_name] || 'path'} has illegal reference to ancestor of jail, auto-recovering"
+            warn "asciidoctor: WARNING: #{opts[:target_name] || 'path'} has illegal reference to ancestor of jail, auto-recovering"
             warned = true
           end
         else
@@ -339,9 +339,14 @@ class PathResolver
   def web_path(target, start = nil)
     target = posixfy(target)
     start = posixfy(start)
+    uri_prefix = nil
 
     unless is_web_root?(target) || start.empty?
       target = "#{start}#{SLASH}#{target}"
+      if target.include?(':') && target.match(Asciidoctor::REGEXP[:uri_sniff])
+        uri_prefix = $~[0]
+        target = target[uri_prefix.length..-1]
+      end
     end
 
     target_segments, target_root, _ = partition_path(target, true)
@@ -360,7 +365,28 @@ class PathResolver
       accum
     end
 
-    join_path resolved_segments, target_root
+    if uri_prefix.nil?
+      join_path resolved_segments, target_root
+    else
+      "#{uri_prefix}#{join_path resolved_segments, target_root}"
+    end
+  end
+
+  # Public: Calculate the relative path to this absolute filename from the specified base directory
+  #
+  # If either the filename or the base_directory are not absolute paths, no work is done.
+  #
+  # filename       - An absolute file name as a String
+  # base_directory - An absolute base directory as a String
+  #
+  # Return the relative path String of the filename calculated from the base directory
+  def relative_path(filename, base_directory)
+    if (is_root? filename) && (is_root? base_directory)
+      offset = base_directory.chomp(@file_separator).length + 1
+      filename[offset..-1]
+    else
+      filename
+    end
   end
 end
 end

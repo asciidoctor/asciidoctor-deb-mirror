@@ -22,8 +22,28 @@ context 'Attributes' do
       assert_equal 'This is the first Ruby implementation of AsciiDoc.', doc.attributes['description']
     end
 
-    test 'deletes an attribute' do
+    test 'should delete an attribute that ends with !' do
       doc = document_from_string(":frog: Tanglefoot\n:frog!:")
+      assert_equal nil, doc.attributes['frog']
+    end
+
+    test 'should delete an attribute that ends with ! set via API' do
+      doc = document_from_string(":frog: Tanglefoot", :attributes => {'frog!' => ''})
+      assert_equal nil, doc.attributes['frog']
+    end
+
+    test 'should delete an attribute that begins with !' do
+      doc = document_from_string(":frog: Tanglefoot\n:!frog:")
+      assert_equal nil, doc.attributes['frog']
+    end
+
+    test 'should delete an attribute that begins with ! set via API' do
+      doc = document_from_string(":frog: Tanglefoot", :attributes => {'!frog' => ''})
+      assert_equal nil, doc.attributes['frog']
+    end
+
+    test 'should delete an attribute set via API to nil value' do
+      doc = document_from_string(":frog: Tanglefoot", :attributes => {'frog' => nil})
       assert_equal nil, doc.attributes['frog']
     end
 
@@ -43,12 +63,12 @@ context 'Attributes' do
     end
 
     test "assigns attribute to empty string if substitution fails to resolve attribute" do
-      doc = document_from_string(":release: Asciidoctor {version}")
+      doc = document_from_string ":release: Asciidoctor {version}", :attributes => { 'attribute-missing' => 'drop-line' }
       assert_equal '', doc.attributes['release']
     end
 
     test "assigns multi-line attribute to empty string if substitution fails to resolve attribute" do
-      doc = document_from_string(":release: Asciidoctor +\n          {version}")
+      doc = document_from_string ":release: Asciidoctor +\n          {version}", :attributes => { 'attribute-missing' => 'drop-line' }
       assert_equal '', doc.attributes['release']
     end
 
@@ -124,8 +144,16 @@ endif::holygrail[]
     end
 
     test 'attribute lookup is not case sensitive' do
-      result = render_embedded_string(":He-Man: The most powerful man in the universe\n\n{He-Man}")
-      assert_xpath '//p[text()="The most powerful man in the universe"]', result, 1
+      input = <<-EOS
+:He-Man: The most powerful man in the universe
+
+He-Man: {He-Man}
+
+She-Ra: {She-Ra}
+      EOS
+      result = render_embedded_string input, :attributes => {'She-Ra' => 'The Princess of Power'}
+      assert_xpath '//p[text()="He-Man: The most powerful man in the universe"]', result, 1
+      assert_xpath '//p[text()="She-Ra: The Princess of Power"]', result, 1
     end
 
     test "render properly with single character name" do
@@ -134,7 +162,7 @@ endif::holygrail[]
       assert_equal 'R is for Ruby!', result.css("p").first.content.strip
     end
 
-    test "convert multi-word names and render" do
+    test "collapses spaces in attribute names" do
       input = <<-EOS
 Main Header
 ===========
@@ -146,8 +174,15 @@ Yo, {myfrog}!
       assert_xpath '(//p)[1][text()="Yo, Tanglefoot!"]', output, 1
     end
 
-    test "ignores lines with bad attributes" do
-      html = render_string("This is\nblah blah {foobarbaz}\nall there is.")
+    test "ignores lines with bad attributes if attribute-missing is drop-line" do
+      input = <<-EOS
+:attribute-missing: drop-line
+
+This is
+blah blah {foobarbaz}
+all there is.
+      EOS
+      html = render_embedded_string input
       result = Nokogiri::HTML(html)
       assert_no_match(/blah blah/m, result.css("p").first.content.strip)
     end
@@ -159,14 +194,58 @@ Yo, {myfrog}!
       assert_xpath '//a[@href="http://google.com"][text() = "Google"]', output, 1
     end
 
-    # See above - AsciiDoc says we're supposed to delete lines with bad
-    # attribute refs in them. AsciiDoc is strange.
-    #
-    # test "Unknowns" do
-    #   html = render_string("Look, a {gobbledygook}")
-    #   result = Nokogiri::HTML(html)
-    #   assert_equal("Look, a {gobbledygook}", result.css("p").first.content.strip)
-    # end
+    test 'should drop line with reference to missing attribute if attribute-missing attribute is drop-line' do
+      input = <<-EOS
+:attribute-missing: drop-line
+
+Line 1: This line should appear in the output.
+Line 2: Oh no, a {bogus-attribute}! This line should not appear in the output.
+      EOS
+
+      output = render_embedded_string input
+      assert_match(/Line 1/, output)
+      assert_no_match(/Line 2/, output)
+    end
+
+    test 'should not drop line with reference to missing attribute by default' do
+      input = <<-EOS
+Line 1: This line should appear in the output.
+Line 2: A {bogus-attribute}! This time, this line should appear in the output.
+      EOS
+
+      output = render_embedded_string input
+      assert_match(/Line 1/, output)
+      assert_match(/Line 2/, output)
+      assert_match(/\{bogus-attribute\}/, output)
+    end
+
+    test 'should drop line with attribute unassignment by default' do
+      input = <<-EOS
+:a:
+
+Line 1: This line should appear in the output.
+Line 2: {set:a!}This line should not appear in the output.
+      EOS
+
+      output = render_embedded_string input
+      assert_match(/Line 1/, output)
+      assert_no_match(/Line 2/, output)
+    end
+
+    test 'should not drop line with attribute unassignment if attribute-undefined is drop' do
+      input = <<-EOS
+:attribute-undefined: drop
+:a:
+
+Line 1: This line should appear in the output.
+Line 2: {set:a!}This line should not appear in the output.
+      EOS
+
+      output = render_embedded_string input
+      assert_match(/Line 1/, output)
+      assert_match(/Line 2/, output)
+      assert_no_match(/\{set:a!\}/, output)
+    end
 
     test "substitutes inside unordered list items" do
       html = render_string(":foo: bar\n* snort at the {foo}\n* yawn")
@@ -355,7 +434,13 @@ of the attribute named foo in your document.
     end
 
     test 'unassigns attribute defined in attribute reference with set prefix' do
-      input = ":foo:\n\n{set:foo!}\n{foo}yes"
+      input = <<-EOS
+:attribute-missing: drop-line
+:foo:
+
+{set:foo!}
+{foo}yes
+      EOS
       output = render_embedded_string input
       assert_xpath '//p', output, 1
       assert_xpath '//p/child::text()', output, 0
@@ -466,8 +551,9 @@ ____
       EOS
       doc = document_from_string(input)
       qb = doc.blocks.first
-      assert_equal 'quote', qb.attributes['style']
-      assert_equal 'quote', qb.attr(:style)
+      assert_equal 'quote', qb.style
+      assert_equal 'author', qb.attr('attribution')
+      assert_equal 'author', qb.attr(:attribution)
       assert_equal 'author', qb.attributes['attribution']
       assert_equal 'source', qb.attributes['citetitle']
     end
@@ -481,8 +567,9 @@ ____
       EOS
       doc = document_from_string(input)
       qb = doc.blocks.first
-      assert_equal 'quote', qb.attributes['style']
-      assert_equal 'quote', qb.attr(:style)
+      assert_equal 'quote', qb.style
+      assert_equal 'author', qb.attr('attribution')
+      assert_equal 'author', qb.attr(:attribution)
       assert_equal 'author', qb.attributes['attribution']
       assert_equal '<a href="http://wikipedia.org">source</a>', qb.attributes['citetitle']
     end
@@ -497,7 +584,7 @@ ____
 
       doc = document_from_string input
       qb = doc.blocks.first
-      assert_equal 'quote', qb.attributes['style']
+      assert_equal 'quote', qb.style
     end
 
     test 'attribute list may begin with comma' do
@@ -510,7 +597,7 @@ ____
 
       doc = document_from_string input
       qb = doc.blocks.first
-      assert_equal 'quote', qb.attributes['style']
+      assert_equal 'quote', qb.style
       assert_equal 'author', qb.attributes['attribution']
       assert_equal 'source', qb.attributes['citetitle']
     end
@@ -525,7 +612,7 @@ ____
 
       doc = document_from_string input
       qb = doc.blocks.first
-      assert_equal 'quote', qb.attributes['style']
+      assert_equal 'quote', qb.style
       assert_equal 'author', qb.attributes['attribution']
       assert_equal 'source', qb.attributes['citetitle']
       assert_equal 'famous', qb.attributes['role']
@@ -541,10 +628,67 @@ ____
 
       doc = document_from_string input
       qb = doc.blocks.first
-      assert_equal 'quote', qb.attributes['style']
+      assert_equal 'quote', qb.style
       assert_equal 'author', qb.attributes['attribution']
       assert_equal 'source', qb.attributes['citetitle']
       assert_equal 'famous', qb.attributes['role']
+    end
+
+    test 'role? returns true if role is assigned' do
+      input = <<-EOS
+[role="lead"]
+A paragraph
+      EOS
+
+      doc = document_from_string input
+      p = doc.blocks.first
+      assert p.role?
+    end
+
+    test 'role? can check for exact role name match' do
+      input = <<-EOS
+[role="lead"]
+A paragraph
+      EOS
+
+      doc = document_from_string input
+      p = doc.blocks.first
+      assert p.role?('lead')
+      p2 = doc.blocks.last
+      assert !p2.role?('final')
+    end
+
+    test 'has_role? can check for precense of role name' do
+      input = <<-EOS
+[role="lead abstract"]
+A paragraph
+      EOS
+
+      doc = document_from_string input
+      p = doc.blocks.first
+      assert !p.role?('lead')
+      assert p.has_role?('lead')
+    end
+
+    test 'roles returns array of role names' do
+      input = <<-EOS
+[role="story lead"]
+A paragraph
+      EOS
+
+      doc = document_from_string input
+      p = doc.blocks.first
+      assert_equal ['story', 'lead'], p.roles
+    end
+
+    test 'roles returns empty array if role attribute is not set' do
+      input = <<-EOS
+A paragraph
+      EOS
+
+      doc = document_from_string input
+      p = doc.blocks.first
+      assert_equal [], p.roles
     end
 
     test "Attribute substitutions are performed on attribute list before parsing attributes" do
@@ -559,15 +703,44 @@ A paragraph
       assert_equal 'lead', para.attributes['role']
     end
 
-    test 'id and role attributes can be specified on block style using shorthand syntax' do
+    test 'id, role and options attributes can be specified on block style using shorthand syntax' do
       input = <<-EOS
-[normal#first.lead]
+[normal#first.lead%step]
 A normal paragraph.
       EOS
       doc = document_from_string(input)
       para = doc.blocks.first
       assert_equal 'first', para.attributes['id']
       assert_equal 'lead', para.attributes['role']
+      assert_equal 'step', para.attributes['options']
+      assert para.attributes.has_key?('step-option')
+    end
+
+    test 'multiple roles and options can be specified in block style using shorthand syntax' do
+      input = <<-EOS
+[.role1%option1.role2%option2]
+Text
+      EOS
+
+      doc = document_from_string input
+      para = doc.blocks.first
+      assert_equal 'role1 role2', para.attributes['role']
+      assert_equal 'option1,option2', para.attributes['options']
+      assert para.attributes.has_key?('option1-option')
+      assert para.attributes.has_key?('option2-option')
+    end
+
+    test 'option can be specified in first position of block style using shorthand syntax' do
+      input = <<-EOS
+[%interactive]
+- [x] checked
+      EOS
+
+      doc = document_from_string input
+      list = doc.blocks.first
+      assert_equal 'interactive', list.attributes['options']
+      assert list.attributes.has_key?('interactive-option')
+      assert list.attributes[1] == '%interactive'
     end
 
     test 'id and role attributes can be specified on section style using shorthand syntax' do

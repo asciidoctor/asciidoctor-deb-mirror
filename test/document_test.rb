@@ -66,6 +66,23 @@ context 'Document' do
       rescue
       end
     end
+
+    test 'toc and numbered should be enabled by default for DocBook backend' do
+      doc = Asciidoctor::Document.new [], :backend => 'docbook'
+      assert doc.attr?('toc')
+      assert doc.attr?('numbered')
+    end
+
+    test 'should be able to disable toc and numbered in document header for DocBook backend' do
+      input = <<-EOS
+= Document Title
+:toc!:
+:numbered!:
+      EOS
+      doc = document_from_string input, :backend => 'docbook'
+      assert !doc.attr?('toc')
+      assert !doc.attr?('numbered')
+    end
   end
 
   context 'Load APIs' do
@@ -182,6 +199,26 @@ preamble
       doc = Asciidoctor.load('text', :attributes => nil)
       assert doc.attributes.is_a?(Hash)
     end
+
+    test 'should accept attributes if hash like' do
+      class Hashish
+        def initialize
+          @table = {'toc' => ''}
+        end
+
+        def keys
+          @table.keys
+        end
+
+        def [](key)
+          @table[key]
+        end
+      end
+
+      doc = Asciidoctor.load('text', :attributes => Hashish.new)
+      assert doc.attributes.is_a?(Hash)
+      assert doc.attributes.has_key?('toc')
+    end
   end
 
   context 'Render APIs' do
@@ -209,86 +246,25 @@ preamble
       assert_css '#section-a', output, 1
     end
 
-    test 'should include docinfo files for html backend' do
-      sample_input_path = fixture_path('basic.asciidoc')
-
-      output = Asciidoctor.render_file(sample_input_path,
-          :header_footer => true, :safe => Asciidoctor::SafeMode::SERVER, :attributes => {'docinfo' => ''})
-      assert !output.empty?
-      assert_css 'script[src="modernizr.js"]', output, 1
-      assert_css 'meta[http-equiv="imagetoolbar"]', output, 0
-
-      output = Asciidoctor.render_file(sample_input_path,
-          :header_footer => true, :safe => Asciidoctor::SafeMode::SERVER, :attributes => {'docinfo1' => ''})
-      assert !output.empty?
-      assert_css 'script[src="modernizr.js"]', output, 0
-      assert_css 'meta[http-equiv="imagetoolbar"]', output, 1
-
-      output = Asciidoctor.render_file(sample_input_path,
-          :header_footer => true, :safe => Asciidoctor::SafeMode::SERVER, :attributes => {'docinfo2' => ''})
-      assert !output.empty?
-      assert_css 'script[src="modernizr.js"]', output, 1
-      assert_css 'meta[http-equiv="imagetoolbar"]', output, 1
-    end
-
-    test 'should include docinfo files for docbook backend' do
-      sample_input_path = fixture_path('basic.asciidoc')
-
-      output = Asciidoctor.render_file(sample_input_path,
-          :header_footer => true, :backend => 'docbook', :safe => Asciidoctor::SafeMode::SERVER, :attributes => {'docinfo' => ''})
-      assert !output.empty?
-      assert_css 'productname', output, 0
-      assert_css 'copyright', output, 1
-
-      output = Asciidoctor.render_file(sample_input_path,
-          :header_footer => true, :backend => 'docbook', :safe => Asciidoctor::SafeMode::SERVER, :attributes => {'docinfo1' => ''})
-      assert !output.empty?
-      assert_css 'productname', output, 1
-      assert_css 'copyright', output, 0
-
-      output = Asciidoctor.render_file(sample_input_path,
-          :header_footer => true, :backend => 'docbook', :safe => Asciidoctor::SafeMode::SERVER, :attributes => {'docinfo2' => ''})
-      assert !output.empty?
-      assert_css 'productname', output, 1
-      assert_css 'copyright', output, 1
-    end
-
-    test 'should not include docinfo files by default' do
-      sample_input_path = fixture_path('basic.asciidoc')
-
-      output = Asciidoctor.render_file(sample_input_path,
-          :header_footer => true, :safe => Asciidoctor::SafeMode::SERVER)
-      assert !output.empty?
-      assert_css 'script[src="modernizr.js"]', output, 0
-      assert_css 'meta[http-equiv="imagetoolbar"]', output, 0
-
-      output = Asciidoctor.render_file(sample_input_path,
-          :header_footer => true, :backend => 'docbook', :safe => Asciidoctor::SafeMode::SERVER)
-      assert !output.empty?
-      assert_css 'productname', output, 0
-      assert_css 'copyright', output, 0
-    end
-
-    test 'should not include docinfo files if safe mode is SECURE or greater' do
-      sample_input_path = fixture_path('basic.asciidoc')
-
-      output = Asciidoctor.render_file(sample_input_path,
-          :header_footer => true, :attributes => {'docinfo2' => ''})
-      assert !output.empty?
-      assert_css 'script[src="modernizr.js"]', output, 0
-      assert_css 'meta[http-equiv="imagetoolbar"]', output, 0
-
-      output = Asciidoctor.render_file(sample_input_path,
-          :header_footer => true, :backend => 'docbook', :attributes => {'docinfo2' => ''})
-      assert !output.empty?
-      assert_css 'productname', output, 0
-      assert_css 'copyright', output, 0
-    end
-
-    test 'should link to default stylesheet by default' do
+    test 'should link to default stylesheet by default when safe mode is SECURE or greater' do
       sample_input_path = fixture_path('basic.asciidoc')
       output = Asciidoctor.render_file(sample_input_path, :header_footer => true)
       assert_css 'html:root > head > link[rel="stylesheet"][href="./asciidoctor.css"]', output, 1
+    end
+
+    test 'should embed default stylesheet by default if SafeMode is less than SECURE' do
+      input = <<-EOS
+= Document Title
+
+text
+      EOS
+
+      output = Asciidoctor.render(input, :safe => Asciidoctor::SafeMode::SERVER, :header_footer => true)
+      assert_css 'html:root > head > link[rel="stylesheet"][href="./asciidoctor.css"]', output, 0
+      stylenode = xmlnodes_at_css 'html:root > head > style', output, 1
+      styles = stylenode.first.content
+      assert !styles.nil?
+      assert !styles.strip.empty?
     end
 
     test 'should link to default stylesheet by default if linkcss is unset in document' do
@@ -494,6 +470,134 @@ text
     end
   end
 
+  context 'Docinfo files' do
+    test 'should include docinfo files for html backend' do
+      sample_input_path = fixture_path('basic.asciidoc')
+
+      output = Asciidoctor.render_file(sample_input_path,
+          :header_footer => true, :safe => Asciidoctor::SafeMode::SERVER, :attributes => {'docinfo' => ''})
+      assert !output.empty?
+      assert_css 'script[src="modernizr.js"]', output, 1
+      assert_css 'meta[http-equiv="imagetoolbar"]', output, 0
+
+      output = Asciidoctor.render_file(sample_input_path,
+          :header_footer => true, :safe => Asciidoctor::SafeMode::SERVER, :attributes => {'docinfo1' => ''})
+      assert !output.empty?
+      assert_css 'script[src="modernizr.js"]', output, 0
+      assert_css 'meta[http-equiv="imagetoolbar"]', output, 1
+
+      output = Asciidoctor.render_file(sample_input_path,
+          :header_footer => true, :safe => Asciidoctor::SafeMode::SERVER, :attributes => {'docinfo2' => ''})
+      assert !output.empty?
+      assert_css 'script[src="modernizr.js"]', output, 1
+      assert_css 'meta[http-equiv="imagetoolbar"]', output, 1
+    end
+
+    test 'should include docinfo files for docbook backend' do
+      sample_input_path = fixture_path('basic.asciidoc')
+
+      output = Asciidoctor.render_file(sample_input_path,
+          :header_footer => true, :backend => 'docbook', :safe => Asciidoctor::SafeMode::SERVER, :attributes => {'docinfo' => ''})
+      assert !output.empty?
+      assert_css 'productname', output, 0
+      assert_css 'copyright', output, 1
+
+      output = Asciidoctor.render_file(sample_input_path,
+          :header_footer => true, :backend => 'docbook', :safe => Asciidoctor::SafeMode::SERVER, :attributes => {'docinfo1' => ''})
+      assert !output.empty?
+      assert_css 'productname', output, 1
+      assert_css 'edition', output, 1
+      assert_xpath '//xmlns:edition[text()="1.0"]', output, 1 # verifies substitutions are performed
+      assert_css 'copyright', output, 0
+
+      output = Asciidoctor.render_file(sample_input_path,
+          :header_footer => true, :backend => 'docbook', :safe => Asciidoctor::SafeMode::SERVER, :attributes => {'docinfo2' => ''})
+      assert !output.empty?
+      assert_css 'productname', output, 1
+      assert_css 'edition', output, 1
+      assert_xpath '//xmlns:edition[text()="1.0"]', output, 1 # verifies substitutions are performed
+      assert_css 'copyright', output, 1
+    end
+
+    test 'should include docinfo footer files for html backend' do
+      sample_input_path = fixture_path('basic.asciidoc')
+
+      output = Asciidoctor.render_file(sample_input_path,
+          :header_footer => true, :safe => Asciidoctor::SafeMode::SERVER, :attributes => {'docinfo' => ''})
+      assert !output.empty?
+      assert_css 'body script', output, 1
+      assert_css 'a#top', output, 0
+
+      output = Asciidoctor.render_file(sample_input_path,
+          :header_footer => true, :safe => Asciidoctor::SafeMode::SERVER, :attributes => {'docinfo1' => ''})
+      assert !output.empty?
+      assert_css 'body script', output, 0
+      assert_css 'a#top', output, 1
+
+      output = Asciidoctor.render_file(sample_input_path,
+          :header_footer => true, :safe => Asciidoctor::SafeMode::SERVER, :attributes => {'docinfo2' => ''})
+      assert !output.empty?
+      assert_css 'body script', output, 1
+      assert_css 'a#top', output, 1
+    end
+
+    test 'should include docinfo footer files for docbook backend' do
+      sample_input_path = fixture_path('basic.asciidoc')
+
+      output = Asciidoctor.render_file(sample_input_path,
+          :header_footer => true, :backend => 'docbook', :safe => Asciidoctor::SafeMode::SERVER, :attributes => {'docinfo' => ''})
+      assert !output.empty?
+      assert_css 'article > revhistory', output, 1
+      assert_xpath '/xmlns:article/xmlns:revhistory/xmlns:revision/xmlns:revnumber[text()="1.0"]', output, 1 # verifies substitutions are performed
+      assert_css 'glossary#_glossary', output, 0
+
+      output = Asciidoctor.render_file(sample_input_path,
+          :header_footer => true, :backend => 'docbook', :safe => Asciidoctor::SafeMode::SERVER, :attributes => {'docinfo1' => ''})
+      assert !output.empty?
+      assert_css 'article > revhistory', output, 0
+      assert_css 'glossary#_glossary', output, 1
+
+      output = Asciidoctor.render_file(sample_input_path,
+          :header_footer => true, :backend => 'docbook', :safe => Asciidoctor::SafeMode::SERVER, :attributes => {'docinfo2' => ''})
+      assert !output.empty?
+      assert_css 'article > revhistory', output, 1
+      assert_xpath '/xmlns:article/xmlns:revhistory/xmlns:revision/xmlns:revnumber[text()="1.0"]', output, 1 # verifies substitutions are performed
+      assert_css 'glossary#_glossary', output, 1
+    end
+
+    test 'should not include docinfo files by default' do
+      sample_input_path = fixture_path('basic.asciidoc')
+
+      output = Asciidoctor.render_file(sample_input_path,
+          :header_footer => true, :safe => Asciidoctor::SafeMode::SERVER)
+      assert !output.empty?
+      assert_css 'script[src="modernizr.js"]', output, 0
+      assert_css 'meta[http-equiv="imagetoolbar"]', output, 0
+
+      output = Asciidoctor.render_file(sample_input_path,
+          :header_footer => true, :backend => 'docbook', :safe => Asciidoctor::SafeMode::SERVER)
+      assert !output.empty?
+      assert_css 'productname', output, 0
+      assert_css 'copyright', output, 0
+    end
+
+    test 'should not include docinfo files if safe mode is SECURE or greater' do
+      sample_input_path = fixture_path('basic.asciidoc')
+
+      output = Asciidoctor.render_file(sample_input_path,
+          :header_footer => true, :attributes => {'docinfo2' => ''})
+      assert !output.empty?
+      assert_css 'script[src="modernizr.js"]', output, 0
+      assert_css 'meta[http-equiv="imagetoolbar"]', output, 0
+
+      output = Asciidoctor.render_file(sample_input_path,
+          :header_footer => true, :backend => 'docbook', :attributes => {'docinfo2' => ''})
+      assert !output.empty?
+      assert_css 'productname', output, 0
+      assert_css 'copyright', output, 0
+    end
+  end
+
   context 'Renderer' do
     test 'built-in HTML5 views are registered by default' do
       doc = document_from_string ''
@@ -507,8 +611,8 @@ text
       assert !views.nil?
       assert_equal 36, views.size
       assert views.has_key? 'document'
-      assert views['document'].is_a?(Asciidoctor::HTML5::DocumentTemplate)
-      assert_equal 'ERB', views['document'].eruby.to_s
+      assert Asciidoctor.const_defined?(:HTML5)
+      assert Asciidoctor::HTML5.const_defined?(:DocumentTemplate)
     end
 
     test 'built-in DocBook45 views are registered when backend is docbook45' do
@@ -523,11 +627,40 @@ text
       assert !views.nil?
       assert_equal 36, views.size
       assert views.has_key? 'document'
-      assert views['document'].is_a?(Asciidoctor::DocBook45::DocumentTemplate)
+      assert Asciidoctor.const_defined?(:DocBook45)
+      assert Asciidoctor::DocBook45.const_defined?(:DocumentTemplate)
+    end
+
+    test 'built-in DocBook5 views are registered when backend is docbook5' do
+      doc = document_from_string '', :attributes => {'backend' => 'docbook5'}
+      renderer = doc.renderer
+      assert_equal 'docbook5', doc.attributes['backend']
+      assert doc.attributes.has_key? 'backend-docbook5'
+      assert_equal 'docbook', doc.attributes['basebackend']
+      assert doc.attributes.has_key? 'basebackend-docbook'
+      assert !renderer.nil?
+      views = renderer.views
+      assert !views.nil?
+      assert_equal 36, views.size
+      assert views.has_key? 'document'
+      assert Asciidoctor.const_defined?(:DocBook5)
+      assert Asciidoctor::DocBook5.const_defined?(:DocumentTemplate)
+    end
+
+    test 'eRuby implementation should default to ERB' do
+      # intentionally use built-in templates for this test
+      doc = Asciidoctor::Document.new [], :header_footer => true
+      renderer = doc.renderer
+      views = renderer.views
+      assert !views.nil?
+      assert views.has_key? 'document'
+      assert views['document'].is_a?(Asciidoctor::HTML5::DocumentTemplate)
       assert_equal 'ERB', views['document'].eruby.to_s
+      assert_equal 'ERB', views['document'].template.class.to_s
     end
   
     test 'can set erubis as eRuby implementation' do
+      # intentionally use built-in templates for this test
       doc = Asciidoctor::Document.new [], :eruby => 'erubis', :header_footer => true
       assert $LOADED_FEATURES.detect {|p| p == 'erubis.rb' || p.end_with?('/erubis.rb') }.nil?
       renderer = doc.renderer
@@ -535,6 +668,7 @@ text
       views = renderer.views
       assert !views.nil?
       assert views.has_key? 'document'
+      assert views['document'].is_a?(Asciidoctor::HTML5::DocumentTemplate)
       assert_equal 'Erubis::FastEruby', views['document'].eruby.to_s
       assert_equal 'Erubis::FastEruby', views['document'].template.class.to_s
     end
@@ -655,6 +789,20 @@ text
       assert_css '#header h1', output, 1
       assert_css '#content h1', output, 0
     end
+
+    test 'should sanitize contents of HTML title element' do
+      input = <<-EOS
+= *Document* image:logo.png[] _Title_ image:another-logo.png[]
+
+content
+      EOS
+
+      output = render_string input
+      assert_xpath '/html/head/title[text()="Document Title"]', output, 1
+      nodes = xmlnodes_at_xpath('//*[@id="header"]/h1', output, 1)
+      assert_equal 1, nodes.size
+      assert_match(/<h1><strong>Document<\/strong> <span class="image"><img src="logo.png" alt="logo"><\/span> <em>Title<\/em> <span class="image"><img src="another-logo.png" alt="another-logo"><\/span><\/h1>/, output)
+    end
      
     test 'should not choke on empty source' do
       doc = Asciidoctor::Document.new ''
@@ -690,7 +838,7 @@ more info...
       assert_xpath '//*[@id="header"]/span[@id="revremark"][text() = "See changelog."]', output, 1
     end
 
-    test 'with metadata to DocBook' do
+    test 'with metadata to DocBook45' do
       input = <<-EOS
 = AsciiDoc
 Stuart Rackham <founder@asciidoc.org>
@@ -715,6 +863,24 @@ more info...
       assert_xpath '/article/articleinfo/revhistory/revision/revremark[text() = "See changelog."]', output, 1
     end
 
+    test 'with metadata to DocBook5' do
+      input = <<-EOS
+= AsciiDoc
+Stuart Rackham <founder@asciidoc.org>
+
+== Version 8.6.8
+
+more info...
+      EOS
+      output = render_string input, :backend => 'docbook5'
+      assert_xpath '/article/info', output, 1
+      assert_xpath '/article/info/title[text() = "AsciiDoc"]', output, 1
+      assert_xpath '/article/info/author/personname', output, 1
+      assert_xpath '/article/info/author/personname/firstname[text() = "Stuart"]', output, 1
+      assert_xpath '/article/info/author/personname/surname[text() = "Rackham"]', output, 1
+      assert_xpath '/article/info/author/email[text() = "founder@asciidoc.org"]', output, 1
+    end
+
     test 'with author defined using attribute entry to DocBook' do
       input = <<-EOS
 = Document Title
@@ -730,6 +896,27 @@ content
       assert_xpath '//articleinfo/author/surname[text() = "Writer"]', output, 1
       assert_xpath '//articleinfo/author/email[text() = "thedoctor@asciidoc.org"]', output, 1
       assert_xpath '//articleinfo/authorinitials[text() = "DW"]', output, 1
+    end
+
+    test 'should include multiple authors in HTML output' do
+      input = <<-EOS
+= Document Title
+Doc Writer <thedoctor@asciidoc.org>; Junior Writer <junior@asciidoctor.org>
+
+content
+      EOS
+
+      output = render_string input
+      assert_xpath '//span[@id="author"]', output, 1
+      assert_xpath '//span[@id="author"][text()="Doc Writer"]', output, 1
+      assert_xpath '//span[@id="email"]', output, 1
+      assert_xpath '//span[@id="email"]/a', output, 1
+      assert_xpath '//span[@id="email"]/a[@href="mailto:thedoctor@asciidoc.org"][text()="thedoctor@asciidoc.org"]', output, 1
+      assert_xpath '//span[@id="author2"]', output, 1
+      assert_xpath '//span[@id="author2"][text()="Junior Writer"]', output, 1
+      assert_xpath '//span[@id="email2"]', output, 1
+      assert_xpath '//span[@id="email2"]/a', output, 1
+      assert_xpath '//span[@id="email2"]/a[@href="mailto:junior@asciidoctor.org"][text()="junior@asciidoctor.org"]', output, 1
     end
 
     test 'should create authorgroup in DocBook when multiple authors' do
@@ -779,6 +966,13 @@ content
       assert_xpath '//*[@id="preamble"]', result, 1
     end
 
+    test 'can disable last updated in footer' do
+      doc = document_from_string "= Document Title\n\npreamble", :attributes => {'last-update-label!' => ''}
+      result = doc.render
+      assert_xpath '//*[@id="footer-text"]', result, 1
+      assert_xpath '//*[@id="footer-text"][normalize-space(text())=""]', result, 1
+    end
+
     test 'no header footer' do
       doc = document_from_string "= Title\n\npreamble", :header_footer => false
       assert doc.attr?('embedded')
@@ -790,8 +984,31 @@ content
       assert_xpath '/*[@id="preamble"]', result, 1
     end
 
-    test 'enable title when no header footer' do
-      result = render_string("= Title\n\npreamble", :header_footer => false, :attributes => {'notitle!' => ''})
+    test 'enable title in embedded document by unassigning notitle attribute' do
+      input = <<-EOS
+= Document Title
+
+content
+      EOS
+
+      result = render_string input, :header_footer => false, :attributes => {'notitle!' => ''}
+      assert_xpath '/html', result, 0
+      assert_xpath '/h1', result, 1
+      assert_xpath '/*[@id="header"]', result, 0
+      assert_xpath '/*[@id="footer"]', result, 0
+      assert_xpath '/*[@id="preamble"]', result, 1
+      assert_xpath '(/*)[1]/self::h1', result, 1
+      assert_xpath '(/*)[2]/self::*[@id="preamble"]', result, 1
+    end
+
+    test 'enable title in embedded document by assigning showtitle attribute' do
+      input = <<-EOS
+= Document Title
+
+content
+      EOS
+
+      result = render_string input, :header_footer => false, :attributes => {'showtitle' => ''}
       assert_xpath '/html', result, 0
       assert_xpath '/h1', result, 1
       assert_xpath '/*[@id="header"]', result, 0
@@ -900,6 +1117,11 @@ section body
       assert_xpath '/article/simpara[text() = "text"]', result, 1
     end
 
+    test 'docbook45 backend doctype article no xmlns' do
+      result = render_string('text', :keep_namespaces => true, :attributes => {'backend' => 'docbook45', 'doctype' => 'article', 'noxmlns' => ''})
+      assert_no_match(RE_XMLNS_ATTRIBUTE, result)
+    end
+
     test 'docbook45 backend doctype book' do
       input = <<-EOS
 = Title
@@ -926,6 +1148,11 @@ chapter body
       assert_xpath '/book/simpara[text() = "text"]', result, 1
     end
 
+    test 'docbook45 backend doctype book no xmlns' do
+      result = render_string('text', :keep_namespaces => true, :attributes => {'backend' => 'docbook45', 'doctype' => 'book', 'noxmlns' => ''})
+      assert_no_match(RE_XMLNS_ATTRIBUTE, result)
+    end
+
     test 'docbook45 backend parses out subtitle' do
       input = <<-EOS
 = Document Title: Subtitle
@@ -937,6 +1164,64 @@ text
       assert_xpath '/book', result, 1
       assert_xpath '/book/bookinfo/title[text() = "Document Title"]', result, 1
       assert_xpath '/book/bookinfo/subtitle[text() = "Subtitle"]', result, 1
+    end
+
+    test 'docbook5 backend doctype article' do
+      input = <<-EOS
+= Title
+Author Name
+
+preamble
+
+== First Section
+
+section body
+      EOS
+      result = render_string(input, :keep_namespaces => true, :attributes => {'backend' => 'docbook5'})
+      assert_xpath '/xmlns:article', result, 1
+      doc = xmlnodes_at_xpath('/xmlns:article', result, 1).first
+      assert_equal 'http://docbook.org/ns/docbook', doc.namespaces['xmlns']
+      assert_equal 'http://www.w3.org/1999/xlink', doc.namespaces['xmlns:xlink']
+      assert_xpath '/xmlns:article[@version="5.0"]', result, 1
+      assert_xpath '/xmlns:article/xmlns:info/xmlns:title[text() = "Title"]', result, 1
+      assert_xpath '/xmlns:article/xmlns:simpara[text() = "preamble"]', result, 1
+      assert_xpath '/xmlns:article/xmlns:section', result, 1
+      section = xmlnodes_at_xpath('/xmlns:article/xmlns:section', result, 1).first
+      # nokogiri can't make up its mind
+      id_attr = section.attribute('id') || section.attribute('xml:id')
+      assert_not_nil id_attr
+      assert_not_nil id_attr.namespace
+      assert_equal 'xml', id_attr.namespace.prefix
+      assert_equal '_first_section', id_attr.value
+    end
+
+    test 'docbook5 backend doctype book' do
+      input = <<-EOS
+= Title
+Author Name
+
+preamble
+
+== First Chapter
+
+chapter body
+      EOS
+      result = render_string(input, :keep_namespaces => true, :attributes => {'backend' => 'docbook5', 'doctype' => 'book'})
+      assert_xpath '/xmlns:book', result, 1
+      doc = xmlnodes_at_xpath('/xmlns:book', result, 1).first
+      assert_equal 'http://docbook.org/ns/docbook', doc.namespaces['xmlns']
+      assert_equal 'http://www.w3.org/1999/xlink', doc.namespaces['xmlns:xlink']
+      assert_xpath '/xmlns:book[@version="5.0"]', result, 1
+      assert_xpath '/xmlns:book/xmlns:info/xmlns:title[text() = "Title"]', result, 1
+      assert_xpath '/xmlns:book/xmlns:preface/xmlns:simpara[text() = "preamble"]', result, 1
+      assert_xpath '/xmlns:book/xmlns:chapter', result, 1
+      chapter = xmlnodes_at_xpath('/xmlns:book/xmlns:chapter', result, 1).first
+      # nokogiri can't make up its mind
+      id_attr = chapter.attribute('id') || chapter.attribute('xml:id')
+      assert_not_nil id_attr
+      assert_not_nil id_attr.namespace
+      assert_equal 'xml', id_attr.namespace.prefix
+      assert_equal '_first_chapter', id_attr.value
     end
 
     test 'should be able to set backend using :backend option key' do
@@ -997,6 +1282,136 @@ preamble
       assert doc.attr?('toc')
       assert_equal '', doc.attr('toc')
       assert_equal 'Dan Allen', doc.attr('author')
+    end
+
+    test 'should parse mantitle and manvolnum from document title for manpage doctype' do
+      input = <<-EOS
+= asciidoctor ( 1 )
+:doctype: manpage
+
+== NAME
+
+asciidoctor - converts AsciiDoc source files to HTML, DocBook and other formats
+      EOS
+
+       doc = document_from_string input
+       assert_equal 'asciidoctor', doc.attr('mantitle')
+       assert_equal '1', doc.attr('manvolnum')
+    end
+
+    test 'should perform attribute substitution on mantitle in manpage doctype' do
+      input = <<-EOS
+= {app}(1)
+:doctype: manpage
+:app: asciidoctor
+
+== NAME
+
+asciidoctor - converts AsciiDoc source files to HTML, DocBook and other formats
+      EOS
+
+       doc = document_from_string input
+       assert_equal 'asciidoctor', doc.attr('mantitle')
+    end
+
+    test 'should consume name section as manname and manpurpose for manpage doctype' do
+      input = <<-EOS
+= asciidoctor(1)
+:doctype: manpage
+
+== NAME
+
+asciidoctor - converts AsciiDoc source files to HTML, DocBook and other formats
+      EOS
+
+       doc = document_from_string input
+       assert_equal 'asciidoctor', doc.attr('manname')
+       assert_equal 'converts AsciiDoc source files to HTML, DocBook and other formats', doc.attr('manpurpose')
+       assert_equal 0, doc.blocks.size
+    end
+
+    test 'should set docname and outfilesuffix from manname and manvolnum for manpage backend and doctype' do
+      input = <<-EOS
+= asciidoctor(1)
+:doctype: manpage
+
+== NAME
+
+asciidoctor - converts AsciiDoc source files to HTML, DocBook and other formats
+      EOS
+
+       doc = document_from_string input, :backend => 'manpage'
+       assert_equal 'asciidoctor', doc.attributes['docname']
+       assert_equal '.1', doc.attributes['outfilesuffix']
+    end
+
+    test 'should mark synopsis as special section in manpage doctype' do
+      input = <<-EOS
+= asciidoctor(1)
+:doctype: manpage
+
+== NAME
+
+asciidoctor - converts AsciiDoc source files to HTML, DocBook and other formats
+
+== SYNOPSIS
+
+*asciidoctor* ['OPTION']... 'FILE'..
+      EOS
+
+       doc = document_from_string input
+       synopsis_section = doc.blocks.first 
+       assert_not_nil synopsis_section
+       assert_equal :section, synopsis_section.context
+       assert synopsis_section.special
+       assert_equal 'synopsis', synopsis_section.sectname
+    end
+
+    test 'should output special header block in HTML for manpage doctype' do
+      input = <<-EOS
+= asciidoctor(1)
+:doctype: manpage
+
+== NAME
+
+asciidoctor - converts AsciiDoc source files to HTML, DocBook and other formats
+
+== SYNOPSIS
+
+*asciidoctor* ['OPTION']... 'FILE'..
+      EOS
+
+      output = render_string input
+      assert_css 'body.manpage', output, 1
+      assert_xpath '//body/*[@id="header"]/h1[text()="asciidoctor(1) Manual Page"]', output, 1
+      assert_xpath '//body/*[@id="header"]/h1/following-sibling::h2[text()="NAME"]', output, 1
+      assert_xpath '//h2[text()="NAME"]/following-sibling::*[@class="sectionbody"]', output, 1
+      assert_xpath '//h2[text()="NAME"]/following-sibling::*[@class="sectionbody"]/p[text()="asciidoctor - converts AsciiDoc source files to HTML, DocBook and other formats"]', output, 1
+      assert_xpath '//*[@id="content"]/*[@class="sect1"]/h2[text()="SYNOPSIS"]', output, 1
+    end
+  end
+
+  context 'Secure Asset Path' do
+    test 'allows us to specify a path relative to the current dir' do
+      doc = Asciidoctor::Document.new
+      legit_path = Dir.pwd + '/foo'
+      assert_equal legit_path, doc.normalize_asset_path(legit_path)
+    end
+
+    test 'keeps naughty absolute paths from getting outside' do
+      naughty_path = "#{disk_root}etc/passwd"
+      doc = Asciidoctor::Document.new
+      secure_path = doc.normalize_asset_path(naughty_path)
+      assert naughty_path != secure_path
+      assert_match(/^#{doc.base_dir}/, secure_path)
+    end
+
+    test 'keeps naughty relative paths from getting outside' do
+      naughty_path = 'safe/ok/../../../../../etc/passwd'
+      doc = Asciidoctor::Document.new
+      secure_path = doc.normalize_asset_path(naughty_path)
+      assert naughty_path != secure_path
+      assert_match(/^#{doc.base_dir}/, secure_path)
     end
   end
 end

@@ -147,7 +147,6 @@ A | here| a | there
       input = <<-EOS
 |====
 |first |second |third |fourth
-
 |1 |2 |3
 |4
 |====
@@ -224,6 +223,90 @@ A | here| a | there
       assert_css 'table > tbody > tr', output, 3
     end
 
+    test 'table with implicit header row' do
+      input = <<-EOS
+|===
+|Column 1 |Column 2
+
+|Data A1
+|Data B1
+
+|Data A2
+|Data B2
+|===
+      EOS
+      output = render_embedded_string input
+      assert_css 'table', output, 1
+      assert_css 'table > colgroup > col', output, 2
+      assert_css 'table > thead', output, 1
+      assert_css 'table > thead > tr', output, 1
+      assert_css 'table > thead > tr > th', output, 2
+      assert_css 'table > tbody', output, 1
+      assert_css 'table > tbody > tr', output, 2
+    end
+
+    test 'no implicit header row if second line not blank' do
+      input = <<-EOS
+|===
+|Column 1 |Column 2
+|Data A1
+|Data B1
+
+|Data A2
+|Data B2
+|===
+      EOS
+      output = render_embedded_string input
+      assert_css 'table', output, 1
+      assert_css 'table > colgroup > col', output, 2
+      assert_css 'table > thead', output, 0
+      assert_css 'table > tbody', output, 1
+      assert_css 'table > tbody > tr', output, 3
+    end
+
+    test 'no implicit header row if first line blank' do
+      input = <<-EOS
+|===
+
+|Column 1 |Column 2
+
+|Data A1
+|Data B1
+
+|Data A2
+|Data B2
+
+|===
+      EOS
+      output = render_embedded_string input
+      assert_css 'table', output, 1
+      assert_css 'table > colgroup > col', output, 2
+      assert_css 'table > thead', output, 0
+      assert_css 'table > tbody', output, 1
+      assert_css 'table > tbody > tr', output, 3
+    end
+
+    test 'no implicit header row if options is specified' do
+      input = <<-EOS
+[options=""]
+|===
+|Column 1 |Column 2
+
+|Data A1
+|Data B1
+
+|Data A2
+|Data B2
+|===
+      EOS
+      output = render_embedded_string input
+      assert_css 'table', output, 1
+      assert_css 'table > colgroup > col', output, 2
+      assert_css 'table > thead', output, 0
+      assert_css 'table > tbody', output, 1
+      assert_css 'table > tbody > tr', output, 3
+    end
+
     test 'styles not applied to header cells' do
       input = <<-EOS
 [cols="1h,1s,1e",options="header,footer"]
@@ -290,6 +373,20 @@ I am getting in shape!
       assert_xpath "/table/tbody/tr[1]/td[4]/p[text()='Worked out MSHR (max sustainable heart rate) by going hard\nfor this interval.']", output, 1
       assert_css 'table > tbody > tr:nth-child(3) > td:nth-child(4) > p', output, 2
       assert_xpath '/table/tbody/tr[3]/td[4]/p[2][text()="I am getting in shape!"]', output, 1
+    end
+
+    test 'percentages as column widths' do
+      input = <<-EOS
+[width="100%", cols="<.^10%,<90%"]
+|===
+|column A |column B
+|===
+      EOS
+
+      output = render_embedded_string input
+      assert_xpath '/table/colgroup/col', output, 2
+      assert_xpath '(/table/colgroup/col)[1][@style="width:10%;"]', output, 1
+      assert_xpath '(/table/colgroup/col)[2][@style="width:90%;"]', output, 1
     end
 
     test 'spans, alignments and styles' do
@@ -452,19 +549,27 @@ output file name is used.
       assert_css 'table > tbody > tr:nth-child(2) > td:nth-child(3) div.dlist', output, 1
     end
 
+    test 'preprocessor directive on first line of AsciiDoc cell should be processed' do
+      input = <<-EOS
+|===
+a|include::fixtures/include-file.asciidoc[]
+|===
+      EOS
+
+      output = render_embedded_string input, :safe => :safe, :base_dir => File.dirname(__FILE__)
+      assert_match(/included content/, output)
+    end
+
     test 'nested table' do
       input = <<-EOS
 [cols="1,2a"]
 |===
 |Normal cell
-
 |Cell with nested table
-
 [cols="2,1"]
 !===
 !Nested table cell 1 !Nested table cell 2
 !===
-
 |===
       EOS
       output = render_embedded_string input

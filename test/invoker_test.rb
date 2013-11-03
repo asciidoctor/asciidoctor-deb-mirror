@@ -58,6 +58,25 @@ context 'Invoker' do
     assert_xpath '/*[@class="paragraph"]/p[text()="content"]', output, 1
   end
 
+  test 'should accept document from stdin and write to output file' do
+    sample_outpath = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'sample-output.html'))
+    begin
+      invoker = invoke_cli(%W(-s -o #{sample_outpath}), '-') { 'content' }
+      doc = invoker.document
+      assert !doc.attr?('docname')
+      assert !doc.attr?('docfile')
+      assert_equal Dir.pwd, doc.attr('docdir')
+      assert_equal doc.attr('docdate'), doc.attr('localdate')
+      assert_equal doc.attr('doctime'), doc.attr('localtime')
+      assert_equal doc.attr('docdatetime'), doc.attr('localdatetime')
+      assert doc.attr?('outfile')
+      assert_equal sample_outpath, doc.attr('outfile')
+      assert File.exist?(sample_outpath)
+    ensure
+      FileUtils::rm_f(sample_outpath)
+    end
+  end
+
   test 'should allow docdir to be specified when input is a string' do
     expected_docdir = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures'))
     invoker = invoke_cli_to_buffer(%w(-s --base-dir test/fixtures -o /dev/null), '-') { 'content' }
@@ -88,10 +107,10 @@ context 'Invoker' do
     end
   end
 
-  test 'should warn if extra arguments are detected' do
+  test 'should treat extra arguments as files' do
     redirect_streams do |stdout, stderr|
       invoker = invoke_cli %w(-o /dev/null extra arguments sample.asciidoc), nil
-      assert_match(/extra arguments detected/, stderr.string)
+      assert_match(/input file .* missing/, stderr.string)
       assert_equal 1, invoker.code
     end
   end
@@ -144,19 +163,58 @@ context 'Invoker' do
     end
   end
 
-  test 'should copy default css to target directory if copycss is specified' do
+  test 'should copy default css to target directory if linkcss is specified' do
+    sample_outpath = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'sample-output.html'))
+    asciidoctor_stylesheet = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'asciidoctor.css'))
+    coderay_stylesheet = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'asciidoctor-coderay.css'))
+    begin
+      invoker = invoke_cli %W(-o #{sample_outpath} -a linkcss -a source-highlighter=coderay)
+      invoker.document
+      assert File.exist?(sample_outpath)
+      assert File.exist?(asciidoctor_stylesheet)
+      assert File.exist?(coderay_stylesheet)
+    ensure
+      FileUtils::rm_f(sample_outpath)
+      FileUtils::rm_f(asciidoctor_stylesheet)
+      FileUtils::rm_f(coderay_stylesheet)
+    end
+  end
+
+  test 'should not copy default css to target directory if linkcss is set and copycss is unset' do
     sample_outpath = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'sample-output.html'))
     default_stylesheet = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'asciidoctor.css'))
     begin
-      invoker = invoke_cli %W(-o #{sample_outpath} -a copycss)
+      invoker = invoke_cli %W(-o #{sample_outpath} -a linkcss -a copycss!)
       invoker.document
       assert File.exist?(sample_outpath)
-      assert File.exist?(default_stylesheet)
+      assert !File.exist?(default_stylesheet)
     ensure
       FileUtils::rm_f(sample_outpath)
-      FileUtils::rm_f(default_stylesheet)
     end
   end
+
+  test 'should render all passed files' do
+    basic_outpath = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'basic.html'))
+    sample_outpath = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'sample.html'))
+    begin
+      invoke_cli_with_filenames %w(), %w(basic.asciidoc sample.asciidoc)
+      assert File.exist?(basic_outpath)
+      assert File.exist?(sample_outpath)
+    ensure
+      FileUtils::rm_f(basic_outpath)
+      FileUtils::rm_f(sample_outpath)
+    end
+  end
+
+  test 'should render all files that matches a glob expression' do
+    basic_outpath = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'basic.html'))
+    begin
+      invoke_cli_to_buffer %w(), "ba*.asciidoc"
+      assert File.exist?(basic_outpath)
+    ensure
+      FileUtils::rm_f(basic_outpath)
+    end
+  end 
 
   test 'should suppress header footer if specified' do
     invoker = invoke_cli_to_buffer %w(-s -o -)
@@ -208,7 +266,7 @@ context 'Invoker' do
     assert_equal 'docbook45', doc.attr('backend')
     assert_equal '.xml', doc.attr('outfilesuffix')
     output = invoker.read_output
-    assert_xpath '/article', output, 1
+    assert_xpath '/xmlns:article', output, 1
   end
 
   test 'should set doctype to article if specified' do
@@ -225,6 +283,22 @@ context 'Invoker' do
     assert_equal 'book', doc.attr('doctype')
     output = invoker.read_output
     assert_xpath '/html/body[@class="book"]', output, 1
+  end
+
+  test 'should locate custom templates based on template dir, template engine and backend' do
+    custom_backend_root = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'custom-backends'))
+    invoker = invoke_cli_to_buffer %W(-E haml -T #{custom_backend_root} -o -)
+    doc = invoker.document
+    assert doc.renderer.views['block_paragraph'].is_a? Tilt::HamlTemplate
+  end
+
+  test 'should load custom templates from multiple template directories' do
+    custom_backend_1 = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'custom-backends/haml/html5'))
+    custom_backend_2 = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'custom-backends/haml/html5-tweaks'))
+    invoker = invoke_cli_to_buffer %W(-T #{custom_backend_1} -T #{custom_backend_2} -o - -s)
+    output = invoker.read_output
+    assert_css '.paragraph', output, 0
+    assert_css '#preamble > .sectionbody > p', output, 1
   end
 
   test 'should set attribute with value' do
@@ -244,7 +318,7 @@ context 'Invoker' do
   end
 
   test 'should set attribute with quoted value containing a space' do
-	# emulating commandline arguments: --trace -a toc -a note-caption="Note to self:" -o -
+    # emulating commandline arguments: --trace -a toc -a note-caption="Note to self:" -o -
     invoker = invoke_cli_to_buffer %w(--trace -a toc -a note-caption=Note\ to\ self: -o -)
     doc = invoker.document
     assert_equal 'Note to self:', doc.attr('note-caption')

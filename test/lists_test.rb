@@ -460,6 +460,20 @@ List
       assert_xpath '//ul/li', output, 3
     end
 
+    test 'should represent block style as style class' do
+      ['disc', 'square', 'circle'].each do |style|
+        input = <<-EOS
+[#{style}]
+* a
+* b
+* c
+        EOS
+        output = render_embedded_string input
+        assert_css ".ulist.#{style}", output, 1
+        assert_css ".ulist.#{style} ul.#{style}", output, 1
+      end
+    end
+
     test "asterisk elements separated by blank lines should merge lists" do
       input = <<-EOS
 List
@@ -1075,7 +1089,7 @@ Lists
       assert_xpath '//ul/li[1]/*', output, 1
     end
 
-    test "consecutive blocks in list continuation attach to list item" do
+    test 'consecutive blocks in list continuation attach to list item' do
       input = <<-EOS
 Lists
 =====
@@ -1092,7 +1106,7 @@ ____
 +
 * Item two
       EOS
-      output = render_string input
+      output = render_embedded_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 2
       assert_xpath '//ul/li[1]/p', output, 1
@@ -1453,6 +1467,58 @@ List
       assert_xpath '//ol/li', output, 3
     end
 
+    test 'should represent explicit role attribute as style class' do
+      input = <<-EOS
+[role="dry"]
+. Once
+. Again
+. Refactor!
+      EOS
+
+      output = render_embedded_string input 
+      assert_css '.olist.arabic.dry', output, 1
+      assert_css '.olist ol.arabic', output, 1
+    end
+
+    test 'should represent custom numbering and explicit role attribute as style classes' do
+      input = <<-EOS
+[loweralpha, role="dry"]
+. Once
+. Again
+. Refactor!
+      EOS
+
+      output = render_embedded_string input 
+      assert_css '.olist.loweralpha.dry', output, 1
+      assert_css '.olist ol.loweralpha', output, 1
+    end
+
+    test 'should represent implicit role attribute as style class' do
+      input = <<-EOS
+[.dry]
+. Once
+. Again
+. Refactor!
+      EOS
+
+      output = render_embedded_string input 
+      assert_css '.olist.arabic.dry', output, 1
+      assert_css '.olist ol.arabic', output, 1
+    end
+
+    test 'should represent custom numbering and implicit role attribute as style classes' do
+      input = <<-EOS
+[loweralpha.dry]
+. Once
+. Again
+. Refactor!
+      EOS
+
+      output = render_embedded_string input 
+      assert_css '.olist.loweralpha.dry', output, 1
+      assert_css '.olist ol.loweralpha', output, 1
+    end
+
     test "dot elements separated by blank lines should merge lists" do
       input = <<-EOS
 List
@@ -1678,6 +1744,25 @@ term2::
       assert_xpath '//dl/dt/following-sibling::dd', output, 2
       assert_xpath '(//dl/dt)[1][normalize-space(text()) = "term1"]', output, 1
       assert_xpath '(//dl/dt)[1]/following-sibling::dd/p[text() = "def1"]', output, 1
+      assert_xpath '(//dl/dt)[2][normalize-space(text()) = "term2"]', output, 1
+      assert_xpath '(//dl/dt)[2]/following-sibling::dd/p[text() = "def2"]', output, 1
+    end
+
+    test 'multi-line element with paragraph starting with multiple dashes should not be seen as list' do
+      input = <<-EOS
+term1::
+  def1
+  -- and a note
+
+term2::
+  def2
+      EOS
+      output = render_embedded_string input
+      assert_xpath '//dl', output, 1
+      assert_xpath '//dl/dt', output, 2
+      assert_xpath '//dl/dt/following-sibling::dd', output, 2
+      assert_xpath '(//dl/dt)[1][normalize-space(text()) = "term1"]', output, 1
+      assert_xpath %((//dl/dt)[1]/following-sibling::dd/p[text() = "def1#{entity 8201}#{entity 8212}#{entity 8201}and a note"]), output, 1
       assert_xpath '(//dl/dt)[2][normalize-space(text()) = "term2"]', output, 1
       assert_xpath '(//dl/dt)[2]/following-sibling::dd/p[text() = "def2"]', output, 1
     end
@@ -2023,6 +2108,23 @@ A new paragraph.
       assert_xpath '//*[@class="dlist"]/following-sibling::*[@class="paragraph"]', output, 1
       assert_xpath '(//*[@class="dlist"]/following-sibling::*[@class="paragraph"])[1]/p[text() = "A new paragraph."]', output, 1
     end
+
+    test 'should not match comment line that looks like labeled list term' do
+      input = <<-EOS
+* item
+
+//::
+== Section
+
+section text
+      EOS
+
+      output = render_embedded_string input
+      assert_xpath '/*[@class="ulist"]', output, 1
+      assert_xpath '/*[@class="sect1"]', output, 1
+      assert_xpath '/*[@class="sect1"]/h2[text()="Section"]', output, 1
+      assert_xpath '/*[@class="ulist"]/following-sibling::*[@class="sect1"]', output, 1
+    end
   end
 
   context "Nested lists" do
@@ -2284,6 +2386,17 @@ term:: def
       assert_xpath '(//table/colgroup/col)[2][@style="width:75%;"]', output, 1
     end
 
+    test 'should add strong class to label if strong option is set' do
+      input = <<-EOS
+[horizontal, options="strong"]
+term:: def
+      EOS
+
+      output = render_embedded_string input
+      assert_css '.hdlist', output, 1
+      assert_css '.hdlist td.hdlist1.strong', output, 1
+    end
+
     test 'consecutive terms in horizontal list should share same cell' do
       input = <<-EOS
 [horizontal]
@@ -2296,7 +2409,9 @@ last::
       output = render_embedded_string input 
       assert_xpath '//tr', output, 2
       assert_xpath '(//tr)[1]/td[@class="hdlist1"]', output, 1
-      assert_xpath '(//tr)[1]/td[@class="hdlist1"]/br', output, 2
+      # NOTE I'm trimming the trailing <br> in Asciidoctor
+      #assert_xpath '(//tr)[1]/td[@class="hdlist1"]/br', output, 2
+      assert_xpath '(//tr)[1]/td[@class="hdlist1"]/br', output, 1
       assert_xpath '(//tr)[2]/td[@class="hdlist2"]', output, 1
     end
 
@@ -3631,6 +3746,121 @@ require 'asciidoctor' # \\<1>
     assert_xpath '//co', output, 0
   end
 
+  test 'should not recognize callouts in middle of line' do
+    input = <<-EOS
+[source, ruby]
+----
+puts "The syntax <1> at the end of the line makes a code callout"
+----
+    EOS
+    output = render_embedded_string input
+    assert_xpath '//b', output, 0
+  end
+
+  test 'should allow multiple callouts on the same line' do
+    input = <<-EOS
+[source, ruby]
+----
+require 'asciidoctor' <1>
+doc = Asciidoctor.load('Hello, World!') # <2> <3> <4>
+puts doc.render <5><6>
+exit 0
+----
+<1> Require library
+<2> Load document from String
+<3> Uses default backend and doctype
+<4> One more for good luck
+<5> Renders document to String
+<6> Prints output to stdout
+    EOS
+    output = render_embedded_string input
+    assert_xpath '//code/b', output, 6
+    assert_match(/ <b>\(1\)<\/b>$/, output)
+    assert_match(/ <b>\(2\)<\/b> <b>\(3\)<\/b> <b>\(4\)<\/b>$/, output)
+    assert_match(/ <b>\(5\)<\/b><b>\(6\)<\/b>$/, output)
+  end
+
+  test 'should allow XML comment-style callouts' do
+    input = <<-EOS
+[source, xml]
+----
+<section>
+  <title>Section Title</title> <!--1-->
+  <simpara>Just a paragraph</simpara> <!--2-->
+</section>
+----
+<1> The title is required
+<2> The content isn't
+    EOS
+    output = render_embedded_string input
+    assert_xpath '//b', output, 2
+    assert_xpath '//b[text()="(1)"]', output, 1
+    assert_xpath '//b[text()="(2)"]', output, 1
+  end
+
+  test 'should not allow callouts with half an XML comment' do
+    input = <<-EOS
+----
+First line <1-->
+Second line <2-->
+----
+    EOS
+    output = render_embedded_string input
+    assert_xpath '//b', output, 0
+  end
+
+  test 'should not recognize callouts in an indented labeled list paragraph' do
+    input = <<-EOS
+foo::
+  bar <1>
+
+<1> Not pointing to a callout
+    EOS
+    output = render_embedded_string input
+    assert_xpath '//dl//b', output, 0
+    assert_xpath '//dl/dd/p[text()="bar <1>"]', output, 1
+    assert_xpath '//ol/li/p[text()="Not pointing to a callout"]', output, 1
+  end
+
+  test 'should not recognize callouts in an indented outline list paragraph' do
+    input = <<-EOS
+* foo
+  bar <1>
+
+<1> Not pointing to a callout
+    EOS
+    output = render_embedded_string input
+    assert_xpath '//ul//b', output, 0
+    assert_xpath %(//ul/li/p[text()="foo\nbar <1>"]), output, 1
+    assert_xpath '//ol/li/p[text()="Not pointing to a callout"]', output, 1
+  end
+
+  test 'should remove leading line comment chars' do
+    input = <<-EOS
+----
+puts 'Hello, world!' # <1>
+----
+<1> Ruby
+
+----
+println 'Hello, world!' // <1>
+----
+<1> Groovy
+
+----
+(def hello (fn [] "Hello, world!")) ;; <1>
+(hello)
+----
+<1> Clojure
+    EOS
+    output = render_embedded_string input
+    assert_xpath '//b', output, 3
+    nodes = xmlnodes_at_css 'pre', output 
+    assert_equal "puts 'Hello, world!' (1)", nodes[0].text
+    assert_equal "println 'Hello, world!' (1)", nodes[1].text
+    assert_equal %((def hello (fn [] "Hello, world!")) (1)\n(hello)), nodes[2].text
+  end
+
   test 'literal block with callouts' do
     input = <<-EOS
 ....
@@ -3680,8 +3910,8 @@ puts doc.render # <3>
 [source]
 ----
 require 'asciidoctor' # <1>
-doc = Asciidoctor::Document.new('Hello, World!') # <2>
-puts doc.render # <3>
+doc = Asciidoctor::Document.new('Hello, World!') #<2>
+puts doc.render #<3>
 ----
 <1> Describe the first line
 <2> Describe the second line
@@ -3690,11 +3920,78 @@ puts doc.render # <3>
     output = render_embedded_string input, :attributes => {'icons' => 'font'}
     assert_css '.listingblock code > i', output, 3
     (1..3).each do |i|
-      assert_xpath %((/div[@class="listingblock"]//code/i)[#{i}][@class="conum"][text() = "#{i}"]), output, 1
+      assert_xpath %((/div[@class="listingblock"]//code/i)[#{i}]), output, 1
+      assert_xpath %((/div[@class="listingblock"]//code/i)[#{i}][@class="conum"][@data-value="#{i}"]), output, 1
+      assert_xpath %((/div[@class="listingblock"]//code/i)[#{i}]/following-sibling::b[text()="(#{i})"]), output, 1
     end
     assert_css '.colist table td i', output, 3
     (1..3).each do |i|
-      assert_xpath %((/div[@class="colist arabic"]//td/i)[#{i}][@class="conum"][text() = "#{i}"]), output, 1
+      assert_xpath %((/div[@class="colist arabic"]//td/i)[#{i}]), output, 1
+      assert_xpath %((/div[@class="colist arabic"]//td/i)[#{i}][@class="conum"][@data-value = "#{i}"]), output, 1
+      assert_xpath %((/div[@class="colist arabic"]//td/i)[#{i}]/following-sibling::b[text() = "#{i}"]), output, 1
     end
+  end
+end
+
+context 'Checklists' do
+  test 'should create checklist if at least one item has checkbox syntax' do
+    input = <<-EOS
+- [ ] todo
+- [x] done
+- plain
+    EOS
+
+    output = render_embedded_string input
+    assert_css '.ulist.checklist', output, 1
+    assert_css '.ulist.checklist li input[type="checkbox"][disabled]', output, 2
+    assert_css '.ulist.checklist li input[type="checkbox"][checked]', output, 1
+    assert_xpath '(/*[@class="ulist checklist"]/ul/li)[3]/p[text()="plain"]', output, 1
+  end
+
+  test 'should create checklist with font icons if at least one item has checkbox syntax and icons attribute is font' do
+    input = <<-EOS
+- [ ] todo
+- [x] done
+- plain
+    EOS
+
+    output = render_embedded_string input, :attributes => {'icons' => 'font'}
+    assert_css '.ulist.checklist', output, 1
+    assert_css '.ulist.checklist li i.icon-check', output, 1
+    assert_css '.ulist.checklist li i.icon-check-empty', output, 1
+    assert_xpath '(/*[@class="ulist checklist"]/ul/li)[3]/p[text()="plain"]', output, 1
+  end
+
+  test 'should create interactive checklist if interactive option is set even with icons attribute is font' do
+    input = <<-EOS
+:icons: font
+
+[options="interactive"]
+- [ ] todo
+- [x] done
+    EOS
+
+    output = render_embedded_string input
+    assert_css '.ulist.checklist', output, 1
+    assert_css '.ulist.checklist li input[type="checkbox"]', output, 2
+    assert_css '.ulist.checklist li input[type="checkbox"][disabled]', output, 0
+    assert_css '.ulist.checklist li input[type="checkbox"][checked]', output, 1
+  end
+end
+
+context 'Lists model' do
+  test 'content should return items in list' do
+    input = <<-EOS
+* one
+* two
+* three
+    EOS
+
+    doc = document_from_string input
+    list = doc.blocks.first
+    assert list.is_a? Asciidoctor::List
+    items = list.items
+    assert_equal 3, items.size
+    assert_equal list.items, list.content
   end
 end

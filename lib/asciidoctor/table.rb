@@ -52,7 +52,7 @@ class Table < AbstractBlock
   attr_accessor :rows
 
   # Public: Boolean specifies whether this table has a header row
-  attr_reader :header_option
+  attr_accessor :has_header_option
 
   def initialize(parent, attributes)
     super(parent, :table)
@@ -110,10 +110,10 @@ class Table < AbstractBlock
     # set rowcount before splitting up body rows
     @attributes['rowcount'] = @rows.body.size
 
-    if !rows.body.empty? && attributes.has_key?('header-option')
+    if !rows.body.empty? && @has_header_option
       head = rows.body.shift
       # styles aren't applied to header row
-      head.each {|c| c.attributes.delete('style') }
+      head.each {|c| c.style = nil }
       # QUESTION why does AsciiDoc use an array for head? is it
       # possible to have more than one based on the syntax?
       rows.head = [head]
@@ -125,16 +125,6 @@ class Table < AbstractBlock
     
     nil
   end
-
-  # Public: Get the rendered String content for this Block.  If the block
-  # has child blocks, the content method should cause them to be
-  # rendered and returned as content that can be included in the
-  # parent block's template.
-  def render
-    @document.playback_attributes @attributes
-    renderer.render('block_table', self) 
-  end
-
 end
 
 # Public: A struct that encapsulates the collection of rows (head, foot, body) for a table
@@ -143,8 +133,12 @@ Table::Rows = Struct.new(:head, :foot, :body)
 # Public: Methods to manage the columns of an AsciiDoc table. In particular, it
 # keeps track of the column specs
 class Table::Column < AbstractNode
+  # Public: Get/Set the Symbol style for this column.
+  attr_accessor :style
+
   def initialize(table, index, attributes = {})
     super(table, :column)
+    @style = attributes['style']
     attributes['colnumber'] = index + 1
     attributes['width'] ||= 1
     attributes['halign'] ||= 'left'
@@ -177,6 +171,8 @@ end
 
 # Public: Methods for managing the a cell in an AsciiDoc table.
 class Table::Cell < AbstractNode
+  # Public: Get/Set the Symbol style for this cell (default: nil)
+  attr_accessor :style
 
   # Public: An Integer of the number of columns this cell will span (default: nil)
   attr_accessor :colspan
@@ -190,32 +186,43 @@ class Table::Cell < AbstractNode
   # Public: The internal Asciidoctor::Document for a cell that has the asciidoc style
   attr_reader :inner_document
 
-  def initialize(column, text, attributes = {})
+  def initialize(column, text, attributes = {}, cursor = nil)
     super(column, :cell)
     @text = text
+    @style = nil
     @colspan = nil
     @rowspan = nil
     # TODO feels hacky
     if !column.nil?
+      @style = column.attributes['style']
       update_attributes(column.attributes)
     end
     if !attributes.nil?
-      if attributes.has_key? 'colspan'
-        @colspan = attributes['colspan']
-        attributes.delete('colspan') 
-      end
-      if attributes.has_key? 'rowspan'
-        @rowspan = attributes['rowspan']
-        attributes.delete('rowspan') 
-      end
+      @colspan = attributes.delete('colspan')
+      @rowspan = attributes.delete('rowspan')
+      # TODO eventualy remove the style attribute from the attributes hash
+      #@style = attributes.delete('style') if attributes.has_key? 'style'
+      @style = attributes['style'] if attributes.has_key? 'style'
       update_attributes(attributes)
     end
     # only allow AsciiDoc cells in non-header rows
-    if @attributes['style'] == :asciidoc && !column.table.header_row?
+    if @style == :asciidoc && !column.table.header_row?
       # FIXME hide doctitle from nested document; temporary workaround to fix
       # nested document seeing doctitle and assuming it has its own document title
       parent_doctitle = @document.attributes.delete('doctitle')
-      @inner_document = Document.new(@text, :header_footer => false, :parent => @document)
+      # NOTE we need to process the first line of content as it may not have been processed
+      # the included content cannot expect to match conditional terminators in the remaining
+      # lines of table cell content, it must be self-contained logic
+      inner_document_lines = @text.each_line.to_a
+      unless inner_document_lines.empty? || !inner_document_lines.first.include?('::')
+        unprocessed_lines = inner_document_lines[0..0]
+        processed_lines = PreprocessorReader.new(@document, unprocessed_lines).readlines
+        if processed_lines != unprocessed_lines
+          inner_document_lines.shift
+          inner_document_lines.unshift(*processed_lines)
+        end
+      end
+      @inner_document = Document.new(inner_document_lines, :header_footer => false, :parent => @document, :cursor => cursor)
       @document.attributes['doctitle'] = parent_doctitle unless parent_doctitle.nil?
     end
   end
@@ -227,12 +234,11 @@ class Table::Cell < AbstractNode
 
   # Public: Handles the body data (tbody, tfoot), applying styles and partitioning into paragraphs
   def content
-    style = attr('style')
-    if style == :asciidoc
+    if @style == :asciidoc
       @inner_document.render
     else
       text.split(BLANK_LINE_PATTERN).map {|p|
-        !style || style == :header ? p : Inline.new(parent, :quoted, p, :type => attr('style')).render
+        !@style || @style == :header ? p : Inline.new(parent, :quoted, p, :type => @style).render
       }
     end
   end
@@ -272,8 +278,11 @@ class Table::ParserContext
   # Public: The cell delimiter compiled Regexp for this table.
   attr_reader :delimiter_re
 
-  def initialize(table, attributes = {})
+  def initialize(reader, table, attributes = {})
+    @reader = reader
     @table = table
+    # TODO if reader.cursor becomes a reference, this would require .dup
+    @last_cursor = reader.cursor
     if attributes.has_key? 'format'
       @format = attributes['format']
       if !Table::DATA_FORMATS.include? @format
@@ -416,7 +425,7 @@ class Table::ParserContext
     if format == 'psv'
       cell_spec = take_cell_spec
       if cell_spec.nil?
-        puts 'asciidoctor: ERROR: table missing leading separator, recovering automatically'
+        warn "asciidoctor: ERROR: #{@last_cursor.line_info}: table missing leading separator, recovering automatically"
         cell_spec = {}
         repeat = 1
       else
@@ -450,7 +459,8 @@ class Table::ParserContext
         column = @table.columns[@current_row.size]
       end
 
-      cell = Table::Cell.new(column, cell_text, cell_spec)
+      cell = Table::Cell.new(column, cell_text, cell_spec, @last_cursor)
+      @last_cursor = @reader.cursor
       unless cell.rowspan.nil? || cell.rowspan == 1
         activate_rowspan(cell.rowspan, (cell.colspan || 1))
       end

@@ -18,9 +18,9 @@ context "Blocks" do
 
     test "page break" do
       output = render_embedded_string("page 1\n\n<<<\n\npage 2")
-      assert_xpath '/*[@style="page-break-after: always;"]', output, 1
-      assert_xpath '/*[@style="page-break-after: always;"]/preceding-sibling::div/p[text()="page 1"]', output, 1
-      assert_xpath '/*[@style="page-break-after: always;"]/following-sibling::div/p[text()="page 2"]', output, 1
+      assert_xpath '/*[translate(@style, ";", "")="page-break-after: always"]', output, 1
+      assert_xpath '/*[translate(@style, ";", "")="page-break-after: always"]/preceding-sibling::div/p[text()="page 1"]', output, 1
+      assert_xpath '/*[translate(@style, ";", "")="page-break-after: always"]/following-sibling::div/p[text()="page 2"]', output, 1
     end
   end
 
@@ -114,6 +114,108 @@ block comment
 
       output = render_embedded_string input
       assert !output.strip.empty?, "Line should be emitted => #{input.rstrip}"
+    end
+
+    test 'preprocessor directives should not be processed within comment block within block metadata' do
+      input = <<-EOS
+.sample title
+////
+ifdef::asciidoctor[////]
+////
+line should be rendered
+      EOS
+
+      output = render_embedded_string input
+      assert_xpath '//p[text() = "line should be rendered"]', output, 1
+    end
+
+    test 'preprocessor directives should not be processed within comment block' do
+      input = <<-EOS
+dummy line
+
+////
+ifdef::asciidoctor[////]
+////
+
+line should be rendered
+      EOS
+
+      output = render_embedded_string input
+      assert_xpath '//p[text() = "line should be rendered"]', output, 1
+    end
+
+    # WARNING if first line of content is a directive, it will get interpretted before we know it's a comment block
+    # it happens because we always look a line ahead...not sure what we can do about it
+    test 'preprocessor directives should not be processed within comment open block' do
+      input = <<-EOS
+[comment]
+--
+first line of comment
+ifdef::asciidoctor[--]
+line should not be rendered
+--
+
+      EOS
+
+      output = render_embedded_string input
+      assert_xpath '//p', output, 0
+    end
+
+    # WARNING if first line of content is a directive, it will get interpretted before we know it's a comment block
+    # it happens because we always look a line ahead...not sure what we can do about it
+    test 'preprocessor directives should not be processed within comment paragraph' do
+      input = <<-EOS
+[comment]
+first line of content
+ifdef::asciidoctor[////]
+
+this line should be rendered
+      EOS
+
+      output = render_embedded_string input
+      assert_xpath '//p[text() = "this line should be rendered"]', output, 1
+    end
+
+    test 'comment style on open block should only skip block' do
+      input = <<-EOS
+[comment]
+--
+skip
+
+this block
+--
+
+not this text
+      EOS
+      result = render_embedded_string input
+      assert_xpath '//p', result, 1
+      assert_xpath '//p[text()="not this text"]', result, 1
+    end
+
+    test 'comment style on paragraph should only skip paragraph' do
+      input = <<-EOS
+[comment]
+skip
+this paragraph
+
+not this text
+      EOS
+      result = render_embedded_string input
+      assert_xpath '//p', result, 1
+      assert_xpath '//p[text()="not this text"]', result, 1
+    end
+
+    test 'comment style on paragraph should not cause adjacent block to be skipped' do
+      input = <<-EOS
+[comment]
+skip
+this paragraph
+[example]
+not this text
+      EOS
+      result = render_embedded_string input
+      assert_xpath '/*[@class="exampleblock"]', result, 1
+      assert_xpath '/*[@class="exampleblock"]//*[normalize-space(text())="not this text"]', result, 1
     end
   end
 
@@ -256,7 +358,7 @@ Some more inspiring words.
       input = <<-EOS
 > A famous quote.
 > Some more inspiring words.
-> -- Famous Person, Famous Source (1999)
+> -- Famous Person, Famous Source, Volume 1 (1999)
       EOS
       output = render_string input
       assert_css '.quoteblock', output, 1
@@ -266,7 +368,7 @@ Some more inspiring words.
       assert_css '.quoteblock > .attribution', output, 1
       assert_css '.quoteblock > .attribution > cite', output, 1
       assert_css '.quoteblock > .attribution > cite + br', output, 1
-      assert_xpath '//*[@class = "quoteblock"]/*[@class = "attribution"]/cite[text() = "Famous Source (1999)"]', output, 1
+      assert_xpath '//*[@class = "quoteblock"]/*[@class = "attribution"]/cite[text() = "Famous Source, Volume 1 (1999)"]', output, 1
       attribution = xmlnodes_at_xpath '//*[@class = "quoteblock"]/*[@class = "attribution"]', output, 1
       author = attribution.children.last
       assert_equal "#{expand_entity 8212} Famous Person", author.text.strip
@@ -276,7 +378,7 @@ Some more inspiring words.
       input = <<-EOS
 "A famous quote.
 Some more inspiring words."
--- Famous Person, Famous Source (1999)
+-- Famous Person, Famous Source, Volume 1 (1999)
       EOS
       output = render_string input
       assert_css '.quoteblock', output, 1
@@ -285,7 +387,7 @@ Some more inspiring words."
       assert_css '.quoteblock > .attribution', output, 1
       assert_css '.quoteblock > .attribution > cite', output, 1
       assert_css '.quoteblock > .attribution > cite + br', output, 1
-      assert_xpath '//*[@class = "quoteblock"]/*[@class = "attribution"]/cite[text() = "Famous Source (1999)"]', output, 1
+      assert_xpath '//*[@class = "quoteblock"]/*[@class = "attribution"]/cite[text() = "Famous Source, Volume 1 (1999)"]', output, 1
       attribution = xmlnodes_at_xpath '//*[@class = "quoteblock"]/*[@class = "attribution"]', output, 1
       author = attribution.children.last
       assert_equal "#{expand_entity 8212} Famous Person", author.text.strip
@@ -360,7 +462,31 @@ ____
       assert_css '.verseblock p', output, 0
       assert_css '.verseblock .literalblock', output, 0
     end
-    
+
+    test 'verse should only have specialcharacters subs' do
+      input = <<-EOS
+[verse]
+____
+A famous verse
+____
+      EOS
+
+      verse = block_from_string input
+      assert_equal [:specialcharacters], verse.subs
+    end
+
+    test 'should not recognize callouts in a verse' do
+      input = <<-EOS
+[verse]
+____
+La la la <1>
+____
+<1> Not pointing to a callout
+      EOS
+     
+      output = render_embedded_string input
+      assert_xpath '//pre[text()="La la la <1>"]', output, 1
+    end
   end
 
   context "Example Blocks" do
@@ -564,7 +690,7 @@ EOS
         if compact
           assert_equal 2, blank_lines
         else
-          assert blank_lines > 2
+          assert blank_lines >= 2
         end
       }
     end
@@ -593,7 +719,7 @@ EOS
         if compact
           assert_equal 2, blank_lines
         else
-          assert blank_lines > 2
+          assert blank_lines >= 2
         end
       }
     end
@@ -622,7 +748,7 @@ EOS
         if compact
           assert_equal 2, blank_lines
         else
-          assert blank_lines > 2
+          assert blank_lines >= 2
         end
       }
     end
@@ -714,6 +840,31 @@ end
       assert_equal expected.chomp, result
     end
 
+    test 'literal block should honor nowrap option' do
+      input = <<-EOS
+[options="nowrap"]
+----
+Do not wrap me if I get too long.
+----
+      EOS
+
+      output = render_embedded_string input
+      assert_css 'pre.nowrap', output, 1
+    end
+
+    test 'literal block should set nowrap class if prewrap document attribute is disabled' do
+      input = <<-EOS
+:prewrap!:
+
+----
+Do not wrap me if I get too long.
+----
+      EOS
+
+      output = render_embedded_string input
+      assert_css 'pre.nowrap', output, 1
+    end
+
     test 'literal block should honor explicit subs list' do
       input = <<-EOS
 [subs="verbatim,quotes"]
@@ -722,9 +873,24 @@ Map<String, String> *attributes*; //<1>
 ----
       EOS
 
-      output = render_embedded_string input
+      block = block_from_string input
+      assert_equal [:specialcharacters,:callouts,:quotes], block.subs
+      output = block.render
       assert output.include?('Map&lt;String, String&gt; <strong>attributes</strong>;')
-      assert output.include?('1')
+      assert_xpath '//pre/b[text()="(1)"]', output, 1
+    end
+
+    test 'should be able to disable callouts for literal block' do
+      input = <<-EOS
+[subs="specialcharacters"]
+----
+No callout here <1>
+----
+      EOS
+      block = block_from_string input
+      assert_equal [:specialcharacters], block.subs
+      output = block.render
+      assert_xpath '//pre/b[text()="(1)"]', output, 0
     end
 
     test 'listing block should honor explicit subs list' do
@@ -758,7 +924,7 @@ AssertionError
 
       output2 = render_embedded_string input2
       # FIXME JRuby is adding extra trailing endlines in the second document,
-      # so rstrip is necessary
+      # for now, rstrip is necessary
       assert_equal output.rstrip, output2.rstrip
     end
 
@@ -858,8 +1024,8 @@ This is a passthrough block.
 
       block = block_from_string input
       assert !block.nil?
-      assert_equal 1, block.buffer.size
-      assert_equal 'This is a passthrough block.', block.buffer.first
+      assert_equal 1, block.lines.size
+      assert_equal 'This is a passthrough block.', block.source
     end
 
     test 'performs passthrough subs on a passthrough block' do
@@ -918,7 +1084,7 @@ section paragraph
       output, errors = nil
       redirect_streams do |stdout, stderr|
         output = render_string input
-        errors = stdout.string
+        errors = stderr.string
       end
       assert_xpath '//*[@id="header"]/*', output, 0
       assert_xpath '//*[@id="preamble"]/*', output, 0
@@ -1063,8 +1229,21 @@ image::images/tiger.png[Tiger]
       assert !doc.attributes.has_key?('figure-number')
     end
 
-    test 'drops line if image target is missing attribute reference' do
+    test 'keeps line unprocessed if image target is missing attribute reference and attribute-missing is skip' do
       input = <<-EOS
+:attribute-missing: skip
+
+image::{bogus}[]
+      EOS
+
+      output = render_embedded_string input
+      assert output.include?('image::{bogus}[]')
+    end
+
+    test 'drops line if image target is missing attribute reference and attribute-missing is drop' do
+      input = <<-EOS
+:attribute-missing: drop
+
 image::{bogus}[]
       EOS
 
@@ -1072,8 +1251,21 @@ image::{bogus}[]
       assert output.strip.empty?
     end
 
-    test 'dropped image does not break processing of following section' do
+    test 'drops line if image target is missing attribute reference and attribute-missing is drop-line' do
       input = <<-EOS
+:attribute-missing: drop-line
+
+image::{bogus}[]
+      EOS
+
+      output = render_embedded_string input
+      assert output.strip.empty?
+    end
+
+    test 'dropped image does not break processing of following section and attribute-missing is drop-line' do
+      input = <<-EOS
+:attribute-missing: drop-line
+
 image::{bogus}[]
 
 == Section Title
@@ -1217,6 +1409,30 @@ video::http://example.org/videos/cats-vs-dogs.avi[]
       assert_css 'video', output, 1
       assert_css 'video[src="http://example.org/videos/cats-vs-dogs.avi"]', output, 1
     end
+    
+    test 'video macro should output custom HTML with iframe for vimeo service' do
+      input = <<-EOS
+video::67480300[vimeo, 400, 300, start=60, options=autoplay]
+      EOS
+      output = render_embedded_string input
+      assert_css 'video', output, 0
+      assert_css 'iframe', output, 1
+      assert_css 'iframe[src="//player.vimeo.com/video/67480300#at=60?autoplay=1"]', output, 1
+      assert_css 'iframe[width="400"]', output, 1
+      assert_css 'iframe[height="300"]', output, 1
+    end
+
+    test 'video macro should output custom HTML with iframe for youtube service' do
+      input = <<-EOS
+video::rPQoq7ThGAU[youtube, 640, 360, start=60, options=autoplay]
+      EOS
+      output = render_embedded_string input
+      assert_css 'video', output, 0
+      assert_css 'iframe', output, 1
+      assert_css 'iframe[src="//www.youtube.com/embed/rPQoq7ThGAU?rel=0&start=60&autoplay=1"]', output, 1
+      assert_css 'iframe[width="640"]', output, 1
+      assert_css 'iframe[height="360"]', output, 1
+    end
 
     test 'should detect and render audio macro' do
       input = <<-EOS
@@ -1336,7 +1552,7 @@ You can use icons for admonitions by setting the 'icons' attribute.
       assert_xpath '//*[@class="admonitionblock tip"]//*[@class="icon"]/img[@src="data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs="][@alt="Tip"]', output, 1
     end
 
-    test 'can use font-based icons' do
+    test 'should import Font Awesome and use font-based icons when value of icons attribute is font' do
       input = <<-EOS
 :icons: font
 
@@ -1345,6 +1561,7 @@ You can use icons for admonitions by setting the 'icons' attribute.
       EOS
 
       output = render_string input, :safe => Asciidoctor::SafeMode::SERVER
+      assert_css 'html > head > link[rel="stylesheet"][href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/3.2.1/css/font-awesome.min.css"]', output, 1
       assert_xpath '//*[@class="admonitionblock tip"]//*[@class="icon"]/i[@class="icon-tip"]', output, 1
     end
   end
@@ -1408,6 +1625,21 @@ puts "Hello, World!"
       assert_css '.listingblock pre code', output, 1
       assert_css '.listingblock pre code:not([class])', output, 1
     end
+ 
+    test 'should not recognize fenced code blocks with more than three delimiters' do
+      input = <<-EOS
+````ruby
+puts "Hello, World!"
+````
+
+~~~~ javascript
+alert("Hello, World!")
+~~~~
+      EOS
+
+      output = render_embedded_string input
+      assert_css '.listingblock', output, 0
+    end
 
     test 'should support fenced code blocks with languages' do
       input = <<-EOS
@@ -1416,6 +1648,23 @@ puts "Hello, World!"
 ```
 
 ~~~ javascript
+alert("Hello, World!")
+~~~
+      EOS
+
+      output = render_embedded_string input
+      assert_css '.listingblock', output, 2
+      assert_css '.listingblock pre code.ruby', output, 1
+      assert_css '.listingblock pre code.javascript', output, 1
+    end
+
+    test 'should support fenced code blocks with languages and numbering' do
+      input = <<-EOS
+```ruby,numbered
+puts "Hello, World!"
+```
+
+~~~ javascript, numbered
 alert("Hello, World!")
 ~~~
       EOS
@@ -1437,9 +1686,78 @@ require 'coderay'
 html = CodeRay.scan("puts 'Hello, world!'", :ruby).div(:line_numbers => :table)
 ----
       EOS
-      output = render_string input, :safe => Asciidoctor::SafeMode::SAFE
+      output = render_string input, :safe => Asciidoctor::SafeMode::SAFE, :linkcss_default => true
       assert_xpath '//pre[@class="CodeRay"]/code[@class="ruby language-ruby"]//span[@class = "constant"][text() = "CodeRay"]', output, 1
       assert_match(/\.CodeRay \{/, output)
+    end
+
+    test 'should replace callout marks but not highlight them if source-highlighter attribute is coderay' do
+      input = <<-EOS
+:source-highlighter: coderay
+
+[source, ruby]
+----
+require 'coderay' # <1>
+
+html = CodeRay.scan("puts 'Hello, world!'", :ruby).div(:line_numbers => :table) # <2>
+puts html # <3> <4>
+exit 0 # <5><6>
+----
+<1> Load library
+<2> Highlight source
+<3> Print to stdout
+<4> Redirect to a file to capture output
+<5> Exit program
+<6> Reports success
+      EOS
+      output = render_embedded_string input, :safe => Asciidoctor::SafeMode::SAFE
+      assert_match(/<span class="content">coderay<\/span>.* <b>\(1\)<\/b>$/, output)
+      assert_match(/<span class="content">puts 'Hello, world!'<\/span>.* <b>\(2\)<\/b>$/, output)
+      assert_match(/puts html * <b>\(3\)<\/b> <b>\(4\)<\/b>$/, output)
+      assert_match(/exit.* <b>\(5\)<\/b> <b>\(6\)<\/b><\/code>/, output)
+    end
+
+    test 'should restore callout marks to correct lines if source highlighter is coderay and table line numbering is enabled' do
+      input = <<-EOS
+:source-highlighter: coderay
+:coderay-linenums-mode: table
+
+[source, ruby, numbered]
+----
+require 'coderay' # <1>
+
+html = CodeRay.scan("puts 'Hello, world!'", :ruby).div(:line_numbers => :table) # <2>
+puts html # <3> <4>
+exit 0 # <5><6>
+----
+<1> Load library
+<2> Highlight source
+<3> Print to stdout
+<4> Redirect to a file to capture output
+<5> Exit program
+<6> Reports success
+      EOS
+      output = render_embedded_string input, :safe => Asciidoctor::SafeMode::SAFE
+      assert_match(/<span class="content">coderay<\/span>.* <b>\(1\)<\/b>$/, output)
+      assert_match(/<span class="content">puts 'Hello, world!'<\/span>.* <b>\(2\)<\/b>$/, output)
+      assert_match(/puts html * <b>\(3\)<\/b> <b>\(4\)<\/b>$/, output)
+      assert_match(/exit.* <b>\(5\)<\/b> <b>\(6\)<\/b><\/pre>/, output)
+    end
+
+    test 'should link to CodeRay stylesheet if source-highlighter is coderay and linkcss is set' do
+      input = <<-EOS
+:source-highlighter: coderay
+
+[source, ruby]
+----
+require 'coderay'
+
+html = CodeRay.scan("puts 'Hello, world!'", :ruby).div(:line_numbers => :table)
+----
+      EOS
+      output = render_string input, :safe => Asciidoctor::SafeMode::SAFE, :attributes => {'linkcss' => ''}
+      assert_xpath '//pre[@class="CodeRay"]/code[@class="ruby language-ruby"]//span[@class = "constant"][text() = "CodeRay"]', output, 1
+      assert_css 'link[rel="stylesheet"][href="./asciidoctor-coderay.css"]', output, 1
     end
 
     test 'should highlight source inline if source-highlighter attribute is coderay and coderay-css is style' do
@@ -1454,7 +1772,7 @@ require 'coderay'
 html = CodeRay.scan("puts 'Hello, world!'", :ruby).div(:line_numbers => :table)
 ----
       EOS
-      output = render_string input, :safe => Asciidoctor::SafeMode::SAFE
+      output = render_string input, :safe => Asciidoctor::SafeMode::SAFE, :linkcss_default => true
       assert_xpath '//pre[@class="CodeRay"]/code[@class="ruby language-ruby"]//span[@style = "color:#036;font-weight:bold"][text() = "CodeRay"]', output, 1
       assert_no_match(/\.CodeRay \{/, output)
     end
@@ -1474,6 +1792,27 @@ html = CodeRay.scan("puts 'Hello, world!'", :ruby).div(:line_numbers => :table)
       assert_match(/<link .*highlight\.js/, output)
       assert_match(/<script .*highlight\.js/, output)
       assert_match(/hljs.initHighlightingOnLoad/, output)
+    end
+
+    test 'should set lang attribute on pre when source-highlighter is html-pipeline' do
+      input = <<-EOS
+[source,ruby]
+----
+filters = [
+  HTML::Pipeline::AsciiDocFilter,
+  HTML::Pipeline::SanitizationFilter,
+  HTML::Pipeline::SyntaxHighlightFilter
+]
+
+puts HTML::Pipeline.new(filters, {}).call(input)[:output]
+----
+      EOS
+
+      output = render_string input, :attributes => {'source-highlighter' => 'html-pipeline'}
+      assert_css 'pre[lang="ruby"]', output, 1
+      assert_css 'pre[lang="ruby"] > code', output, 1
+      assert_css 'pre[class]', output, 0
+      assert_css 'code[class]', output, 0
     end
 
     test 'document cannot turn on source highlighting if safe mode is at least SERVER' do

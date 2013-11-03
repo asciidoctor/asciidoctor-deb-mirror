@@ -1,4 +1,28 @@
 module Asciidoctor
+# Public: Methods for managing AsciiDoc lists (ordered, unordered and labeled lists)
+class List < AbstractBlock
+
+  # Public: Create alias for blocks
+  alias :items :blocks
+  alias :items? :blocks?
+
+  def initialize(parent, context)
+    super(parent, context)
+  end
+
+  # Public: Get the items in this list as an Array
+  def content
+    @blocks
+  end
+
+  def render
+    result = super
+    @document.callouts.next_list if @context == :colist
+    result
+  end
+
+end
+
 # Public: Methods for managing items for AsciiDoc olists, ulist, and dlists.
 class ListItem < AbstractBlock
 
@@ -20,12 +44,7 @@ class ListItem < AbstractBlock
   end
 
   def text
-    # this will allow the text to be processed
-    Block.new(self, nil, [@text]).content
-  end
-
-  def content
-    blocks? ? blocks.map {|b| b.render }.join : nil
+    apply_subs @text
   end
 
   # Public: Fold the first paragraph block into the text
@@ -40,23 +59,24 @@ class ListItem < AbstractBlock
   #
   # Returns nothing
   def fold_first(continuation_connects_first_block = false, content_adjacent = false)
-    if !blocks.empty? && blocks.first.is_a?(Block) &&
-        ((blocks.first.context == :paragraph && !continuation_connects_first_block) ||
-        ((content_adjacent || !continuation_connects_first_block) && blocks.first.context == :literal &&
-            blocks.first.attr('options', []).include?('listparagraph')))
+    if !(first_block = @blocks.first).nil? && first_block.is_a?(Block) &&
+        ((first_block.context == :paragraph && !continuation_connects_first_block) ||
+        ((content_adjacent || !continuation_connects_first_block) && first_block.context == :literal &&
+            first_block.option?('listparagraph')))
 
       block = blocks.shift
       unless @text.to_s.empty?
-        block.buffer.unshift("#@text\n")
+        block.lines.unshift("#@text\n")
       end
 
-      @text = block.buffer.join
+      @text = block.source
     end
     nil
   end
 
   def to_s
-    "#{super.to_s} - #@context [text:#@text, blocks:#{(@blocks || []).size}]"
+    "#@context [text:#@text, blocks:#{(@blocks || []).size}]"
   end
+
 end
 end

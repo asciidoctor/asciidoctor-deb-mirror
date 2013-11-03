@@ -36,9 +36,9 @@ context 'Options' do
 
   test 'should emit warning when unparsed options remain' do
     redirect_streams do |stdout, stderr|
-      options = Asciidoctor::Cli::Options.parse!(%w(-b docbook extra junk test/fixtures/sample.asciidoc))
+      options = Asciidoctor::Cli::Options.parse!(%w(-b docbook - -))
       assert options.is_a? Hash
-      assert_equal 'asciidoctor: WARNING: extra arguments detected (unparsed arguments: \'extra\', \'junk\')', stderr.string.chomp
+      assert_match(/asciidoctor: WARNING: extra arguments .*/, stderr.string.chomp)
     end
   end
 
@@ -48,7 +48,8 @@ context 'Options' do
     assert_equal true, options[:verbose]
     assert_equal false, options[:header_footer]
     assert_equal 'book', options[:attributes]['doctype']
-    assert_equal 'test/fixtures/sample.asciidoc', options[:input_file]
+    assert_equal 1, options[:input_files].size
+    assert_equal 'test/fixtures/sample.asciidoc', options[:input_files][0]
   end
 
   test 'standard attribute assignment' do
@@ -90,6 +91,21 @@ context 'Options' do
   test 'inline doctype assignment' do
     options = Asciidoctor::Cli::Options.parse!(%w(-d inline test/fixtures/sample.asciidoc))
     assert_equal 'inline', options[:attributes]['doctype']
+  end
+
+  test 'template engine assignment' do
+    options = Asciidoctor::Cli::Options.parse!(%w(-E haml test/fixtures/sample.asciidoc))
+    assert_equal 'haml', options[:template_engine]
+  end
+
+  test 'template directory assignment' do
+    options = Asciidoctor::Cli::Options.parse!(%w(-T custom-backend test/fixtures/sample.asciidoc))
+    assert_equal ['custom-backend'], options[:template_dirs]
+  end
+
+  test 'multiple template directory assignments' do
+    options = Asciidoctor::Cli::Options.parse!(%w(-T custom-backend -T custom-backend-hacks test/fixtures/sample.asciidoc))
+    assert_equal ['custom-backend', 'custom-backend-hacks'], options[:template_dirs]
   end
 
 end

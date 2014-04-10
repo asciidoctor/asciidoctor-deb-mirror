@@ -3,6 +3,11 @@ asciidoctor (0.1.4-2) unstable; urgency=low
   * Bump Standards-Version to 3.9.5, no changes
   * Bump gem2deb build dependency to >= 0.7.5~
   * Suggests asciidoc
+  * Add patch for updated asciidoctor.1 manpage, forwarded upstream
+    - https://github.com/asciidoctor/asciidoctor/pull/938
+  * Update packaging copyright
+    - MIT -> Expat
+    - Packaging copyright contributors and years
 
  -- Per Andersson <avtobiff@gmail.com>  Thu, 10 Apr 2014 03:06:04 +0200
 

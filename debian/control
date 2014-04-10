@@ -5,7 +5,7 @@ Maintainer: Debian Ruby Extras Maintainers <pkg-ruby-extras-maintainers@lists.al
 Uploaders: Per Andersson <avtobiff@gmail.com>
 Build-Depends:
  debhelper (>= 7.0.50~),
- gem2deb (>= 0.3.0~),
+ gem2deb (>= 0.7.5~),
  coderay,
  erubis,
  locales,

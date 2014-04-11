@@ -1,3 +1,10 @@
+asciidoctor (0.1.4-3) unstable; urgency=low
+
+  * Team upload.
+  * Add a patch to fix loading of ERB module.
+
+ -- Jérémy Bobbio <lunar@debian.org>  Fri, 11 Apr 2014 10:28:57 +0200
+
 asciidoctor (0.1.4-2) unstable; urgency=low
 
   * Bump Standards-Version to 3.9.5, no changes

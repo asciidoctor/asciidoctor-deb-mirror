@@ -1,0 +1,15 @@
+From: Jérémy Bobbio <lunar@debian.org>
+Date: Thu, 11 Apr 2014 10:26:00 +0200
+Subject: Update asciidoctor.1 manpage
+
+--- a/lib/asciidoctor/renderer.rb
++++ b/lib/asciidoctor/renderer.rb
+@@ -159,7 +159,7 @@ class Renderer
+     end
+ 
+     if name == 'erb'
+-      Helpers.require_library 'erb'
++      require 'erb'
+       ::ERB
+     elsif name == 'erubis'
+       Helpers.require_library 'erubis', true

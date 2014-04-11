@@ -1,2 +1,3 @@
 prune_tests_requiring_network_access.patch
 update-asciidoctor.1-manpage.patch
+load_erb_directly.patch

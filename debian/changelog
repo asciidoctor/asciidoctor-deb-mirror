@@ -1,3 +1,10 @@
+asciidoctor (0.1.4-4) UNRELEASED; urgency=medium
+
+  * Team upload.
+  * d/watch: Fall-back to Github (githubredir webservice was discontinued)
+
+ -- Sebastien Badia <seb@sebian.fr>  Wed, 08 Apr 2015 16:08:59 +0200
+
 asciidoctor (0.1.4-3) unstable; urgency=low
 
   * Team upload.

@@ -1,4 +1,8 @@
-require 'test_helper'
+# encoding: UTF-8
+unless defined? ASCIIDOCTOR_PROJECT_DIR
+  $: << File.dirname(__FILE__); $:.uniq!
+  require 'test_helper'
+end
 
 context "Bulleted lists (:ulist)" do
   context "Simple lists" do
@@ -622,7 +626,7 @@ List
 ====
 
 - I am *strong*.
-- I am 'stressed'.
+- I am _stressed_.
 - I am `flexible`.
       EOS
       output = render_string input
@@ -639,7 +643,7 @@ List
 ====
 :foo: bar
 
-- side a {brvbar} side b
+- side a {vbar} side b
 - Take me to a {foo}.
       EOS
       output = render_string input
@@ -944,7 +948,8 @@ List
 literal
 ....
       EOS
-      output = render_embedded_string input
+      # use render_string so we can match all ulists easier
+      output = render_string input
       assert_xpath '//*[@class="ulist"]/ul', output, 2
       assert_xpath '(//*[@class="ulist"])[1]/following-sibling::*[@class="literalblock"]', output, 1
       assert_xpath '(//*[@class="ulist"])[1]/following-sibling::*[@class="literalblock"]/*[@class="title"]', output, 1
@@ -1028,7 +1033,7 @@ Item one, literal block
       assert_xpath '(//ul/li[1]/p/following-sibling::*)[1][@class = "literalblock"]', output, 1
     end
 
-    test "adjacent list continuation line attaches following block with block attributes" do
+    test 'adjacent list continuation line attaches following block with block attributes' do
       input = <<-EOS
 Lists
 =====
@@ -1051,7 +1056,7 @@ Lists
       assert_xpath '//ul/li[1]/p', output, 1
       assert_xpath '(//ul/li[1]/p/following-sibling::*)[1][@id="beck"][@class = "listingblock"]', output, 1
       assert_xpath '(//ul/li[1]/p/following-sibling::*)[1][@id="beck"]/div[@class="title"][starts-with(text(),"Read")]', output, 1
-      assert_xpath '(//ul/li[1]/p/following-sibling::*)[1][@id="beck"]//code[@class="ruby language-ruby"][starts-with(text(),"5.times")]', output, 1
+      assert_xpath '(//ul/li[1]/p/following-sibling::*)[1][@id="beck"]//code[@data-lang="ruby"][starts-with(text(),"5.times")]', output, 1
     end
 
     test 'trailing block attribute line attached by continuation should not create block' do
@@ -1399,6 +1404,71 @@ bullet 1 paragraph
       assert_xpath '(((//ul)[1]/li)[1]/div[@class="ulist"]/ul/li/div[@class="ulist"]/ul/li/*)[2]/self::div[@class="openblock"]', output, 1
     end
 
+    test 'indented outline list item with different marker offset by a blank line should be recognized as a nested list' do
+      input = <<-EOS
+* item 1
+
+  . item 1.1
++
+attached paragraph
+
+  . item 1.2
++
+attached paragraph
+
+* item 2
+      EOS
+
+      output = render_embedded_string input
+
+      assert_css 'ul', output, 1
+      assert_css 'ol', output, 1
+      assert_css 'ul ol', output, 1
+      assert_css 'ul > li', output, 2
+      assert_xpath '((//ul/li)[1]/*)', output, 2
+      assert_xpath '((//ul/li)[1]/*)[1]/self::p', output, 1
+      assert_xpath '((//ul/li)[1]/*)[2]/self::div/ol', output, 1
+      assert_xpath '((//ul/li)[1]/*)[2]/self::div/ol/li', output, 2
+      (1..2).each do |idx|
+        assert_xpath "(((//ul/li)[1]/*)[2]/self::div/ol/li)[#{idx}]/*", output, 2
+        assert_xpath "((((//ul/li)[1]/*)[2]/self::div/ol/li)[#{idx}]/*)[1]/self::p", output, 1
+        assert_xpath "((((//ul/li)[1]/*)[2]/self::div/ol/li)[#{idx}]/*)[2]/self::div[@class=\"paragraph\"]", output, 1
+      end
+    end
+
+    test 'indented labeled list item inside outline list item offset by a blank line should be recognized as a nested list' do
+      input = <<-EOS
+* item 1
+
+  term a:: definition a
++
+attached paragraph
+
+  term b:: definition b
++
+attached paragraph
+
+* item 2
+      EOS
+
+      output = render_embedded_string input
+
+      assert_css 'ul', output, 1
+      assert_css 'dl', output, 1
+      assert_css 'ul dl', output, 1
+      assert_css 'ul > li', output, 2
+      assert_xpath '((//ul/li)[1]/*)', output, 2
+      assert_xpath '((//ul/li)[1]/*)[1]/self::p', output, 1
+      assert_xpath '((//ul/li)[1]/*)[2]/self::div/dl', output, 1
+      assert_xpath '((//ul/li)[1]/*)[2]/self::div/dl/dt', output, 2
+      assert_xpath '((//ul/li)[1]/*)[2]/self::div/dl/dd', output, 2
+      (1..2).each do |idx|
+        assert_xpath "(((//ul/li)[1]/*)[2]/self::div/dl/dd)[#{idx}]/*", output, 2
+        assert_xpath "((((//ul/li)[1]/*)[2]/self::div/dl/dd)[#{idx}]/*)[1]/self::p", output, 1
+        assert_xpath "((((//ul/li)[1]/*)[2]/self::div/dl/dd)[#{idx}]/*)[2]/self::div[@class=\"paragraph\"]", output, 1
+      end
+    end
+
     # NOTE this is not consistent w/ AsciiDoc output, but this is some screwy input anyway
 =begin
     test "consecutive list continuation lines are folded" do
@@ -1606,10 +1676,40 @@ List
       assert_xpath '(//ol)[1]/li', output, 2
       assert_xpath '(//ol)[2]/li', output, 1
     end
+
+    test 'should use start number in docbook4.5 backend' do
+      input = <<-EOS
+== List
+
+[start=7]
+. item 7
+. item 8
+      EOS
+
+      output = render_embedded_string input, :backend => 'docbook45'
+      assert_xpath '//orderedlist', output, 1
+      assert_xpath '(//orderedlist)/listitem', output, 2
+      assert_xpath '(//orderedlist/listitem)[1][@override = "7"]', output, 1
+    end
+
+    test 'should use start number in docbook5 backend' do
+      input = <<-EOS
+== List
+
+[start=7]
+. item 7
+. item 8
+      EOS
+
+      output = render_embedded_string input, :backend => 'docbook5'
+      assert_xpath '//orderedlist', output, 1
+      assert_xpath '(//orderedlist)/listitem', output, 2
+      assert_xpath '(//orderedlist)[@startingnumber = "7"]', output, 1
+    end
   end
 end
 
-context "Labeled lists (:dlist)" do
+context "Description lists (:dlist)" do
   context "Simple lists" do
     test "single-line adjacent elements" do
       input = <<-EOS
@@ -2382,8 +2482,23 @@ term:: def
       assert_css 'table', output, 1
       assert_css 'table > colgroup', output, 1
       assert_css 'table > colgroup > col', output, 2
-      assert_xpath '(//table/colgroup/col)[1][@style="width:25%;"]', output, 1
-      assert_xpath '(//table/colgroup/col)[2][@style="width:75%;"]', output, 1
+      assert_xpath '(//table/colgroup/col)[1][@style="width: 25%;"]', output, 1
+      assert_xpath '(//table/colgroup/col)[2][@style="width: 75%;"]', output, 1
+    end
+
+    test 'should set col widths of item and label in docbook if specified' do
+      input = <<-EOS
+[horizontal]
+[labelwidth="25", itemwidth="75"]
+term:: def
+      EOS
+
+      output = render_embedded_string input, :backend => 'docbook'
+      assert_css 'informaltable', output, 1
+      assert_css 'informaltable > tgroup', output, 1
+      assert_css 'informaltable > tgroup > colspec', output, 2
+      assert_xpath '(/informaltable/tgroup/colspec)[1][@colwidth="25*"]', output, 1
+      assert_xpath '(/informaltable/tgroup/colspec)[2][@colwidth="75*"]', output, 1
     end
 
     test 'should add strong class to label if strong option is set' do
@@ -2459,6 +2574,8 @@ Question 1::
         Answer 1.
 Question 2::
         Answer 2.
++
+NOTE: A note about Answer 2.
       EOS
       output = render_embedded_string input
       assert_css '.qlist.qanda', output, 1
@@ -2471,6 +2588,7 @@ Question 2::
         assert_css ".qanda > ol > li:nth-child(#{idx}) > p:last-child > *", output, 0
         assert_xpath "/*[@class = 'qlist qanda']/ol/li[#{idx}]/p[2][normalize-space(text()) = 'Answer #{idx}.']", output, 1
       end
+      assert_xpath "/*[@class = 'qlist qanda']/ol/li[2]/p[2]/following-sibling::div[@class='admonitionblock note']", output, 1
     end
 
     test 'should render qanda list in DocBook with proper semantics' do
@@ -2480,6 +2598,8 @@ Question 1::
         Answer 1.
 Question 2::
         Answer 2.
++
+NOTE: A note about Answer 2.
       EOS
       output = render_embedded_string input, :backend => 'docbook'
       assert_css 'qandaset', output, 1
@@ -2492,6 +2612,7 @@ Question 2::
         assert_css "qandaset > qandaentry:nth-child(#{idx}) > answer > simpara", output, 1
         assert_xpath "/qandaset/qandaentry[#{idx}]/answer/simpara[normalize-space(text()) = 'Answer #{idx}.']", output, 1
       end
+      assert_xpath "/qandaset/qandaentry[2]/answer/simpara/following-sibling::note", output, 1
     end
 
     test 'consecutive questions should share same question element in docbook' do
@@ -2531,10 +2652,29 @@ last question::
       text = xmlnodes_at_xpath '(//a)[1]/following-sibling::text()', output, 1
       assert text.text.start_with?('[taoup] ')
     end
+
+    test 'should render bibliography list with proper semantics to DocBook' do
+      input = <<-EOS
+[bibliography]
+- [[[taoup]]] Eric Steven Raymond. 'The Art of Unix
+  Programming'. Addison-Wesley. ISBN 0-13-142901-9.
+- [[[walsh-muellner]]] Norman Walsh & Leonard Muellner.
+  'DocBook - The Definitive Guide'. O'Reilly & Associates. 1999.
+  ISBN 1-56592-580-7.
+      EOS
+      output = render_embedded_string input, :backend => 'docbook'
+      assert_css 'bibliodiv', output, 1
+      assert_css 'bibliodiv > bibliomixed', output, 2
+      assert_css 'bibliodiv > bibliomixed > bibliomisc', output, 2
+      assert_css 'bibliodiv > bibliomixed:nth-child(1) > bibliomisc > anchor', output, 1
+      assert_css 'bibliodiv > bibliomixed:nth-child(1) > bibliomisc > anchor[xreflabel="[taoup]"]', output, 1
+      assert_css 'bibliodiv > bibliomixed:nth-child(2) > bibliomisc > anchor', output, 1
+      assert_css 'bibliodiv > bibliomixed:nth-child(2) > bibliomisc > anchor[xreflabel="[walsh-muellner]"]', output, 1
+    end
   end
 end
 
-context 'Labeled lists redux' do
+context 'Description lists redux' do
 
   context 'Label without text on same line' do
 
@@ -2674,7 +2814,7 @@ term1::
       output = render_embedded_string input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
-      assert_xpath %(//*[@class="dlist"]//dd/p/em[text()="'"]), output, 1
+      assert_xpath %(//*[@class="dlist"]//dd/p[text()="'''"]), output, 1
     end
   
     test 'folds text that looks like ruler offset by blank line and line comment' do
@@ -2690,7 +2830,7 @@ term1::
       output = render_embedded_string input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
-      assert_xpath %(//*[@class="dlist"]//dd/p/em[text()="'"]), output, 1
+      assert_xpath %(//*[@class="dlist"]//dd/p[text()="'''"]), output, 1
     end
   
     test 'folds text that looks like ruler and the line following it offset by blank line' do
@@ -2706,8 +2846,7 @@ continued
       output = render_embedded_string input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
-      assert_xpath %(//*[@class="dlist"]//dd/p/em[text()="'"]), output, 1
-      assert_xpath %(//*[@class="dlist"]//dd/p[normalize-space(text())="continued"]), output, 1
+      assert_xpath %(//*[@class="dlist"]//dd/p[normalize-space(text())="''' continued"]), output, 1
     end
   
     test 'folds text that looks like title offset by blank line' do
@@ -2754,6 +2893,22 @@ NOTE: def1
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p[text()="NOTE: def1"]', output, 1
+    end
+
+    test 'folds text that looks like section title offset by blank line' do
+      input = <<-EOS
+== Lists
+
+term1::
+
+== Another Section
+      EOS
+  
+      output = render_embedded_string input
+      assert_xpath '//*[@class="dlist"]/dl', output, 1
+      assert_xpath '//*[@class="dlist"]//dd', output, 1
+      assert_xpath '//*[@class="dlist"]//dd/p[text()="== Another Section"]', output, 1
+      assert_xpath '//h2', output, 1
     end
   
     test 'folds text of first literal line offset by blank line appends subsequent literals offset by blank line as blocks' do
@@ -3775,9 +3930,9 @@ exit 0
     EOS
     output = render_embedded_string input
     assert_xpath '//code/b', output, 6
-    assert_match(/ <b>\(1\)<\/b>$/, output)
-    assert_match(/ <b>\(2\)<\/b> <b>\(3\)<\/b> <b>\(4\)<\/b>$/, output)
-    assert_match(/ <b>\(5\)<\/b><b>\(6\)<\/b>$/, output)
+    assert_match(/ <b class="conum">\(1\)<\/b>$/, output)
+    assert_match(/ <b class="conum">\(2\)<\/b> <b class="conum">\(3\)<\/b> <b class="conum">\(4\)<\/b>$/, output)
+    assert_match(/ <b class="conum">\(5\)<\/b><b class="conum">\(6\)<\/b>$/, output)
   end
 
   test 'should allow XML comment-style callouts' do
@@ -3835,30 +3990,56 @@ foo::
     assert_xpath '//ol/li/p[text()="Not pointing to a callout"]', output, 1
   end
 
-  test 'should remove leading line comment chars' do
+  test 'should remove line comment chars that precedes callout number' do
     input = <<-EOS
+[source,ruby]
 ----
 puts 'Hello, world!' # <1>
 ----
 <1> Ruby
 
+[source,groovy]
 ----
 println 'Hello, world!' // <1>
 ----
 <1> Groovy
 
+[source,clojure]
 ----
 (def hello (fn [] "Hello, world!")) ;; <1>
 (hello)
 ----
 <1> Clojure
+
+[source,haskell]
+----
+main = putStrLn "Hello, World!" -- <1>
+----
+<1> Haskell
+    EOS
+    [{}, {'source-highlighter' => 'coderay'}].each do |attributes|
+      output = render_embedded_string input, :attributes => attributes
+      assert_xpath '//b', output, 4
+      nodes = xmlnodes_at_css 'pre', output 
+      assert_equal %(puts 'Hello, world!' (1)), nodes[0].text
+      assert_equal %(println 'Hello, world!' (1)), nodes[1].text
+      assert_equal %((def hello (fn [] "Hello, world!")) (1)\n(hello)), nodes[2].text
+      assert_equal %(main = putStrLn "Hello, World!" (1)), nodes[3].text
+    end
+  end
+
+  test 'should allow line comment chars that precede callout number to be specified' do
+    input = <<-EOS
+[source,erlang,line-comment=%]
+----
+hello_world() -> io:fwrite("hello, world\n"). % <1>
+----
+<1> Erlang
     EOS
     output = render_embedded_string input
-    assert_xpath '//b', output, 3
+    assert_xpath '//b', output, 1
     nodes = xmlnodes_at_css 'pre', output 
-    assert_equal "puts 'Hello, world!' (1)", nodes[0].text
-    assert_equal "println 'Hello, world!' (1)", nodes[1].text
-    assert_equal %((def hello (fn [] "Hello, world!")) (1)\n(hello)), nodes[2].text
+    assert_equal %(hello_world() -> io:fwrite("hello, world\n"). (1)), nodes[0].text
   end
 
   test 'literal block with callouts' do
@@ -3938,14 +4119,18 @@ context 'Checklists' do
     input = <<-EOS
 - [ ] todo
 - [x] done
+- [ ] another todo
+- [*] another done
 - plain
     EOS
 
     output = render_embedded_string input
     assert_css '.ulist.checklist', output, 1
-    assert_css '.ulist.checklist li input[type="checkbox"][disabled]', output, 2
-    assert_css '.ulist.checklist li input[type="checkbox"][checked]', output, 1
-    assert_xpath '(/*[@class="ulist checklist"]/ul/li)[3]/p[text()="plain"]', output, 1
+    assert_xpath %((/*[@class="ulist checklist"]/ul/li)[1]/p[text()="#{expand_entity 10063} todo"]), output, 1
+    assert_xpath %((/*[@class="ulist checklist"]/ul/li)[2]/p[text()="#{expand_entity 10003} done"]), output, 1
+    assert_xpath %((/*[@class="ulist checklist"]/ul/li)[3]/p[text()="#{expand_entity 10063} another todo"]), output, 1
+    assert_xpath %((/*[@class="ulist checklist"]/ul/li)[4]/p[text()="#{expand_entity 10003} another done"]), output, 1
+    assert_xpath '(/*[@class="ulist checklist"]/ul/li)[5]/p[text()="plain"]', output, 1
   end
 
   test 'should create checklist with font icons if at least one item has checkbox syntax and icons attribute is font' do
@@ -3957,8 +4142,8 @@ context 'Checklists' do
 
     output = render_embedded_string input, :attributes => {'icons' => 'font'}
     assert_css '.ulist.checklist', output, 1
-    assert_css '.ulist.checklist li i.icon-check', output, 1
-    assert_css '.ulist.checklist li i.icon-check-empty', output, 1
+    assert_css '.ulist.checklist li i.fa-check-square-o', output, 1
+    assert_css '.ulist.checklist li i.fa-square-o', output, 1
     assert_xpath '(/*[@class="ulist checklist"]/ul/li)[3]/p[text()="plain"]', output, 1
   end
 

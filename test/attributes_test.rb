@@ -1,4 +1,8 @@
-require 'test_helper'
+# encoding: UTF-8
+unless defined? ASCIIDOCTOR_PROJECT_DIR
+  $: << File.dirname(__FILE__); $:.uniq!
+  require 'test_helper'
+end
 
 context 'Attributes' do
   context 'Assignment' do
@@ -12,7 +16,7 @@ context 'Attributes' do
       assert_equal nil, doc.attributes['foo']
     end
 
-    test 'creates an attribute by fusing a multi-line value' do
+    test 'creates an attribute by fusing a legacy multi-line value' do
       str = <<-EOS
 :description: This is the first      +
               Ruby implementation of +
@@ -20,6 +24,26 @@ context 'Attributes' do
       EOS
       doc = document_from_string(str)
       assert_equal 'This is the first Ruby implementation of AsciiDoc.', doc.attributes['description']
+    end
+
+    test 'creates an attribute by fusing a multi-line value' do
+      str = <<-EOS
+:description: This is the first \\
+              Ruby implementation of \\
+              AsciiDoc.
+      EOS
+      doc = document_from_string(str)
+      assert_equal 'This is the first Ruby implementation of AsciiDoc.', doc.attributes['description']
+    end
+
+    test 'honors line break characters in multi-line values' do
+      str = <<-EOS
+:signature: Linus Torvalds + \\
+Linux Hacker + \\
+linus.torvalds@example.com
+      EOS
+      doc = document_from_string(str)
+      assert_equal %(Linus Torvalds +\nLinux Hacker +\nlinus.torvalds@example.com), doc.attributes['signature']
     end
 
     test 'should delete an attribute that ends with !' do
@@ -72,6 +96,62 @@ context 'Attributes' do
       assert_equal '', doc.attributes['release']
     end
 
+    test 'resolves attributes inside attribute value within header' do
+      input = <<-EOS
+= Document Title
+:big: big
+:bigfoot: {big}foot
+
+{bigfoot}
+      EOS
+
+      result = render_embedded_string input
+      assert result.include? 'bigfoot'
+    end
+
+    test 'resolves attributes and pass macro inside attribute value outside header' do
+      input = <<-EOS
+= Document Title
+
+content
+
+:big: pass:a,q[_big_]
+:bigfoot: {big}foot
+{bigfoot}
+      EOS
+
+      result = render_embedded_string input
+      assert result.include? '<em>big</em>foot'
+    end
+
+    test 'resolves user-home attribute if safe mode is less than SERVER' do
+      input = <<-EOS
+:imagesdir: {user-home}/etc/images
+
+{imagesdir}
+EOS
+      output = render_embedded_string input, :doctype => :inline, :safe => :safe
+      if RUBY_VERSION >= '1.9'
+        assert_equal %(#{Dir.home}/etc/images), output
+      else
+        assert_equal %(#{ENV['HOME']}/etc/images), output
+      end
+    end
+
+    test 'user-home attribute resolves to . if safe mode is SERVER or greater' do
+      input = <<-EOS
+:imagesdir: {user-home}/etc/images
+
+{imagesdir}
+EOS
+      output = render_embedded_string input, :doctype => :inline, :safe => :server
+      if RUBY_VERSION >= '1.9'
+        assert_equal %(./etc/images), output
+      else
+        assert_equal %(./etc/images), output
+      end
+    end
+
     test "apply custom substitutions to text in passthrough macro and assign to attribute" do
       doc = document_from_string(":xml-busters: pass:[<>&]")
       assert_equal '<>&', doc.attributes['xml-busters']
@@ -117,12 +197,97 @@ endif::holygrail[]
       assert_equal nil, doc.attributes['cash']
     end
 
+    test 'backend and doctype attributes are set by default in default configuration' do
+      input = <<-EOS
+= Document Title
+Author Name
+
+content
+      EOS
+
+      doc = document_from_string input
+      expect = {
+        'backend' => 'html5',
+        'backend-html5' => '',
+        'backend-html5-doctype-article' => '',
+        'outfilesuffix' => '.html',
+        'basebackend' => 'html',
+        'basebackend-html' => '',
+        'basebackend-html-doctype-article' => '',
+        'doctype' => 'article',
+        'doctype-article' => '',
+        'filetype' => 'html',
+        'filetype-html' => ''
+      }
+      expect.each do |key, val|
+        assert doc.attributes.key? key
+        assert_equal val, doc.attributes[key]
+      end
+    end
+
+    test 'backend and doctype attributes are set by default in custom configuration' do
+      input = <<-EOS
+= Document Title
+Author Name
+
+content
+      EOS
+
+      doc = document_from_string input, :doctype => 'book', :backend => 'docbook'
+      expect = {
+        'backend' => 'docbook5',
+        'backend-docbook5' => '',
+        'backend-docbook5-doctype-book' => '',
+        'outfilesuffix' => '.xml',
+        'basebackend' => 'docbook',
+        'basebackend-docbook' => '',
+        'basebackend-docbook-doctype-book' => '',
+        'doctype' => 'book',
+        'doctype-book' => '',
+        'filetype' => 'xml',
+        'filetype-xml' => ''
+      }
+      expect.each do |key, val|
+        assert doc.attributes.key? key
+        assert_equal val, doc.attributes[key]
+      end
+    end
+
     test 'backend attributes are updated if backend attribute is defined in document and safe mode is less than SERVER' do
-      doc = document_from_string(':backend: docbook45', :safe => Asciidoctor::SafeMode::SAFE)
-      assert_equal 'docbook45', doc.attributes['backend']
-      assert doc.attributes.has_key? 'backend-docbook45'
-      assert_equal 'docbook', doc.attributes['basebackend']
-      assert doc.attributes.has_key? 'basebackend-docbook'
+      input = <<-EOS
+= Document Title
+Author Name
+:backend: docbook
+:doctype: book
+
+content
+      EOS
+
+      doc = document_from_string input, :safe => Asciidoctor::SafeMode::SAFE
+      expect = {
+        'backend' => 'docbook5',
+        'backend-docbook5' => '',
+        'backend-docbook5-doctype-book' => '',
+        'outfilesuffix' => '.xml',
+        'basebackend' => 'docbook',
+        'basebackend-docbook' => '',
+        'basebackend-docbook-doctype-book' => '',
+        'doctype' => 'book',
+        'doctype-book' => '',
+        'filetype' => 'xml',
+        'filetype-xml' => ''
+      }
+      expect.each do |key, val|
+        assert doc.attributes.key?(key)
+        assert_equal val, doc.attributes[key]
+      end
+
+      assert !doc.attributes.key?('backend-html5')
+      assert !doc.attributes.key?('backend-html5-doctype-article')
+      assert !doc.attributes.key?('basebackend-html')
+      assert !doc.attributes.key?('basebackend-html-doctype-article')
+      assert !doc.attributes.key?('doctype-article')
+      assert !doc.attributes.key?('filetype-html')
     end
 
     test 'backend attributes defined in document options overrides backend attribute in document' do
@@ -133,6 +298,50 @@ endif::holygrail[]
       assert doc.attributes.has_key? 'basebackend-html'
     end
 
+    test 'set_attr should not overwrite existing key if overwrite is false' do
+      node = Asciidoctor::Block.new nil, :paragraph, :attributes => { 'foo' => 'bar' }
+      assert_equal 'bar', (node.attr 'foo')
+      node.set_attr 'foo', 'baz', false
+      assert_equal 'bar', (node.attr 'foo')
+    end
+
+    test 'set_attr should overwrite existing key by default' do
+      node = Asciidoctor::Block.new nil, :paragraph, :attributes => { 'foo' => 'bar' }
+      assert_equal 'bar', (node.attr 'foo')
+      node.set_attr 'foo', 'baz'
+      assert_equal 'baz', (node.attr 'foo')
+    end
+
+    test 'verify toc attribute matrix' do
+      expected_data = <<-EOS
+#attributes                               |toc|toc-position|toc-placement|toc-class
+toc                                       |   |nil         |auto         |nil
+toc=header                                |   |nil         |auto         |nil
+toc=beeboo                                |   |nil         |auto         |nil
+toc=left                                  |   |left        |auto         |toc2
+toc2                                      |   |left        |auto         |toc2
+toc=right                                 |   |right       |auto         |toc2
+toc=preamble                              |   |content     |preamble     |nil
+toc=macro                                 |   |content     |macro        |nil
+toc toc-placement=macro toc-position=left |   |content     |macro        |nil
+toc toc-placement!                        |   |content     |macro        |nil
+      EOS
+
+      expected = expected_data.strip.lines.map {|l|
+        next if l.start_with? '#'
+        l.split('|').map {|e| (e = e.strip) == 'nil' ? nil : e }
+      }.compact
+
+      expected.each do |expect|
+        raw_attrs, toc, toc_position, toc_placement, toc_class = expect
+        attrs = Hash[*(raw_attrs.split ' ').map {|e| e.include?('=') ? e.split('=') : [e, ''] }.flatten]
+        doc = document_from_string '', :attributes => attrs
+        toc ? (assert doc.attr?('toc', toc)) : (assert !doc.attr?('toc')) 
+        toc_position ? (assert doc.attr?('toc-position', toc_position)) : (assert !doc.attr?('toc-position')) 
+        toc_placement ? (assert doc.attr?('toc-placement', toc_placement)) : (assert !doc.attr?('toc-placement')) 
+        toc_class ? (assert doc.attr?('toc-class', toc_class)) : (assert !doc.attr?('toc-class')) 
+      end
+    end
   end
 
   context 'Interpolation' do
@@ -184,7 +393,7 @@ all there is.
       EOS
       html = render_embedded_string input
       result = Nokogiri::HTML(html)
-      assert_no_match(/blah blah/m, result.css("p").first.content.strip)
+      refute_match(/blah blah/m, result.css("p").first.content.strip)
     end
 
     test "attribute value gets interpretted when rendering" do
@@ -204,7 +413,7 @@ Line 2: Oh no, a {bogus-attribute}! This line should not appear in the output.
 
       output = render_embedded_string input
       assert_match(/Line 1/, output)
-      assert_no_match(/Line 2/, output)
+      refute_match(/Line 2/, output)
     end
 
     test 'should not drop line with reference to missing attribute by default' do
@@ -229,7 +438,7 @@ Line 2: {set:a!}This line should not appear in the output.
 
       output = render_embedded_string input
       assert_match(/Line 1/, output)
-      assert_no_match(/Line 2/, output)
+      refute_match(/Line 2/, output)
     end
 
     test 'should not drop line with attribute unassignment if attribute-undefined is drop' do
@@ -244,7 +453,7 @@ Line 2: {set:a!}This line should not appear in the output.
       output = render_embedded_string input
       assert_match(/Line 1/, output)
       assert_match(/Line 2/, output)
-      assert_no_match(/\{set:a!\}/, output)
+      refute_match(/\{set:a!\}/, output)
     end
 
     test "substitutes inside unordered list items" do
@@ -330,6 +539,15 @@ v1.0, 2010-01-01: First release!
 .Require the +{gem_name}+ gem
 To use {gem_name}, the first thing to do is to import it in your Ruby source file.
       EOS
+      output = render_embedded_string input, :attributes => {'compat-mode' => ''}
+      assert_xpath '//*[@class="title"]/code[text()="asciidoctor"]', output, 1
+
+      input = <<-EOS
+:gem_name: asciidoctor
+
+.Require the `{gem_name}` gem
+To use {gem_name}, the first thing to do is to import it in your Ruby source file.
+      EOS
       output = render_embedded_string input
       assert_xpath '//*[@class="title"]/code[text()="asciidoctor"]', output, 1
     end
@@ -347,6 +565,30 @@ Belly up to the {foo}.
       output = render_embedded_string input
       assert_xpath '//p[text()="Crossing the bar."]', output, 1
       assert_xpath '//p[text()="Belly up to the bar."]', output, 0
+    end
+
+    test 'should allow compat-mode to be set and unset in middle of document' do
+      input = <<-EOS
+:foo: bar
+
+[[paragraph-a]]
+`{foo}`
+
+:compat-mode!:
+
+[[paragraph-b]]
+`{foo}`
+
+:compat-mode:
+
+[[paragraph-c]]
+`{foo}`
+      EOS
+
+      result = render_embedded_string input, :attributes => {'compat-mode' => '@'}
+      assert_xpath '/*[@id="paragraph-a"]//code[text()="{foo}"]', result, 1
+      assert_xpath '/*[@id="paragraph-b"]//code[text()="bar"]', result, 1
+      assert_xpath '/*[@id="paragraph-c"]//code[text()="{foo}"]', result, 1
     end
 
     test 'does not disturb attribute-looking things escaped with backslash' do
@@ -450,7 +692,7 @@ of the attribute named foo in your document.
   context "Intrinsic attributes" do
 
     test "substitute intrinsics" do
-      Asciidoctor::INTRINSICS.each_pair do |key, value|
+      Asciidoctor::INTRINSIC_ATTRIBUTES.each_pair do |key, value|
         html = render_string("Look, a {#{key}} is here")
         # can't use Nokogiri because it interprets the HTML entities and we can't match them
         assert_match(/Look, a #{Regexp.escape(value)} is here/, html)
@@ -539,10 +781,56 @@ of the attribute named foo in your document.
       assert_xpath '//p[text()="A"]', output, 2
     end
     
+    test 'counter uses 0 as seed value if seed attribute is nil' do
+      input = <<-EOS
+:mycounter:
+
+{counter:mycounter}
+
+{mycounter}
+      EOS
+
+      doc = document_from_string input
+      output = doc.render :header_footer => false
+      assert_equal 1, doc.attributes['mycounter']
+      assert_xpath '//p[text()="1"]', output, 2
+    end
+
+    test 'counter value can be reset by attribute entry' do
+      input = <<-EOS
+:mycounter:
+
+before: {counter:mycounter} {counter:mycounter} {counter:mycounter}
+
+:mycounter!:
+
+after: {counter:mycounter}
+      EOS
+
+      doc = document_from_string input
+      output = doc.render :header_footer => false
+      assert_equal 1, doc.attributes['mycounter']
+      assert_xpath '//p[text()="before: 1 2 3"]', output, 1
+      assert_xpath '//p[text()="after: 1"]', output, 1
+    end
   end
 
   context 'Block attributes' do
-    test 'Positional attributes assigned to block' do
+    test 'parses attribute names as name token' do
+      input = <<-EOS
+[normal,foo="bar",_foo="_bar",foo1="bar1",foo-foo="bar-bar",foo.foo="bar.bar"]
+content
+      EOS
+
+      block = block_from_string input
+      assert_equal 'bar', block.attr('foo') 
+      assert_equal '_bar', block.attr('_foo') 
+      assert_equal 'bar1', block.attr('foo1') 
+      assert_equal 'bar-bar', block.attr('foo-foo') 
+      assert_equal 'bar.bar', block.attr('foo.foo') 
+    end
+
+    test 'positional attributes assigned to block' do
       input = <<-EOS
 [quote, author, source]
 ____
@@ -558,7 +846,7 @@ ____
       assert_equal 'source', qb.attributes['citetitle']
     end
 
-    test 'Normal substitutions are performed on single-quoted attributes' do
+    test 'normal substitutions are performed on single-quoted positional attribute' do
       input = <<-EOS
 [quote, author, 'http://wikipedia.org[source]']
 ____
@@ -572,6 +860,31 @@ ____
       assert_equal 'author', qb.attr(:attribution)
       assert_equal 'author', qb.attributes['attribution']
       assert_equal '<a href="http://wikipedia.org">source</a>', qb.attributes['citetitle']
+    end
+
+    test 'normal substitutions are performed on single-quoted named attribute' do
+      input = <<-EOS
+[quote, author, citetitle='http://wikipedia.org[source]']
+____
+A famous quote.
+____
+      EOS
+      doc = document_from_string(input)
+      qb = doc.blocks.first
+      assert_equal 'quote', qb.style
+      assert_equal 'author', qb.attr('attribution')
+      assert_equal 'author', qb.attr(:attribution)
+      assert_equal 'author', qb.attributes['attribution']
+      assert_equal '<a href="http://wikipedia.org">source</a>', qb.attributes['citetitle']
+    end
+
+    test 'normal substitutions are performed once on single-quoted named title attribute' do
+      input = <<-EOS
+[title='*title*']
+content
+      EOS
+      output = render_embedded_string input
+      assert_xpath '//*[@class="title"]/strong[text()="title"]', output, 1
     end
 
     test 'attribute list may begin with space' do
@@ -632,6 +945,17 @@ ____
       assert_equal 'author', qb.attributes['attribution']
       assert_equal 'source', qb.attributes['citetitle']
       assert_equal 'famous', qb.attributes['role']
+    end
+
+    test 'attribute with value None without quotes is ignored' do
+      input = <<-EOS
+[id=None]
+paragraph
+      EOS
+
+      doc = document_from_string input
+      para = doc.blocks.first
+      assert !para.attributes.has_key?('id')
     end
 
     test 'role? returns true if role is assigned' do
@@ -752,6 +1076,24 @@ Content.
       output = render_embedded_string input
       assert_xpath '/div[@class="sect1 small"]', output, 1
       assert_xpath '/div[@class="sect1 small"]/h2[@id="dedication"]', output, 1
+    end
+
+    test 'id attribute specified using shorthand syntax should not create a special section' do
+      input = <<-EOS
+[#idname]
+== Section
+
+content
+      EOS
+
+      doc = document_from_string input, :backend => 'docbook45'
+      section = doc.blocks[0]
+      refute_nil section
+      assert_equal :section, section.context
+      assert !section.special
+      output = doc.convert
+      assert_css 'section', output, 1
+      assert_css 'section#idname', output, 1
     end
 
     test "Block attributes are additive" do

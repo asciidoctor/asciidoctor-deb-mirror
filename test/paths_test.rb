@@ -1,4 +1,8 @@
-require 'test_helper'
+# encoding: UTF-8
+unless defined? ASCIIDOCTOR_PROJECT_DIR
+  $: << File.dirname(__FILE__); $:.uniq!
+  require 'test_helper'
+end
 
 context 'Path Resolver' do
   context 'Web Paths' do
@@ -16,6 +20,12 @@ context 'Path Resolver' do
       assert_equal 'images', @resolver.web_path('images')
       assert_equal 'images', @resolver.web_path('images', '')
       assert_equal 'images', @resolver.web_path('images', nil)
+    end
+
+    test 'target with hidden relative path' do
+      assert_equal '.images', @resolver.web_path('.images')
+      assert_equal '.images', @resolver.web_path('.images', '')
+      assert_equal '.images', @resolver.web_path('.images', nil)
     end
 
     test 'target with path relative to current directory' do
@@ -45,6 +55,16 @@ context 'Path Resolver' do
     test 'target with relative path appended to url start path' do
       assert_equal 'http://www.example.com/assets/images', @resolver.web_path('images', 'http://www.example.com/assets')
     end
+
+    # enable if we want to allow web_path to detect and preserve a target URI
+    #test 'target with file url appended to relative path' do
+    #  assert_equal 'file:///home/username/styles/asciidoctor.css', @resolver.web_path('file:///home/username/styles/asciidoctor.css', '.')
+    #end
+
+    # enable if we want to allow web_path to detect and preserve a target URI
+    #test 'target with http url appended to relative path' do
+    #  assert_equal 'http://example.com/asciidoctor.css', @resolver.web_path('http://example.com/asciidoctor.css', '.')
+    #end
 
     test 'normalize target' do
       assert_equal '../images', @resolver.web_path('../images/../images')
@@ -150,10 +170,20 @@ context 'Path Resolver' do
       assert_equal '/usr/share/assets/stylesheet.css', @resolver.system_path('assets/stylesheet.css', '/usr/share')
     end
 
+    test 'resolves absolute UNC path if start is absolute and target is relative' do
+      assert_equal '//QA/c$/users/asciidoctor/assets/stylesheet.css', @resolver.system_path('assets/stylesheet.css', '//QA/c$/users/asciidoctor')
+    end
+
     test 'resolves relative target relative to current directory if start is empty' do
       pwd = File.expand_path(Dir.pwd)
       assert_equal "#{pwd}/images/tiger.png", @resolver.system_path('images/tiger.png', '')
       assert_equal "#{pwd}/images/tiger.png", @resolver.system_path('images/tiger.png', nil)
+    end
+
+    test 'resolves relative hidden target relative to current directory if start is empty' do
+      pwd = File.expand_path(Dir.pwd)
+      assert_equal "#{pwd}/.images/tiger.png", @resolver.system_path('.images/tiger.png', '')
+      assert_equal "#{pwd}/.images/tiger.png", @resolver.system_path('.images/tiger.png', nil)
     end
 
     test 'resolves and normalizes start with target is empty' do
@@ -180,6 +210,21 @@ context 'Path Resolver' do
       assert_equal "#{JAIL}/part1/chapter1/section1.adoc", filename
       assert_equal 'part1/chapter1/section1.adoc', @resolver.relative_path(filename, JAIL)
     end
+
+    test 'should resolve relative path relative to base dir in unsafe mode' do
+      base_dir = fixture_path 'base'
+      doc = empty_document :base_dir => base_dir, :safe => Asciidoctor::SafeMode::UNSAFE
+      expected = ::File.join base_dir, 'images', 'tiger.png'
+      actual = doc.normalize_system_path 'tiger.png', 'images'
+      assert_equal expected, actual
+    end
+
+    test 'should resolve absolute path as absolute in unsafe mode' do
+      base_dir = fixture_path 'base'
+      doc = empty_document :base_dir => base_dir, :safe => Asciidoctor::SafeMode::UNSAFE
+      actual = doc.normalize_system_path 'tiger.png', '/etc/images'
+      assert_equal '/etc/images/tiger.png', actual
+    end
   end
 
   context 'Helpers' do
@@ -191,6 +236,17 @@ context 'Path Resolver' do
     test 'rootname should file name if it has no extension' do
       assert_equal 'master', Asciidoctor::Helpers.rootname('master')
       assert_equal 'docs/master', Asciidoctor::Helpers.rootname('docs/master')
+    end
+
+    test 'UriSniffRx should detect URIs' do
+      assert Asciidoctor::UriSniffRx =~ 'http://example.com'
+      assert Asciidoctor::UriSniffRx =~ 'https://example.com'
+      assert Asciidoctor::UriSniffRx =~ 'data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs='
+    end
+
+    test 'UriSniffRx should not detect an absolute Windows path as a URI' do
+      assert Asciidoctor::UriSniffRx !~ 'c:/sample.adoc'
+      assert Asciidoctor::UriSniffRx !~ 'c:\\sample.adoc'
     end
   end
 end

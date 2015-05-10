@@ -1,19 +1,34 @@
+# encoding: UTF-8
+ASCIIDOCTOR_PROJECT_DIR = File.dirname File.dirname(__FILE__)
+Dir.chdir ASCIIDOCTOR_PROJECT_DIR
+
 if RUBY_VERSION < '1.9'
   require 'rubygems'
 end
-require 'fileutils'
-require 'pathname'
-require 'test/unit'
 
-require "#{File.expand_path(File.dirname(__FILE__))}/../lib/asciidoctor.rb"
+require 'simplecov' if ENV['COVERAGE'] == 'true'
 
+require File.join(ASCIIDOCTOR_PROJECT_DIR, 'lib', 'asciidoctor')
+
+require 'minitest/autorun'
+require 'socket'
 require 'nokogiri'
+require 'tmpdir'
 
-ENV['SUPPRESS_DEBUG'] ||= 'true'
+autoload :FileUtils, 'fileutils'
+autoload :Pathname,  'pathname'
 
 RE_XMLNS_ATTRIBUTE = / xmlns="[^"]+"/
+RE_DOCTYPE = /\s*<!DOCTYPE (.*)/
 
-class Test::Unit::TestCase
+if defined? Minitest::Test
+  # We're on Minitest 5+. Nothing to do here.
+else
+  # Minitest 4 doesn't have Minitest::Test yet.
+  Minitest::Test = MiniTest::Unit::TestCase
+end
+
+class Minitest::Test
   def windows?
     RbConfig::CONFIG['host_os'] =~ /win|ming/
   end
@@ -23,7 +38,11 @@ class Test::Unit::TestCase
   end
 
   def empty_document options = {}
-    Asciidoctor::Document.new [], options
+    if options[:parse]
+      (Asciidoctor::Document.new [], options).parse
+    else
+      Asciidoctor::Document.new [], options
+    end
   end
 
   def empty_safe_document options = {}
@@ -128,13 +147,10 @@ class Test::Unit::TestCase
   end
 
   def xmldoc_from_string(content)
-    doctype_match = content.match(/\s*<!DOCTYPE (.*)/)
-    if !doctype_match
-      if content.match(RE_XMLNS_ATTRIBUTE)
-        doc = Nokogiri::XML::Document.parse(content)
-      else
-        doc = Nokogiri::HTML::DocumentFragment.parse(content)
-      end
+    if content.match(RE_XMLNS_ATTRIBUTE)
+      doc = Nokogiri::XML::Document.parse(content)
+    elsif !(doctype_match = content.match(RE_DOCTYPE))
+      doc = Nokogiri::HTML::DocumentFragment.parse(content)
     elsif doctype_match[1].start_with? 'html'
       doc = Nokogiri::HTML::Document.parse(content)
     else
@@ -144,7 +160,11 @@ class Test::Unit::TestCase
 
   def document_from_string(src, opts = {})
     assign_default_test_options opts
-    Asciidoctor::Document.new(src.lines.entries, opts)
+    if opts[:parse]
+      (Asciidoctor::Document.new src.lines.entries, opts).parse
+    else
+      Asciidoctor::Document.new src.lines.entries, opts
+    end
   end
 
   def block_from_string(src, opts = {})
@@ -171,12 +191,13 @@ class Test::Unit::TestCase
   end
 
   def parse_header_metadata(source)
-    reader = Asciidoctor::Reader.new source.lines.entries
-    [Asciidoctor::Lexer.parse_header_metadata(reader), reader]
+    reader = Asciidoctor::Reader.new source.split ::Asciidoctor::EOL
+    [::Asciidoctor::Parser.parse_header_metadata(reader), reader]
   end
 
   def assign_default_test_options(opts)
-    opts[:header_footer] = true unless opts.has_key?(:header_footer)
+    opts[:header_footer] = true unless opts.key? :header_footer
+    opts[:parse] = true unless opts.key? :parse
     if opts[:header_footer]
       # don't embed stylesheet unless test requests the default behavior
       if opts.has_key? :linkcss_default
@@ -186,7 +207,10 @@ class Test::Unit::TestCase
         opts[:attributes]['linkcss'] = ''
       end
     end
-    #opts[:template_dir] = File.join(File.dirname(__FILE__), '..', '..', 'asciidoctor-backends', 'slim')
+    if (template_dir = ENV['TEMPLATE_DIR'])
+      opts[:template_dir] = template_dir unless opts.has_key? :template_dir
+      #opts[:template_dir] = File.join(File.dirname(__FILE__), '..', '..', 'asciidoctor-backends', 'erb') unless opts.has_key? :template_dir
+    end
     nil
   end
 
@@ -254,30 +278,78 @@ class Test::Unit::TestCase
       $stderr = old_stderr
     end
   end
+
+  def resolve_localhost
+    (RUBY_VERSION < '1.9' || RUBY_ENGINE == 'rbx') ? Socket.gethostname :
+        Socket.ip_address_list.find {|addr| addr.ipv4? }.ip_address
+  end
+
+  def using_test_webserver host = resolve_localhost, port = 9876
+    server = TCPServer.new host, port
+    base_dir = File.expand_path File.dirname __FILE__
+    t = Thread.new do
+      while (session = server.accept)
+        request = session.gets
+        resource = nil
+        if (m = /GET (\S+) HTTP\/1\.1$/.match(request.chomp))
+          resource = (resource = m[1]) == '' ? '.' : resource
+        else
+          session.print %(HTTP/1.1 405 Method Not Allowed\r\nContent-Type: text/plain\r\n\r\n)
+          session.print %(405 - Method not allowed\n)
+          session.close
+          break
+        end
+      
+        if resource == '/name/asciidoctor'
+          session.print %(HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n)
+          session.print %({"name": "asciidoctor"}\n)
+        elsif File.file?(resource_file = (File.join base_dir, resource))
+          mimetype = if (ext = ::File.extname(resource_file)[1..-1])
+            ext == 'adoc' ? 'text/plain' : %(image/#{ext})
+          else
+            'text/plain'
+          end
+          session.print %(HTTP/1.1 200 OK\r\nContent-Type: #{mimetype}\r\n\r\n)
+          File.open resource_file, 'rb' do |fd|
+            until fd.eof? do
+              buffer = fd.read 256
+              session.write buffer
+            end
+          end
+        else
+          session.print %(HTTP/1.1 404 File Not Found\r\nContent-Type: text/plain\r\n\r\n)
+          session.print %(404 - Resource not found.\n)
+        end
+        session.close
+      end
+    end
+    begin
+      yield
+    ensure
+      begin
+        server.shutdown
+      # "Errno::ENOTCONN: Socket is not connected' is reported on some platforms; call #close instead of #shutdown
+      rescue Errno::ENOTCONN
+        server.close
+      end
+      t.exit
+    end
+  end
 end
 
 ###
 # 
-# Context goodness provided by @citrusbyte's contest
+# Context goodness provided by @citrusbyte's contest.
+# See https://github.com/citrusbyte/contest
 #
 ###
-
-# Test::Unit loads a default test if the suite is empty, whose purpose is to
-# fail. Since having empty contexts is a common practice, we decided to
-# overwrite TestSuite#empty? in order to allow them. Having a failure when no
-# tests have been defined seems counter-intuitive.
-class Test::Unit::TestSuite
-  def empty?
-    false
-  end
-end
 
 # Contest adds +teardown+, +test+ and +context+ as class methods, and the
 # instance methods +setup+ and +teardown+ now iterate on the corresponding
 # blocks. Note that all setup and teardown blocks must be defined with the
 # block syntax. Adding setup or teardown instance methods defeats the purpose
 # of this library.
-class Test::Unit::TestCase
+class Minitest::Test
   def self.setup(&block)
     define_method :setup do
       super(&block)
@@ -330,5 +402,5 @@ private
 end
 
 def context(*name, &block)
-  Test::Unit::TestCase.context(name, &block)
+  Minitest::Test.context(name, &block)
 end

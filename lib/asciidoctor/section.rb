@@ -1,3 +1,4 @@
+# encoding: UTF-8
 module Asciidoctor
 # Public: Methods for managing sections of AsciiDoc content in a document.
 # The section responds as an Array of content blocks by delegating
@@ -39,20 +40,15 @@ class Section < AbstractBlock
   # Public: Initialize an Asciidoctor::Section object.
   #
   # parent - The parent Asciidoc Object.
-  def initialize(parent = nil, level = nil, numbered = true)
-    super(parent, :section)
-    @template_name = 'section'
-    if level.nil?
-      if !parent.nil?
-        @level = parent.level + 1
-      elsif @level.nil?
-        @level = 1
-      end
-    else
+  def initialize parent = nil, level = nil, numbered = true, opts = {}
+    super parent, :section, opts
+    if level
       @level = level
+    else
+      @level = parent ? (parent.level + 1) : 1
     end
-    @numbered = numbered && @level > 0 && @level < 4
-    @special = parent.is_a?(Section) && parent.special
+    @numbered = numbered && @level > 0
+    @special = parent && parent.context == :section && parent.special
     @index = 0
     @number = 1
   end
@@ -90,14 +86,14 @@ class Section < AbstractBlock
     if @document.attributes.has_key? 'sectids'
       sep = @document.attributes['idseparator'] || '_'
       pre = @document.attributes['idprefix'] || '_'
-      base_id = %(#{pre}#{title.downcase.gsub(REGEXP[:illegal_sectid_chars], sep).tr_s(sep, sep).chomp(sep)})
+      base_id = %(#{pre}#{title.downcase.gsub(InvalidSectionIdCharsRx, sep).tr_s(sep, sep).chomp(sep)})
       # ensure id doesn't begin with idprefix if requested it doesn't
       if pre.empty? && base_id.start_with?(sep)
         base_id = base_id[1..-1]
         base_id = base_id[1..-1] while base_id.start_with?(sep)
       end
       gen_id = base_id
-      cnt = 2
+      cnt = Compliance.unique_id_start_index
       while @document.references[:ids].has_key? gen_id
         gen_id = "#{base_id}#{sep}#{cnt}"
         cnt += 1
@@ -153,7 +149,7 @@ class Section < AbstractBlock
   # Returns the section number as a String
   def sectnum(delimiter = '.', append = nil)
     append ||= (append == false ? '' : delimiter)
-    if !@level.nil? && @level > 1 && @parent.is_a?(Section)
+    if @level && @level > 1 && @parent && @parent.context == :section
       "#{@parent.sectnum(delimiter)}#{@number}#{append}"
     else
       "#{@number}#{append}"
@@ -167,7 +163,7 @@ class Section < AbstractBlock
   # block - The child Block to append to this parent Block
   #
   # Returns nothing.
-  def <<(block)
+  def << block
     super
     if block.context == :section
       assign_index block
@@ -175,14 +171,11 @@ class Section < AbstractBlock
   end
 
   def to_s
-    if @title
-      if @numbered
-        %[#{super.to_s} - #{sectnum} #@title [blocks:#{@blocks.size}]]
-      else
-        %[#{super.to_s} - #@title [blocks:#{@blocks.size}]]
-      end
+    if @title != nil
+      qualified_title = @numbered ? %(#{sectnum} #{@title}) : @title
+      %(#<#{self.class}@#{object_id} {level: #{@level}, title: #{qualified_title.inspect}, blocks: #{@blocks.size}}>)
     else
-      super.to_s
+      super
     end
   end
 end

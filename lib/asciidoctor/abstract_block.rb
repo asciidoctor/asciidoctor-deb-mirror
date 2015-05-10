@@ -1,3 +1,4 @@
+# encoding: UTF-8
 module Asciidoctor
 class AbstractBlock < AbstractNode
   # Public: The types of content that this block can accomodate
@@ -5,9 +6,6 @@ class AbstractBlock < AbstractNode
 
   # Public: Substitutions to be applied to content in this block
   attr_reader :subs
-
-  # Public: Get/Set the String name of the render template
-  attr_accessor :template_name
 
   # Public: Get the Array of Asciidoctor::AbstractBlock sub-blocks for this block
   attr_reader :blocks
@@ -24,40 +22,72 @@ class AbstractBlock < AbstractNode
   # Public: Get/Set the caption for this block
   attr_accessor :caption
 
-  def initialize(parent, context)
-    super(parent, context)
+  # Public: Gets/Sets the location in the AsciiDoc source where this block begins
+  attr_accessor :source_location
+
+  def initialize parent, context, opts = {}
+    super
     @content_model = :compound
     @subs = []
-    @template_name = "block_#{context}"
+    @default_subs = nil
     @blocks = []
     @id = nil
     @title = nil
     @caption = nil
     @style = nil
-    if context == :document
-      @level = 0
-    elsif !parent.nil? && !self.is_a?(Section)
-      @level = parent.level
-    else
-      @level = nil
+    @level = if context == :document
+      0
+    elsif parent && context != :section
+      parent.level
     end
     @next_section_index = 0
     @next_section_number = 1
+    @source_location = nil
   end
 
-  # Public: Get the rendered String content for this Block.  If the block
+  def block?
+    true
+  end
+
+  def inline?
+    false
+  end
+
+  # Public: Update the context of this block.
+  #
+  # This method changes the context of this block. It also
+  # updates the node name accordingly.
+  def context=(context)
+    @context = context
+    @node_name = context.to_s
+  end
+
+  # Public: Get the converted String content for this Block.  If the block
   # has child blocks, the content method should cause them to be
-  # rendered and returned as content that can be included in the
+  # converted and returned as content that can be included in the
   # parent block's template.
-  def render
+  def convert
     @document.playback_attributes @attributes
-    renderer.render(@template_name, self)
+    converter.convert self
   end
 
-  # Public: Get an rendered version of the block content, rendering the
+  # Alias render to convert to maintain backwards compatibility
+  alias :render :convert
+
+  # Public: Get the converted result of the child blocks by converting the
   # children appropriate to content model that this block supports.
   def content
-    @blocks.map {|b| b.render } * EOL
+    @blocks.map {|b| b.convert } * EOL
+  end
+
+  # Public: Get the source file where this block started
+  def file
+    @source_location ? @source_location.file : nil
+  end
+
+  # Public: Get the source line number where this block started
+  def lineno
+    @source_location ? @source_location.lineno : nil
   end
 
   # Public: A convenience method that checks whether the specified
@@ -74,7 +104,7 @@ class AbstractBlock < AbstractNode
   # Public: A convenience method that indicates whether the title instance
   # variable is blank (nil or empty)
   def title?
-    !@title.to_s.empty?
+    !@title.nil_or_empty?
   end
 
   # Public: Get the String title of this Block with title substitions applied
@@ -138,11 +168,14 @@ class AbstractBlock < AbstractNode
   #   # => 2
   #
   # Returns nothing.
-  def <<(block)
+  def << block
     # parent assignment pending refactor
     #block.parent = self
     @blocks << block
   end
+
+  # NOTE append alias required for adapting to a Java API
+  alias :append :<<
 
   # Public: Get the Array of child Section objects
   #
@@ -161,52 +194,100 @@ class AbstractBlock < AbstractNode
   #   section.sections.size
   #   # => 1
   #
-  # returns an Array of Section objects
+  # Returns an [Array] of Section objects
   def sections
-    @blocks.inject([]) {|collector, block|
-      collector << block if block.is_a?(Section)
-      collector
-    }
+    @blocks.select {|block| block.context == :section }
   end
 
-  # Internal: Lock-in the substitutions for this block
-  #
-  # Looks for an attribute named "subs". If present, resolves the
-  # substitutions and assigns it to the subs property on this block.
-  # Otherwise, assigns a set of default substitutions based on the
-  # content model of the block.
+# stage the Enumerable mixin until we're sure we've got it right
+=begin
+  include ::Enumerable
+
+  # Public: Yield the block on this block node and all its descendant
+  # block node children to satisfy the Enumerable contract.
   #
   # Returns nothing
-  def lock_in_subs
-    default_subs = []
-    case @content_model
-    when :simple
-      default_subs = SUBS[:normal]
-    when :verbatim
-      if @context == :listing || (@context == :literal && !(option? 'listparagraph'))
-        default_subs = SUBS[:verbatim]
-      else
-        default_subs = SUBS[:basic]
-      end
-    when :raw
-      default_subs = SUBS[:pass]
+  def each &block
+    # yucky, dlist is a special case
+    if @context == :dlist
+      @blocks.flatten.each &block
     else
-      return
-    end
-
-    if (custom_subs = @attributes['subs'])
-      @subs = resolve_block_subs custom_subs, @context
-    else
-      @subs = default_subs.dup
-    end
-
-    # QUESION delegate this logic to method?
-    if @context == :listing && @style == 'source' && (@document.basebackend? 'html') &&
-      ((highlighter = @document.attributes['source-highlighter']) == 'coderay' ||
-      highlighter == 'pygments') && (attr? 'language')
-      @subs = @subs.map {|sub| sub == :specialcharacters ? :highlight : sub }
+      #yield self.header if @context == :document && header?
+      @blocks.each &block
     end
   end
+
+  #--
+  # TODO is there a way to make this lazy?
+  def each_recursive &block
+    block = lambda {|node| node } unless block_given?
+    results = []
+    self.each do |node|
+      results << block.call(node)
+      results.concat(node.each_recursive(&block)) if ::Enumerable === node
+    end
+    block_given? ? results : results.to_enum
+  end
+=end
+
+  # Public: Query for all descendant block nodes in the document tree that
+  # match the specified Symbol filter_context and, optionally, the style and/or
+  # role specified in the options Hash. If a block is provided, it's used as an
+  # additional filter. If no filters are specified, all block nodes in the tree
+  # are returned.
+  #
+  # Examples
+  #
+  #   doc.find_by context: :section 
+  #   #=> Asciidoctor::Section@14459860 { level: 0, title: "Hello, AsciiDoc!", blocks: 0 }
+  #   #=> Asciidoctor::Section@14505460 { level: 1, title: "First Section", blocks: 1 }
+  #
+  #   doc.find_by(context: :section) {|section| section.level == 1 }
+  #   #=> Asciidoctor::Section@14505460 { level: 1, title: "First Section", blocks: 1 }
+  #
+  #   doc.find_by context: :listing, style: 'source'
+  #   #=> Asciidoctor::Block@13136720 { context: :listing, content_model: :verbatim, style: "source", lines: 1 }
+  #
+  # Returns An Array of block nodes that match the given selector or nil if no matches are found
+  #--
+  # TODO support jQuery-style selector (e.g., image.thumb)
+  def find_by selector = {}, &block
+    result = []
+
+    if ((any_context = !(context_selector = selector[:context])) || context_selector == @context) &&
+        (!(style_selector = selector[:style]) || style_selector == @style) &&
+        (!(role_selector = selector[:role]) || has_role?(role_selector)) &&
+        (!(id_selector = selector[:id]) || id_selector == @id)
+      if id_selector
+        return [(block_given? && yield(self) ? self : self)]
+      else
+        result << (block_given? && yield(self) ? self : self)
+      end
+    end
+
+    # process document header as a section if present
+    if @context == :document && (any_context || context_selector == :section) && header?
+      result.concat(@header.find_by(selector, &block) || [])
+    end
+
+    # yuck, dlist is a special case
+    unless context_selector == :document # optimization
+      if @context == :dlist
+        if any_context || context_selector != :section # optimization
+          @blocks.flatten.each do |li|
+            result.concat(li.find_by(selector, &block) || [])
+          end
+        end
+      elsif
+        @blocks.each do |b|
+          next if (context_selector == :section && b.context != :section) # optimization
+          result.concat(b.find_by(selector, &block) || [])
+        end
+      end
+    end
+    result.empty? ? nil : result
+  end
+  alias :query :find_by
 
   # Public: Remove a substitution from this block
   #
@@ -233,28 +314,23 @@ class AbstractBlock < AbstractNode
   #               If not provided, the name of the context for this block
   #               is used. (default: nil).
   #
-  # returns nothing
+  # Returns nothing
   def assign_caption(caption = nil, key = nil)
-    unless title? || @caption.nil?
-      return nil
-    end
+    return unless title? || !@caption
 
-    if caption.nil?
-      if @document.attributes.has_key? 'caption'
-        @caption = @document.attributes['caption']
+    if caption
+      @caption = caption
+    else
+      if (value = @document.attributes['caption'])
+        @caption = value
       elsif title?
         key ||= @context.to_s
         caption_key = "#{key}-caption"
-        if @document.attributes.has_key? caption_key
-          caption_title = @document.attributes["#{key}-caption"]
+        if (caption_title = @document.attributes[caption_key])
           caption_num = @document.counter_increment("#{key}-number", self)
           @caption = "#{caption_title} #{caption_num}. "
         end
-      else
-        @caption = caption
       end
-    else
-      @caption = caption
     end
     nil
   end
@@ -264,13 +340,27 @@ class AbstractBlock < AbstractNode
   # Assign the next index of this section within the parent
   # Block (in document order)
   #
-  # returns nothing
+  # Returns nothing
   def assign_index(section)
     section.index = @next_section_index
     @next_section_index += 1
-    if section.numbered
-      section.number = @next_section_number
-      @next_section_number += 1
+
+    if section.sectname == 'appendix'
+      appendix_number = @document.counter 'appendix-number', 'A'
+      section.number = appendix_number if section.numbered
+      if (caption = @document.attr 'appendix-caption', '') != ''
+        section.caption = %(#{caption} #{appendix_number}: )
+      else
+        section.caption = %(#{appendix_number}. )
+      end
+    elsif section.numbered
+      # chapters in a book doctype should be sequential even when divided into parts
+      if (section.level == 1 || (section.level == 0 && section.special)) && @document.doctype == 'book'
+        section.number = @document.counter('chapter-number', 1)
+      else
+        section.number = @next_section_number
+        @next_section_number += 1
+      end
     end
   end
 
@@ -280,12 +370,12 @@ class AbstractBlock < AbstractNode
   # and reassign the section 0-based index value to each Section
   # as it appears in document order.
   # 
-  # returns nothing
+  # Returns nothing
   def reindex_sections
     @next_section_index = 0
     @next_section_number = 0
     @blocks.each {|block|
-      if block.is_a?(Section)
+      if block.context == :section
         assign_index(block)
         block.reindex_sections
       end

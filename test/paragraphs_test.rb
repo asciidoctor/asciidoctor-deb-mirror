@@ -1,4 +1,8 @@
-require 'test_helper'
+# encoding: UTF-8
+unless defined? ASCIIDOCTOR_PROJECT_DIR
+  $: << File.dirname(__FILE__); $:.uniq!
+  require 'test_helper'
+end
 
 context 'Paragraphs' do
   context 'Normal' do
@@ -186,11 +190,35 @@ Note that multi-entry terms generate separate index entries.
     test 'normal paragraph should honor explicit subs list' do
       input = <<-EOS
 [subs="specialcharacters"]
-*Hey Jude*
+*<Hey Jude>*
       EOS
 
       output = render_embedded_string input
-      assert output.include?('*Hey Jude*')
+      assert output.include?('*&lt;Hey Jude&gt;*')
+    end
+
+    test 'normal paragraph should honor specialchars shorthand' do
+      input = <<-EOS
+[subs="specialchars"]
+*<Hey Jude>*
+      EOS
+
+      output = render_embedded_string input
+      assert output.include?('*&lt;Hey Jude&gt;*')
+    end
+
+    test 'should add a hardbreak at end of each line when hardbreaks option is set' do
+      input = <<-EOS
+[%hardbreaks]
+read
+my
+lips
+      EOS
+
+      output = render_embedded_string input
+      assert_css 'br', output, 2
+      assert_xpath '//p', output, 1
+      assert output.include?("<p>read<br>\nmy<br>\nlips</p>")
     end
   end
 
@@ -265,7 +293,7 @@ use the source, luke!
 die 'zomg perl sucks';
       EOS
       output = render_embedded_string input
-      assert_xpath %(/*[@class="listingblock"]//pre[@class="highlight"]/code[@class="perl language-perl"][text()="die 'zomg perl sucks';"]), output, 1
+      assert_xpath %(/*[@class="listingblock"]//pre[@class="highlight"]/code[@class="language-perl"][@data-lang="perl"][text()="die 'zomg perl sucks';"]), output, 1
     end
 
     test 'literal paragraph terminates at block attribute list' do
@@ -336,6 +364,16 @@ A famouse quote.
       assert_xpath '//*[@class = "verseblock"]/pre[normalize-space(text()) = "Famous verse."]', output, 1
     end
 
+    test 'should perform normal subs on a verse paragraph' do
+      input = <<-EOS
+[verse]
+_GET /groups/link:#group-id[\{group-id\}]_
+      EOS
+
+      output = render_embedded_string input
+      assert output.include?('<pre class="content"><em>GET /groups/<a href="#group-id">{group-id}</a></em></pre>')
+    end
+
     test 'quote paragraph should honor explicit subs list' do
       input = <<-EOS
 [subs="specialcharacters"]
@@ -397,6 +435,8 @@ An abstract for the book.
 [partintro]
 An intro to this part.
 
+== Chapter 1
+
 [sidebar]
 Just a side note.
 
@@ -432,6 +472,8 @@ An abstract for the book.
 [partintro]
 .Part intro title
 An intro to this part.
+
+== Chapter 1
 
 [sidebar]
 .Sidebar title
@@ -469,7 +511,7 @@ Wise words from a wise person.
       test 'should only format and output text in first paragraph when doctype is inline' do
         input = "http://asciidoc.org[AsciiDoc] is a _lightweight_ markup language...\n\nignored"
         output = render_string input, :doctype => 'inline'
-        assert_equal '<a href="http://asciidoc.org">AsciiDoc</a> is a <em>lightweight</em> markup language&#8230;', output
+        assert_equal '<a href="http://asciidoc.org">AsciiDoc</a> is a <em>lightweight</em> markup language&#8230;&#8203;', output
       end
 
       test 'should output empty string if first block is not a paragraph' do

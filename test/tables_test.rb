@@ -1,4 +1,8 @@
-require 'test_helper'
+# encoding: UTF-8
+unless defined? ASCIIDOCTOR_PROJECT_DIR
+  $: << File.dirname(__FILE__); $:.uniq!
+  require 'test_helper'
+end
 
 context 'Tables' do
 
@@ -14,8 +18,8 @@ context 'Tables' do
       cells = [%w(A B C), %w(a b c), %w(1 2 3)]
       output = render_embedded_string input
       assert_css 'table', output, 1
-      assert_css 'table.tableblock.frame-all.grid-all[style*="width:100%"]', output, 1
-      assert_css 'table > colgroup > col[style*="width:33%"]', output, 3
+      assert_css 'table.tableblock.frame-all.grid-all.spread', output, 1
+      assert_css 'table > colgroup > col[style*="width: 33%"]', output, 3
       assert_css 'table tr', output, 3
       assert_css 'table > tbody > tr', output, 3
       assert_css 'table td', output, 9
@@ -98,6 +102,24 @@ context 'Tables' do
       assert_xpath '/table/tbody/tr/td[2]/p[text()="a | there"]', output, 1
     end
 
+    test 'should treat trailing pipe as an empty cell' do
+      input = <<-EOS
+|====
+|A1 |
+|B1 |B2
+|C1 |C2
+|====
+      EOS
+      output = render_embedded_string input
+      assert_css 'table', output, 1
+      assert_css 'table > colgroup > col', output, 2
+      assert_css 'table > tbody > tr', output, 3
+      assert_xpath '/table/tbody/tr[1]/td', output, 2
+      assert_xpath '/table/tbody/tr[1]/td[1]/p[text()="A1"]', output, 1
+      assert_xpath '/table/tbody/tr[1]/td[2]/p', output, 0
+      assert_xpath '/table/tbody/tr[2]/td[1]/p[text()="B1"]', output, 1
+    end
+
     test 'should auto recover with warning if missing leading separator on first cell' do
       input = <<-EOS
 |===
@@ -124,7 +146,7 @@ A | here| a | there
       EOS
       output = render_embedded_string input
       assert_xpath '//tbody/tr/td[1]/p[text()="Cool new show"]', output, 1
-      assert_xpath %(//tbody/tr/td[2]/p[text()='Coming soon#{[8230].pack('U*')}']), output, 1
+      assert_xpath %(//tbody/tr/td[2]/p[text()='Coming soon#{expand_entity 8230}#{expand_entity 8203}']), output, 1
     end
 
     test 'table and col width not assigned when autowidth option is specified' do
@@ -221,6 +243,39 @@ A | here| a | there
       assert_css 'table > tfoot > tr > td', output, 2
       assert_css 'table > tbody', output, 1
       assert_css 'table > tbody > tr', output, 3
+    end
+
+    test 'table with header and footer docbook' do
+      input = <<-EOS
+.Table with header, body and footer
+[frame="topbot",options="header,footer"]
+|===
+|Item       |Quantity
+|Item 1     |1        
+|Item 2     |2        
+|Item 3     |3        
+|Total      |6        
+|===
+      EOS
+      output = render_embedded_string input, :backend => 'docbook'
+      assert_css 'table', output, 1
+      assert_css 'table[frame="topbot"]', output, 1
+      assert_css 'table > title', output, 1
+      assert_css 'table > tgroup', output, 1
+      assert_css 'table > tgroup[cols="2"]', output, 1
+      assert_css 'table > tgroup[cols="2"] > colspec', output, 2
+      assert_css 'table > tgroup[cols="2"] > colspec[colwidth="50*"]', output, 2
+      assert_css 'table > tgroup > thead', output, 1
+      assert_css 'table > tgroup > thead > row', output, 1
+      assert_css 'table > tgroup > thead > row > entry', output, 2
+      assert_css 'table > tgroup > thead > row > entry > simpara', output, 0
+      assert_css 'table > tgroup > tfoot', output, 1
+      assert_css 'table > tgroup > tfoot > row', output, 1
+      assert_css 'table > tgroup > tfoot > row > entry', output, 2
+      assert_css 'table > tgroup > tfoot > row > entry > simpara', output, 2
+      assert_css 'table > tgroup > tbody', output, 1
+      assert_css 'table > tgroup > tbody > row', output, 3
+      assert_css 'table > tgroup > tbody > row', output, 3
     end
 
     test 'table with implicit header row' do
@@ -321,14 +376,38 @@ A | here| a | there
       assert_css 'table > thead > tr > th', output, 3
       assert_css 'table > thead > tr > th > *', output, 0
 
-      assert_css 'table > tfoot > tr > td', output, 3
-      assert_css 'table > tfoot > tr > td > p.header', output, 1
+      assert_css 'table > tfoot > tr > th', output, 1
+      assert_css 'table > tfoot > tr > td', output, 2
       assert_css 'table > tfoot > tr > td > p > strong', output, 1
       assert_css 'table > tfoot > tr > td > p > em', output, 1
 
-      assert_css 'table > tbody > tr > td', output, 3
-      assert_css 'table > tbody > tr > td > p.header', output, 1
+      assert_css 'table > tbody > tr > th', output, 1
+      assert_css 'table > tbody > tr > td', output, 2
+      assert_css 'table > tbody > tr > td > p.header', output, 0
       assert_css 'table > tbody > tr > td > p > strong', output, 1
+      assert_css 'table > tbody > tr > td > p > em > a', output, 1
+    end
+
+    test 'vertical table headers use th element instead of header class' do
+      input = <<-EOS
+[cols="1h,1s,1e"]
+|====
+
+|Name |Occupation| Website
+
+|Octocat |Social coding| http://github.com
+
+|Name |Occupation| Website
+
+|====
+      EOS
+      output = render_embedded_string input
+      assert_css 'table', output, 1
+      assert_css 'table > tbody > tr > th', output, 3
+      assert_css 'table > tbody > tr > td', output, 6
+      assert_css 'table > tbody > tr .header', output, 0
+      assert_css 'table > tbody > tr > td > p > strong', output, 3
+      assert_css 'table > tbody > tr > td > p > em', output, 3
       assert_css 'table > tbody > tr > td > p > em > a', output, 1
     end
 
@@ -356,13 +435,13 @@ I am getting in shape!
       EOS
       output = render_embedded_string input
       assert_css 'table', output, 1
-      assert_css 'table[style*="width:80%"]', output, 1
+      assert_css 'table[style*="width: 80%"]', output, 1
       assert_xpath '/table/caption[@class="title"][text()="Table 1. Horizontal and vertical source data"]', output, 1
       assert_css 'table > colgroup > col', output, 4
-      assert_css 'table > colgroup > col:nth-child(1)[@style*="width:17%"]', output, 1
-      assert_css 'table > colgroup > col:nth-child(2)[@style*="width:11%"]', output, 1
-      assert_css 'table > colgroup > col:nth-child(3)[@style*="width:11%"]', output, 1
-      assert_css 'table > colgroup > col:nth-child(4)[@style*="width:58%"]', output, 1
+      assert_css 'table > colgroup > col:nth-child(1)[@style*="width: 17%"]', output, 1
+      assert_css 'table > colgroup > col:nth-child(2)[@style*="width: 11%"]', output, 1
+      assert_css 'table > colgroup > col:nth-child(3)[@style*="width: 11%"]', output, 1
+      assert_css 'table > colgroup > col:nth-child(4)[@style*="width: 58%"]', output, 1
       assert_css 'table > thead', output, 1
       assert_css 'table > thead > tr', output, 1
       assert_css 'table > thead > tr > th', output, 4
@@ -377,7 +456,7 @@ I am getting in shape!
 
     test 'percentages as column widths' do
       input = <<-EOS
-[width="100%", cols="<.^10%,<90%"]
+[cols="<.^10%,<90%"]
 |===
 |column A |column B
 |===
@@ -385,8 +464,8 @@ I am getting in shape!
 
       output = render_embedded_string input
       assert_xpath '/table/colgroup/col', output, 2
-      assert_xpath '(/table/colgroup/col)[1][@style="width:10%;"]', output, 1
-      assert_xpath '(/table/colgroup/col)[2][@style="width:90%;"]', output, 1
+      assert_xpath '(/table/colgroup/col)[1][@style="width: 10%;"]', output, 1
+      assert_xpath '(/table/colgroup/col)[2][@style="width: 90%;"]', output, 1
     end
 
     test 'spans, alignments and styles' do
@@ -401,7 +480,7 @@ d|9 2+>|10
       EOS
       output = render_embedded_string input
       assert_css 'table', output, 1
-      assert_css 'table > colgroup > col[style*="width:25%"]', output, 4
+      assert_css 'table > colgroup > col[style*="width: 25%"]', output, 4
       assert_css 'table > tbody > tr', output, 4
       assert_css 'table > tbody > tr > td', output, 10
       assert_css 'table > tbody > tr:nth-child(1) > td', output, 4
@@ -424,6 +503,22 @@ d|9 2+>|10
       assert_css 'table > tbody > tr:nth-child(4) > td:nth-child(1).halign-left.valign-top p', output, 1
       assert_css 'table > tbody > tr:nth-child(4) > td:nth-child(1).halign-left.valign-top p em', output, 0
       assert_css 'table > tbody > tr:nth-child(4) > td:nth-child(2).halign-right.valign-top[colspan="2"] p code', output, 1
+    end
+
+    test 'sets up columns correctly if first row has cell that spans columns' do
+      input = <<-EOS
+|===
+2+^|AAA |CCC
+|AAA |BBB |CCC
+|AAA |BBB |CCC
+|===
+      EOS
+      output = render_embedded_string input 
+      assert_css 'table > tbody > tr:nth-child(1) > td', output, 2
+      assert_css 'table > tbody > tr:nth-child(1) > td:nth-child(1)[colspan="2"]', output, 1
+      assert_css 'table > tbody > tr:nth-child(1) > td:nth-child(2):not([colspan])', output, 1
+      assert_css 'table > tbody > tr:nth-child(2) > td:not([colspan])', output, 3
+      assert_css 'table > tbody > tr:nth-child(3) > td:not([colspan])', output, 3
     end
 
     test 'supports repeating cells' do
@@ -506,6 +601,54 @@ I wouldn't have it any other way.
       assert_equal 26, literal.text.lines.entries.size
     end
 
+    test 'basic asciidoc cell' do
+      input = <<-EOS
+|===
+a|--
+NOTE: content
+
+content
+--
+|===
+      EOS
+
+      result = render_embedded_string input
+      assert_css 'table.tableblock', result, 1
+      assert_css 'table.tableblock td.tableblock', result, 1
+      assert_css 'table.tableblock td.tableblock .openblock', result, 1
+      assert_css 'table.tableblock td.tableblock .openblock .admonitionblock', result, 1
+      assert_css 'table.tableblock td.tableblock .openblock .paragraph', result, 1
+    end
+
+    test 'doctype can be set in asciidoc table cell' do
+      input = <<-EOS
+|===
+a|
+:doctype: inline
+
+content
+|===
+      EOS
+
+      result = render_embedded_string input
+      assert_css 'table.tableblock', result, 1
+      assert_css 'table.tableblock .paragraph', result, 0
+    end
+
+    test 'compat mode can be activated in asciidoc table cell' do
+      input = <<-EOS
+|===
+a|
+:compat-mode:
+
+'italic'
+|===
+      EOS
+
+      result = render_embedded_string input
+      assert_css 'table.tableblock td em', result, 1
+    end
+
     test 'asciidoc content' do
       input = <<-EOS
 [cols="1e,1,5a",frame="topbot",options="header"]
@@ -541,7 +684,7 @@ output file name is used.
       assert !body_cell_1_3.inner_document.nil?
       assert body_cell_1_3.inner_document.nested?
       assert_equal doc, body_cell_1_3.inner_document.parent_document
-      assert_equal doc.renderer, body_cell_1_3.inner_document.renderer
+      assert_equal doc.converter, body_cell_1_3.inner_document.converter
       output = doc.render
 
       assert_css 'table > tbody > tr', output, 2
@@ -558,6 +701,35 @@ a|include::fixtures/include-file.asciidoc[]
 
       output = render_embedded_string input, :safe => :safe, :base_dir => File.dirname(__FILE__)
       assert_match(/included content/, output)
+    end
+
+    test 'cross reference link in AsciiDoc-style table cell should resolve to reference in main document' do
+      input = <<-EOS
+== Some
+
+|===
+a|See <<_more>>
+|===
+
+== More
+
+content
+      EOS
+
+      result = render_string input
+      assert_xpath '//a[@href="#_more"]', result, 1
+      assert_xpath '//a[@href="#_more"][text()="More"]', result, 1
+    end
+
+    test 'footnotes should not be shared between AsciiDoc-style table cell and main document' do
+      input = <<-EOS
+|===
+a|AsciiDoc footnote:[A lightweight markup language.]
+|===
+      EOS
+
+      result = render_string input
+      assert_css '#_footnote_1', result, 1
     end
 
     test 'nested table' do
@@ -611,10 +783,10 @@ plain
       EOS
 
       output = render_embedded_string input
-      assert_xpath '(/table/thead/tr/th)[1][@style="background-color:green;"]', output, 1
-      assert_xpath '(/table/thead/tr/th)[2][@style="background-color:green;"]', output, 0
-      assert_xpath '(/table/tbody/tr/td)[1][@style="background-color:red;"]', output, 1
-      assert_xpath '(/table/tbody/tr/td)[2][@style="background-color:green;"]', output, 0
+      assert_xpath '(/table/thead/tr/th)[1][@style="background-color: green;"]', output, 1
+      assert_xpath '(/table/thead/tr/th)[2][@style="background-color: green;"]', output, 0
+      assert_xpath '(/table/tbody/tr/td)[1][@style="background-color: red;"]', output, 1
+      assert_xpath '(/table/tbody/tr/td)[2][@style="background-color: green;"]', output, 0
     end
   end
 
@@ -634,7 +806,7 @@ nobody:x:99:99:Nobody:/:/sbin/nologin
       EOS
       output = render_embedded_string input
       assert_css 'table', output, 1
-      assert_css 'table > colgroup > col[style*="width:14%"]', output, 7
+      assert_css 'table > colgroup > col[style*="width: 14%"]', output, 7
       assert_css 'table > tbody > tr', output, 6
       assert_xpath '//tr[4]/td[5]/p/text()', output, 0
       assert_xpath '//tr[3]/td[5]/p[text()="MySQL:Server"]', output, 1
@@ -654,9 +826,56 @@ a:b:c
       assert_css 'table > tbody > tr:nth-child(1) > td', output, 3
       assert_css 'table > tbody > tr:nth-child(2) > td', output, 3
     end
+
+    test 'single cell in DSV table should only produce single row' do
+      input = <<-EOS
+:===
+single cell
+:===
+      EOS
+
+      output = render_embedded_string input
+      assert_css 'table td', output, 1
+    end
+
+    test 'should treat trailing colon as an empty cell' do
+      input = <<-EOS
+:====
+A1:
+B1:B2
+C1:C2
+:====
+      EOS
+      output = render_embedded_string input
+      assert_css 'table', output, 1
+      assert_css 'table > colgroup > col', output, 2
+      assert_css 'table > tbody > tr', output, 3
+      assert_xpath '/table/tbody/tr[1]/td', output, 2
+      assert_xpath '/table/tbody/tr[1]/td[1]/p[text()="A1"]', output, 1
+      assert_xpath '/table/tbody/tr[1]/td[2]/p', output, 0
+      assert_xpath '/table/tbody/tr[2]/td[1]/p[text()="B1"]', output, 1
+    end
   end
 
   context 'CSV' do
+
+    test 'should treat trailing comma as an empty cell' do
+      input = <<-EOS
+,====
+A1,
+B1,B2
+C1,C2
+,====
+      EOS
+      output = render_embedded_string input
+      assert_css 'table', output, 1
+      assert_css 'table > colgroup > col', output, 2
+      assert_css 'table > tbody > tr', output, 3
+      assert_xpath '/table/tbody/tr[1]/td', output, 2
+      assert_xpath '/table/tbody/tr[1]/td[1]/p[text()="A1"]', output, 1
+      assert_xpath '/table/tbody/tr[1]/td[2]/p', output, 0
+      assert_xpath '/table/tbody/tr[2]/td[1]/p[text()="B1"]', output, 1
+    end
 
     test 'mixed unquoted records and quoted records with escaped quotes, commas and wrapped lines' do
       input = <<-EOS
@@ -672,7 +891,7 @@ air, moon roof, loaded",4799.00
       EOS
       output = render_embedded_string input 
       assert_css 'table', output, 1
-      assert_css 'table > colgroup > col[style*="width:20%"]', output, 5
+      assert_css 'table > colgroup > col[style*="width: 20%"]', output, 5
       assert_css 'table > thead > tr', output, 1
       assert_css 'table > tbody > tr', output, 4
       assert_xpath '((//tbody/tr)[1]/td)[4]/p[text()="ac, abs, moon"]', output, 1
@@ -709,6 +928,37 @@ a;b;c
       assert_css 'table > tbody > tr', output, 2
       assert_css 'table > tbody > tr:nth-child(1) > td', output, 3
       assert_css 'table > tbody > tr:nth-child(2) > td', output, 3
+    end
+
+    test 'custom separator on AsciiDoc table cell' do
+      input = <<-EOS
+[cols=2,separator=!]
+|===
+!Pipe output to vim
+a!
+----
+asciidoctor -o - -s test.adoc | view -
+----
+|===
+      EOS
+      output = render_embedded_string input
+      assert_css 'table', output, 1
+      assert_css 'table > colgroup > col', output, 2
+      assert_css 'table > tbody > tr', output, 1
+      assert_css 'table > tbody > tr:nth-child(1) > td', output, 2
+      assert_css 'table > tbody > tr:nth-child(1) > td:nth-child(1) p', output, 1
+      assert_css 'table > tbody > tr:nth-child(1) > td:nth-child(2) .listingblock', output, 1
+    end
+
+    test 'single cell in CSV table should only produce single row' do
+      input = <<-EOS
+,===
+single cell
+,===
+      EOS
+
+      output = render_embedded_string input
+      assert_css 'table td', output, 1
     end
   end
 end

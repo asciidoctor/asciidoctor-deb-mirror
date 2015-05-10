@@ -1,9 +1,7 @@
+# encoding: UTF-8
 module Asciidoctor
 # Public: Methods for managing inline elements in AsciiDoc block
 class Inline < AbstractNode
-  # Public: Get/Set the String name of the render template
-  attr_accessor :template_name
-
   # Public: Get the text of this inline element
   attr_reader :text
 
@@ -15,22 +13,32 @@ class Inline < AbstractNode
 
   def initialize(parent, context, text = nil, opts = {})
     super(parent, context)
-    @template_name = "inline_#{context}"
+    @node_name = %(inline_#{context})
 
     @text = text 
 
     @id = opts[:id]
     @type = opts[:type]
     @target = opts[:target]
-    
-    if opts.has_key?(:attributes) && (attributes = opts[:attributes]).is_a?(Hash)
-      update_attributes(opts[:attributes]) unless attributes.empty?
+
+    unless (more_attributes = opts[:attributes]).nil_or_empty?
+      update_attributes more_attributes
     end
   end
 
-  def render
-    renderer.render(@template_name, self).chomp
+  def block?
+    false
   end
 
+  def inline?
+    true
+  end
+
+  def convert
+    converter.convert self
+  end
+  
+  # Alias render to convert to maintain backwards compatibility
+  alias :render :convert
 end
 end

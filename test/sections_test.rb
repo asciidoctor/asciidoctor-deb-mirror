@@ -1,5 +1,8 @@
 # encoding: UTF-8
-require 'test_helper'
+unless defined? ASCIIDOCTOR_PROJECT_DIR
+  $: << File.dirname(__FILE__); $:.uniq!
+  require 'test_helper'
+end
 
 context 'Sections' do
   context 'Ids' do
@@ -19,8 +22,8 @@ context 'Sections' do
     end
 
     test 'synthetic id removes entities' do
-      sec = block_from_string('== Ben & Jerry &#34;Ice Cream Brothers&#34;')
-      assert_equal '_ben_jerry_ice_cream_brothers', sec.id
+      sec = block_from_string('== Ben & Jerry &amp; Company &#34;Ice Cream Brothers&#34; &#10046;')
+      assert_equal '_ben_jerry_company_ice_cream_brothers', sec.id
     end
 
     test 'synthetic id prefix can be customized' do
@@ -58,10 +61,37 @@ context 'Sections' do
       assert_equal 'one', sec.id
     end
 
-    test 'explicit id can be defined using an inline anchor' do
+    test 'explicit id can be defined using an embedded anchor' do
       sec = block_from_string("== Section One [[one]] ==")
       assert_equal 'one', sec.id
       assert_equal 'Section One', sec.title
+    end
+
+    test 'explicit id can be defined using an embedded anchor with reftext' do
+      sec = block_from_string("== Section One [[one,Section Uno]] ==")
+      assert_equal 'one', sec.id
+      assert_equal 'Section One', sec.title
+      assert_equal 'Section Uno', (sec.attr 'reftext')
+    end
+
+    test 'id and reftext in embedded anchor cannot be quoted' do
+      sec = block_from_string(%(== Section One [["one","Section Uno"]] ==))
+      refute_equal 'one', sec.id
+      assert_equal 'Section One [["one","Section Uno"]]', sec.title
+      assert_nil(sec.attr 'reftext')
+    end
+
+    test 'reftext in embedded anchor may contain comma' do
+      sec = block_from_string(%(== Section One [[one, Section,Uno]] ==))
+      assert_equal 'one', sec.id
+      assert_equal 'Section One', sec.title
+      assert_equal 'Section,Uno', (sec.attr 'reftext')
+    end
+
+    test 'should unescape but not process inline anchor' do
+      sec = block_from_string(%(== Section One \\[[one]] ==))
+      refute_equal 'one', sec.id
+      assert_equal 'Section One [[one]]', sec.title
     end
 
     test 'title substitutions are applied before generating id' do
@@ -82,6 +112,56 @@ text
       doc = document_from_string input
       assert_equal '_some_section', doc.blocks[0].id
       assert_equal '_some_section_2', doc.blocks[1].id
+    end
+
+    # NOTE test cannot be run in parallel with other tests
+    test 'can set start index of synthetic ids' do
+      old_unique_id_start_index = Asciidoctor::Compliance.unique_id_start_index
+      begin
+        input = <<-EOS
+== Some section
+
+text
+
+== Some section
+
+text
+        EOS
+        Asciidoctor::Compliance.unique_id_start_index = 1
+        doc = document_from_string input
+        assert_equal '_some_section', doc.blocks[0].id
+        assert_equal '_some_section_1', doc.blocks[1].id
+      ensure
+        Asciidoctor::Compliance.unique_id_start_index = old_unique_id_start_index
+      end
+    end
+
+    test 'should use specified id and reftext when registering section reference' do
+      input = <<-EOS
+[[install,Install Procedure]]
+== Install
+
+content
+      EOS
+
+      doc = document_from_string input
+      reftext = doc.references[:ids]['install']
+      refute_nil reftext
+      assert_equal 'Install Procedure', reftext
+    end
+
+    test 'should use specified reftext when registering section reference' do
+      input = <<-EOS
+[reftext="Install Procedure"]
+== Install
+
+content
+      EOS
+
+      doc = document_from_string input
+      reftext = doc.references[:ids]['_install']
+      refute_nil reftext
+      assert_equal 'Install Procedure', reftext
     end
   end
 
@@ -173,8 +253,12 @@ preamble
       assert_xpath "//h2[@id='_my_title'][text() = 'My Title ===']", render_string("== My Title ===")
     end
 
-    test "with non-word character" do
+    test "with XML entity" do
       assert_xpath "//h2[@id='_where_s_the_love'][text() = \"Where#{[8217].pack('U*')}s the love?\"]", render_string("== Where's the love?")
+    end
+    
+    test "with non-word character" do
+      assert_xpath "//h2[@id='_where_s_the_love'][text() = \"Where’s the love?\"]", render_string("== Where’s the love?")
     end
 
     test "with sequential non-word characters" do
@@ -198,8 +282,37 @@ preamble
 == Asciidoctor in 中文
       EOS
       output = render_string input
-      assert_xpath '//h2[@id="_asciidoctor_in"][text()="Asciidoctor in 中文"]', output
+      if ::RUBY_MIN_VERSION_1_9
+        assert_xpath '//h2[@id="_asciidoctor_in_中文"][text()="Asciidoctor in 中文"]', output
+      else
+        assert_xpath '//h2[@id="_asciidoctor_in"][text()="Asciidoctor in 中文"]', output
+      end
     end
+
+    test 'with only multibyte characters' do
+      input = <<-EOS
+== 视图
+      EOS
+      output = render_embedded_string input
+      assert_xpath '//h2[@id="_视图"][text()="视图"]', output
+    end if ::RUBY_MIN_VERSION_1_9
+
+    test 'multiline syntax with only multibyte characters' do
+      input = <<-EOS
+视图
+--
+
+content
+
+连接器
+---
+
+content
+      EOS
+      output = render_embedded_string input
+      assert_xpath '//h2[@id="_视图"][text()="视图"]', output
+      assert_xpath '//h2[@id="_连接器"][text()="连接器"]', output
+    end if ::RUBY_MIN_VERSION_1_9
   end
 
   context "level 2" do 
@@ -280,15 +393,15 @@ blah blah
     test 'should create floating title if style is float' do
       input = <<-EOS
 [float]
-= Plain Ol' Heading
+= Independent Heading!
 
 not in section
       EOS
 
       output = render_embedded_string input
-      assert_xpath '/h1[@id="_plain_ol_heading"]', output, 1
+      assert_xpath '/h1[@id="_independent_heading"]', output, 1
       assert_xpath '/h1[@class="float"]', output, 1
-      assert_xpath %(/h1[@class="float"][text()="Plain Ol' Heading"]), output, 1
+      assert_xpath %(/h1[@class="float"][text()="Independent Heading!"]), output, 1
       assert_xpath '/h1/following-sibling::*[@class="paragraph"]', output, 1
       assert_xpath '/h1/following-sibling::*[@class="paragraph"]/p', output, 1
       assert_xpath '/h1/following-sibling::*[@class="paragraph"]/p[text()="not in section"]', output, 1
@@ -297,25 +410,59 @@ not in section
     test 'should create floating title if style is discrete' do
       input = <<-EOS
 [discrete]
-=== Plain Ol' Heading
+=== Independent Heading!
 
 not in section
       EOS
 
       output = render_embedded_string input
       assert_xpath '/h3', output, 1
-      assert_xpath '/h3[@id="_plain_ol_heading"]', output, 1
+      assert_xpath '/h3[@id="_independent_heading"]', output, 1
       assert_xpath '/h3[@class="discrete"]', output, 1
-      assert_xpath %(/h3[@class="discrete"][text()="Plain Ol' Heading"]), output, 1
+      assert_xpath %(/h3[@class="discrete"][text()="Independent Heading!"]), output, 1
       assert_xpath '/h3/following-sibling::*[@class="paragraph"]', output, 1
       assert_xpath '/h3/following-sibling::*[@class="paragraph"]/p', output, 1
       assert_xpath '/h3/following-sibling::*[@class="paragraph"]/p[text()="not in section"]', output, 1
     end
 
+    test 'should create floating title if style is float with shorthand role and id' do
+      input = <<-EOS
+[float.independent#first]
+= Independent Heading!
+
+not in section
+      EOS
+
+      output = render_embedded_string input
+      assert_xpath '/h1[@id="first"]', output, 1
+      assert_xpath '/h1[@class="float independent"]', output, 1
+      assert_xpath %(/h1[@class="float independent"][text()="Independent Heading!"]), output, 1
+      assert_xpath '/h1/following-sibling::*[@class="paragraph"]', output, 1
+      assert_xpath '/h1/following-sibling::*[@class="paragraph"]/p', output, 1
+      assert_xpath '/h1/following-sibling::*[@class="paragraph"]/p[text()="not in section"]', output, 1
+    end
+
+    test 'should create floating title if style is discrete with shorthand role and id' do
+      input = <<-EOS
+[discrete.independent#first]
+= Independent Heading!
+
+not in section
+      EOS
+
+      output = render_embedded_string input
+      assert_xpath '/h1[@id="first"]', output, 1
+      assert_xpath '/h1[@class="discrete independent"]', output, 1
+      assert_xpath %(/h1[@class="discrete independent"][text()="Independent Heading!"]), output, 1
+      assert_xpath '/h1/following-sibling::*[@class="paragraph"]', output, 1
+      assert_xpath '/h1/following-sibling::*[@class="paragraph"]/p', output, 1
+      assert_xpath '/h1/following-sibling::*[@class="paragraph"]/p[text()="not in section"]', output, 1
+    end
+
     test 'floating title should be a block with context floating_title' do
       input = <<-EOS
 [float]
-=== Plain Ol' Heading
+=== Independent Heading!
 
 not in section
       EOS
@@ -323,17 +470,17 @@ not in section
       doc = document_from_string input
       floatingtitle = doc.blocks.first
       assert floatingtitle.is_a?(Asciidoctor::Block)
-      assert !floatingtitle.is_a?(Asciidoctor::Section)
+      assert floatingtitle.context != :section
       assert_equal :floating_title, floatingtitle.context
-      assert_equal '_plain_ol_heading', floatingtitle.id
-      assert doc.references[:ids].has_key?('_plain_ol_heading')
+      assert_equal '_independent_heading', floatingtitle.id
+      assert doc.references[:ids].has_key?('_independent_heading')
     end
 
     test 'can assign explicit id to floating title' do
       input = <<-EOS
 [[unchained]]
 [float]
-=== Plain Ol' Heading
+=== Independent Heading!
 
 not in section
       EOS
@@ -365,14 +512,14 @@ not in section
     test 'should not set id on floating title if sectids attribute is unset' do
       input = <<-EOS
 [float]
-=== Plain Ol' Heading
+=== Independent Heading!
 
 not in section
       EOS
 
       output = render_embedded_string input, :attributes => {'sectids' => nil}
       assert_xpath '/h3', output, 1
-      assert_xpath '/h3[@id="_plain_ol_heading"]', output, 0
+      assert_xpath '/h3[@id="_independent_heading"]', output, 0
       assert_xpath '/h3[@class="float"]', output, 1
     end
 
@@ -380,7 +527,7 @@ not in section
       input = <<-EOS
 [[free]]
 [float]
-== Plain Ol' Heading
+== Independent Heading!
 
 not in section
       EOS
@@ -394,15 +541,45 @@ not in section
     test 'should add role to class attribute on floating title' do
       input = <<-EOS
 [float, role="isolated"]
-== Plain Ol' Heading
+== Independent Heading!
 
 not in section
       EOS
 
       output = render_embedded_string input
       assert_xpath '/h2', output, 1
-      assert_xpath '/h2[@id="_plain_ol_heading"]', output, 1
+      assert_xpath '/h2[@id="_independent_heading"]', output, 1
       assert_xpath '/h2[@class="float isolated"]', output, 1
+    end
+
+    test 'should use specified id and reftext when registering discrete section reference' do
+      input = <<-EOS
+[[install,Install Procedure]]
+[discrete]
+== Install
+
+content
+      EOS
+
+      doc = document_from_string input
+      reftext = doc.references[:ids]['install']
+      refute_nil reftext
+      assert_equal 'Install Procedure', reftext
+    end
+
+    test 'should use specified reftext when registering discrete section reference' do
+      input = <<-EOS
+[reftext="Install Procedure"]
+[discrete]
+== Install
+
+content
+      EOS
+
+      doc = document_from_string input
+      reftext = doc.references[:ids]['_install']
+      refute_nil reftext
+      assert_equal 'Install Procedure', reftext
     end
   end
 
@@ -424,9 +601,9 @@ text in standalone
       EOS
 
       output, errors = nil
-      redirect_streams do |stdout, stderr|
+      redirect_streams do |out, err|
         output = render_string input
-        errors = stderr.string
+        errors = err.string
       end
 
       assert !errors.empty?
@@ -462,9 +639,9 @@ Master section text.
 
       output = nil
       errors = nil
-      redirect_streams do |stdout, stderr|
+      redirect_streams do |out, err|
         output = render_string input
-        errors = stdout.string
+        errors = out.string
       end
 
       assert errors.empty?
@@ -512,6 +689,31 @@ Standalone preamble.
       assert_xpath '//*[@class = "sect1"]/h2[text() = "Standalone Document"]', output, 1
       assert_xpath '//*[@class = "sect1"]/h2[text() = "Level 1 Section"]', output, 1
     end
+
+    test 'should add relative offset value to current leveloffset' do
+      input = <<-EOS
+= Master Document
+Doc Writer
+
+Master preamble.
+
+:leveloffset: 1
+
+= Chapter 1
+
+content
+
+:leveloffset: +1
+
+= Standalone Section
+
+content
+      EOS
+
+      output = render_string input
+      assert_xpath '//*[@class = "sect1"]/h2[text() = "Chapter 1"]', output, 1
+      assert_xpath '//*[@class = "sect2"]/h3[text() = "Standalone Section"]', output, 1
+    end
   end
 
   context 'Section Numbering' do
@@ -553,6 +755,45 @@ Standalone preamble.
       sect1_1 << sect1_1_1
       assert_equal '1,1,1,', sect1_1_1.sectnum(',')
       assert_equal '1:1:1', sect1_1_1.sectnum(':', false)
+    end
+
+    test 'should render section numbers when sectnums attribute is set' do
+      input = <<-EOS
+= Title
+:sectnums:
+
+== Section_1 
+
+text
+
+=== Section_1_1
+
+text
+
+==== Section_1_1_1
+
+text
+
+== Section_2
+
+text
+
+=== Section_2_1
+
+text
+
+=== Section_2_2
+
+text
+      EOS
+    
+      output = render_string input
+      assert_xpath '//h2[@id="_section_1"][starts-with(text(), "1. ")]', output, 1
+      assert_xpath '//h3[@id="_section_1_1"][starts-with(text(), "1.1. ")]', output, 1
+      assert_xpath '//h4[@id="_section_1_1_1"][starts-with(text(), "1.1.1. ")]', output, 1
+      assert_xpath '//h2[@id="_section_2"][starts-with(text(), "2. ")]', output, 1
+      assert_xpath '//h3[@id="_section_2_1"][starts-with(text(), "2.1. ")]', output, 1
+      assert_xpath '//h3[@id="_section_2_2"][starts-with(text(), "2.2. ")]', output, 1
     end
 
     test 'should render section numbers when numbered attribute is set' do
@@ -786,19 +1027,57 @@ content
 
 = Part 1
 
-== Part 1: Chapter 1
+== Chapter 1
+
+content
 
 = Part 2
 
-== Part 2: Chapter 1
+== Chapter 2
+
+content
       EOS
 
       output = render_string input
       assert_xpath '(//h1)[1][text()="Document Title"]', output, 1
       assert_xpath '(//h1)[2][text()="Part 1"]', output, 1
       assert_xpath '(//h1)[3][text()="Part 2"]', output, 1
-      assert_xpath '(//h2)[1][text()="1. Part 1: Chapter 1"]', output, 1
-      assert_xpath '(//h2)[2][text()="1. Part 2: Chapter 1"]', output, 1
+      assert_xpath '(//h2)[1][text()="1. Chapter 1"]', output, 1
+      assert_xpath '(//h2)[2][text()="2. Chapter 2"]', output, 1
+    end
+
+    test 'should number chapters sequentially even when divided into parts' do
+      input = <<-EOS
+= Document Title
+:doctype: book
+:numbered:
+
+== Chapter 1
+
+content
+
+= Part 1
+
+== Chapter 2
+
+content
+
+= Part 2
+
+== Chapter 3
+
+content
+
+== Chapter 4
+
+content
+      EOS
+
+      result = render_string input
+      (1..4).each do |num|
+        assert_xpath %(//h2[@id="_chapter_#{num}"]), result, 1
+        assert_xpath %(//h2[@id="_chapter_#{num}"][text()="#{num}. Chapter #{num}"]), result, 1
+      end
     end
   end
 
@@ -870,6 +1149,49 @@ Details
       assert_xpath '//h2[text()="Appendix A: Attribute Options"]', output, 1
     end
 
+    test 'should prefix appendix title by label and letter only when numbered is enabled' do
+      input = <<-EOS
+:numbered:
+
+[appendix]
+== Attribute Options
+
+Details
+      EOS
+
+      output = render_embedded_string input
+      assert_xpath '//h2[text()="Appendix A: Attribute Options"]', output, 1
+    end
+
+    test 'should use custom appendix caption if specified' do
+      input = <<-EOS
+:appendix-caption: App
+
+[appendix]
+== Attribute Options
+
+Details
+      EOS
+
+      output = render_embedded_string input
+      assert_xpath '//h2[text()="App A: Attribute Options"]', output, 1
+    end
+
+    test 'should only assign letter to appendix when numbered is enabled and appendix caption is empty' do
+      input = <<-EOS
+:numbered:
+:appendix-caption:
+
+[appendix]
+== Attribute Options
+
+Details
+      EOS
+
+      output = render_embedded_string input
+      assert_xpath '//h2[text()="A. Attribute Options"]', output, 1
+    end
+
     test 'should increment appendix number for each appendix section' do
       input = <<-EOS
 [appendix]
@@ -888,7 +1210,50 @@ Details
       assert_xpath '(//h2)[2][text()="Appendix B: Migration"]', output, 1
     end
 
-    test 'should not number level 4 section' do
+    test 'should continue numbering after appendix' do
+      input = <<-EOS
+:numbered:
+
+== First Section
+
+content
+
+[appendix]
+== Attribute Options
+
+content
+
+== Migration
+
+content
+      EOS
+
+      output = render_embedded_string input
+      assert_xpath '(//h2)[1][text()="1. First Section"]', output, 1
+      assert_xpath '(//h2)[2][text()="Appendix A: Attribute Options"]', output, 1
+      assert_xpath '(//h2)[3][text()="2. Migration"]', output, 1
+    end
+
+    test 'should number appendix subsections using appendix letter' do
+      input = <<-EOS
+:numbered:
+
+[appendix]
+== Attribute Options
+
+Details
+
+=== Optional Attributes
+
+Details
+      EOS
+
+      output = render_embedded_string input
+      assert_xpath '(//h2)[1][text()="Appendix A: Attribute Options"]', output, 1
+      assert_xpath '(//h3)[1][text()="A.1. Optional Attributes"]', output, 1
+    end
+
+    test 'should not number level 4 section by default' do
       input = <<-EOS
 :numbered:
 
@@ -903,6 +1268,32 @@ Details
 text
       EOS
       output = render_embedded_string input
+      assert_xpath '//h5', output, 1
+      assert_xpath '//h5[text()="Level_4"]', output, 1
+    end
+
+    test 'should only number levels up to value defined by sectnumlevels attribute' do
+      input = <<-EOS
+:numbered:
+:sectnumlevels: 2
+
+== Level_1
+
+=== Level_2
+
+==== Level_3
+
+===== Level_4
+
+text
+      EOS
+      output = render_embedded_string input
+      assert_xpath '//h2', output, 1
+      assert_xpath '//h2[text()="1. Level_1"]', output, 1
+      assert_xpath '//h3', output, 1
+      assert_xpath '//h3[text()="1.1. Level_2"]', output, 1
+      assert_xpath '//h4', output, 1
+      assert_xpath '//h4[text()="Level_3"]', output, 1
       assert_xpath '//h5', output, 1
       assert_xpath '//h5[text()="Level_4"]', output, 1
     end
@@ -978,6 +1369,26 @@ Terms
       assert_xpath '//*[@id="toc"]/ul//li/a[text()="Appendix B: Migration"]', output, 1
       assert_xpath '//*[@id="toc"]/ul//li/a[text()="Gotchas"]', output, 1
       assert_xpath '//*[@id="toc"]/ul//li/a[text()="Glossary"]', output, 1
+    end
+
+    test 'should only number sections in toc up to value defined by sectnumlevels attribute' do
+      input = <<-EOS
+:numbered:
+:toc:
+:sectnumlevels: 2
+:toclevels: 3
+
+== Level 1
+
+=== Level 2
+
+==== Level 3
+      EOS
+
+      output = render_string input
+      assert_xpath '//*[@id="toc"]//a[@href="#_level_1"][text()="1. Level 1"]', output, 1
+      assert_xpath '//*[@id="toc"]//a[@href="#_level_2"][text()="1.1. Level 2"]', output, 1
+      assert_xpath '//*[@id="toc"]//a[@href="#_level_3"][text()="Level 3"]', output, 1
     end
 
     # reenable once we have :specialnumbered!: implemented
@@ -1117,6 +1528,7 @@ blah blah
 
 = Part 2
 
+[partintro]
 blah blah
 
 == Chapter 3
@@ -1155,7 +1567,7 @@ Colophon content
 = Index Title
       EOS
 
-      output = render_embedded_string input, :backend => 'docbook'
+      output = render_embedded_string input, :backend => 'docbook45'
       assert_xpath '/chapter[@id="abstract_title"]', output, 1
       assert_xpath '/chapter[@id="abstract_title"]/title[text()="Abstract Title"]', output, 1
       assert_xpath '/chapter/following-sibling::dedication[@id="dedication_title"]', output, 1
@@ -1195,7 +1607,7 @@ Colophon content
 Abstract content
       EOS
 
-      output = render_embedded_string input, :backend => 'docbook'
+      output = render_embedded_string input, :backend => 'docbook45'
       assert_xpath '/abstract[@id="abstract_title"]', output, 1
       assert_xpath '/abstract[@id="abstract_title"]/title[text()="Abstract Title"]', output, 1
     end
@@ -1335,13 +1747,13 @@ That's all she wrote!
       assert_xpath '//*[@id="header"]//*[@id="toc"]/ul', output, 1
       assert_xpath '//*[@id="header"]//*[@id="toc"]/ul[@class="sectlevel1"]', output, 1
       assert_xpath '//*[@id="header"]//*[@id="toc"]//ul', output, 2
-      assert_xpath '//*[@id="header"]//*[@id="toc"]/ul/li', output, 4
+      assert_xpath '//*[@id="header"]//*[@id="toc"]//li', output, 4
       assert_xpath '//*[@id="header"]//*[@id="toc"]/ul/li[1]/a[@href="#_section_one"][text()="Section One"]', output, 1
       assert_xpath '//*[@id="header"]//*[@id="toc"]/ul/li/ul', output, 1
       assert_xpath '//*[@id="header"]//*[@id="toc"]/ul/li/ul[@class="sectlevel2"]', output, 1
       assert_xpath '//*[@id="header"]//*[@id="toc"]/ul/li/ul/li', output, 1
       assert_xpath '//*[@id="header"]//*[@id="toc"]/ul/li/ul/li/a[@href="#_interlude"][text()="Interlude"]', output, 1
-      assert_xpath '((//*[@id="header"]//*[@id="toc"]/ul)[1]/li)[4]/a[@href="#_section_three"][text()="Section Three"]', output, 1
+      assert_xpath '((//*[@id="header"]//*[@id="toc"]/ul)[1]/li)[3]/a[@href="#_section_three"][text()="Section Three"]', output, 1
     end
 
     test 'should render numbered table of contents in header if toc and numbered attributes are set' do
@@ -1371,11 +1783,11 @@ That's all she wrote!
       assert_xpath '//*[@id="header"]//*[@id="toc"]/*[@id="toctitle"][text()="Table of Contents"]', output, 1
       assert_xpath '//*[@id="header"]//*[@id="toc"]/ul', output, 1
       assert_xpath '//*[@id="header"]//*[@id="toc"]//ul', output, 2
-      assert_xpath '//*[@id="header"]//*[@id="toc"]/ul/li', output, 4
+      assert_xpath '//*[@id="header"]//*[@id="toc"]//li', output, 4
       assert_xpath '//*[@id="header"]//*[@id="toc"]/ul/li[1]/a[@href="#_section_one"][text()="1. Section One"]', output, 1
       assert_xpath '//*[@id="header"]//*[@id="toc"]/ul/li/ul/li', output, 1
       assert_xpath '//*[@id="header"]//*[@id="toc"]/ul/li/ul/li/a[@href="#_interlude"][text()="2.1. Interlude"]', output, 1
-      assert_xpath '((//*[@id="header"]//*[@id="toc"]/ul)[1]/li)[4]/a[@href="#_section_three"][text()="3. Section Three"]', output, 1
+      assert_xpath '((//*[@id="header"]//*[@id="toc"]/ul)[1]/li)[3]/a[@href="#_section_three"][text()="3. Section Three"]', output, 1
     end
 
     test 'should render a table of contents that honors numbered setting at position of section in document' do
@@ -1407,9 +1819,9 @@ That's all she wrote!
       assert_xpath '//*[@id="header"]//*[@id="toc"]/*[@id="toctitle"][text()="Table of Contents"]', output, 1
       assert_xpath '//*[@id="header"]//*[@id="toc"]/ul', output, 1
       assert_xpath '//*[@id="header"]//*[@id="toc"]//ul', output, 2
-      assert_xpath '//*[@id="header"]//*[@id="toc"]/ul/li', output, 4
+      assert_xpath '//*[@id="header"]//*[@id="toc"]//li', output, 4
       assert_xpath '//*[@id="header"]//*[@id="toc"]/ul/li[1]/a[@href="#_section_one"][text()="1. Section One"]', output, 1
-      assert_xpath '((//*[@id="header"]//*[@id="toc"]/ul)[1]/li)[4]/a[@href="#_section_three"][text()="Section Three"]', output, 1
+      assert_xpath '((//*[@id="header"]//*[@id="toc"]/ul)[1]/li)[3]/a[@href="#_section_three"][text()="Section Three"]', output, 1
     end
 
     test 'should not number parts in table of contents for book doctype when numbered attribute is set' do
@@ -1440,13 +1852,13 @@ blah
       assert_xpath '//*[@id="toc"]', output, 1
       assert_xpath '//*[@id="toc"]/ul', output, 1
       assert_xpath '//*[@id="toc"]/ul[@class="sectlevel0"]', output, 1
-      assert_xpath '//*[@id="toc"]/ul[@class="sectlevel0"]/li', output, 4
+      assert_xpath '//*[@id="toc"]/ul[@class="sectlevel0"]/li', output, 2
       assert_xpath '(//*[@id="toc"]/ul[@class="sectlevel0"]/li)[1]/a[text()="Part 1"]', output, 1
-      assert_xpath '(//*[@id="toc"]/ul[@class="sectlevel0"]/li)[3]/a[text()="Part 2"]', output, 1
-      assert_xpath '(//*[@id="toc"]/ul[@class="sectlevel0"]/li)[2]/ul', output, 1
-      assert_xpath '(//*[@id="toc"]/ul[@class="sectlevel0"]/li)[2]/ul[@class="sectlevel1"]', output, 1
-      assert_xpath '(//*[@id="toc"]/ul[@class="sectlevel0"]/li)[2]/ul/li', output, 2
-      assert_xpath '((//*[@id="toc"]/ul[@class="sectlevel0"]/li)[2]/ul/li)[1]/a[text()="1. First Section of Part 1"]', output, 1
+      assert_xpath '(//*[@id="toc"]/ul[@class="sectlevel0"]/li)[2]/a[text()="Part 2"]', output, 1
+      assert_xpath '(//*[@id="toc"]/ul[@class="sectlevel0"]/li)[1]/ul', output, 1
+      assert_xpath '(//*[@id="toc"]/ul[@class="sectlevel0"]/li)[1]/ul[@class="sectlevel1"]', output, 1
+      assert_xpath '(//*[@id="toc"]/ul[@class="sectlevel0"]/li)[1]/ul/li', output, 2
+      assert_xpath '((//*[@id="toc"]/ul[@class="sectlevel0"]/li)[1]/ul/li)[1]/a[text()="1. First Section of Part 1"]', output, 1
     end
 
     test 'should render table of contents in header if toc2 attribute is set' do
@@ -1470,10 +1882,10 @@ They couldn't believe their eyes when...
       assert_xpath '//*[@id="header"]//*[@id="toc"]/ul/li[1]/a[@href="#_section_one"][text()="1. Section One"]', output, 1
     end
 
-    test 'should set toc position if toc2 attribute is set to position' do
+    test 'should set toc position if toc attribute is set to position' do
       input = <<-EOS
 = Article
-:toc2: >
+:toc: >
 :numbered:
 
 == Section One
@@ -1556,6 +1968,27 @@ They couldn't believe their eyes when...
       assert_xpath '//*[@id="header"]//*[@id="toc"]/ul/li[1]/a[@href="#_section_one"][text()="1. Section One"]', output, 1
     end
 
+    test 'should set toc placement to preamble if toc attribute is set to preamble' do
+      input = <<-EOS
+= Article
+:toc: preamble
+
+Yada yada
+
+== Section One
+
+It was a dark and stormy night...
+
+== Section Two
+
+They couldn't believe their eyes when...
+      EOS
+
+      output = render_string input
+      assert_css '#preamble #toc', output, 1
+      assert_css '#preamble .sectionbody + #toc', output, 1
+    end
+
     test 'should use document attributes toc-class, toc-title and toclevels to create toc' do
       input = <<-EOS
 = Article
@@ -1609,7 +2042,7 @@ They couldn't believe their eyes when...
       input = <<-EOS
 = Article
 :toc:
-:toc-placement!:
+:toc-placement: macro
 
 Once upon a time...
 
@@ -1633,7 +2066,7 @@ They couldn't believe their eyes when...
       input = <<-EOS
 = Article
 :toc:
-:toc-placement!:
+:toc-placement: macro
 
 Once upon a time...
 
@@ -1653,7 +2086,7 @@ They couldn't believe their eyes when...
       assert_css '#preamble:root .paragraph + #toc', output, 1
     end
 
-    test 'should not assign toc id to more than one toc' do
+    test 'should not activate toc macro if toc-placement is not set' do
       input = <<-EOS
 = Article
 :toc:
@@ -1675,15 +2108,41 @@ They couldn't believe their eyes when...
 
       assert_css '#toc', output, 1
       assert_css '#toctitle', output, 1
-      assert_xpath '(//*[@class="toc"])[2][not(@id)]', output, 1
-      assert_xpath '(//*[@class="toc"])[2]/*[@class="title"][not(@id)]', output, 1
+      assert_css '.toc', output, 1
+      assert_css '#content .toc', output, 0
+    end
+
+    test 'should only output toc at toc macro if toc is macro' do
+      input = <<-EOS
+= Article
+:toc: macro
+
+Once upon a time...
+
+toc::[]
+
+== Section One
+
+It was a dark and stormy night...
+
+== Section Two
+
+They couldn't believe their eyes when...
+      EOS
+
+      output = render_string input
+
+      assert_css '#toc', output, 1
+      assert_css '#toctitle', output, 1
+      assert_css '.toc', output, 1
+      assert_css '#content .toc', output, 1
     end
 
     test 'should use global attributes for toc-title, toc-class and toclevels for toc macro' do
       input = <<-EOS
 = Article
 :toc:
-:toc-placement!:
+:toc-placement: macro
 :toc-title: Contents
 :toc-class: contents
 :toclevels: 1
@@ -1722,7 +2181,7 @@ Fin.
       input = <<-EOS
 = Article
 :toc:
-:toc-placement!:
+:toc-placement: macro
 :toc-title: Ignored
 :toc-class: ignored
 :toclevels: 5
@@ -1759,6 +2218,40 @@ Fin.
       assert_css '#contents li', output, 2
       assert_xpath '(//*[@id="contents"]//li)[1]/a[text() = "Section 1"]', output, 1
       assert_xpath '(//*[@id="contents"]//li)[2]/a[text() = "Section 2"]', output, 1
+    end
+
+    test 'child toc levels should not have additional bullet at parent level in html' do
+      input = <<-EOS
+= Article
+:toc:
+
+== Section One
+
+It was a dark and stormy night...
+
+== Section Two
+
+They couldn't believe their eyes when...
+
+=== Interlude
+
+While they were waiting...
+
+== Section Three
+
+That's all she wrote!
+      EOS
+      output = render_string input
+      assert_xpath '//*[@id="header"]//*[@id="toc"][@class="toc"]', output, 1
+      assert_xpath '//*[@id="header"]//*[@id="toc"]/*[@id="toctitle"][text()="Table of Contents"]', output, 1
+      assert_xpath '//*[@id="header"]//*[@id="toc"]/ul', output, 1
+      assert_xpath '//*[@id="header"]//*[@id="toc"]//ul', output, 2
+      assert_xpath '//*[@id="header"]//*[@id="toc"]//li', output, 4
+      assert_xpath '//*[@id="header"]//*[@id="toc"]/ul/li[2]/a[@href="#_section_two"][text()="Section Two"]', output, 1
+      assert_xpath '//*[@id="header"]//*[@id="toc"]/ul/li/ul/li', output, 1
+      assert_xpath '//*[@id="header"]//*[@id="toc"]/ul/li[2]/ul/li', output, 1
+      assert_xpath '//*[@id="header"]//*[@id="toc"]/ul/li/ul/li/a[@href="#_interlude"][text()="Interlude"]', output, 1
+      assert_xpath '((//*[@id="header"]//*[@id="toc"]/ul)[1]/li)[3]/a[@href="#_section_three"][text()="Section Three"]', output, 1
     end
   end
 
@@ -1814,10 +2307,16 @@ Doc Writer
 
 = Chapter One
 
+[partintro]
 It was a dark and stormy night...
+
+== Scene One
+
+Someone's gonna get axed.
 
 = Chapter Two
 
+[partintro]
 They couldn't believe their eyes when...
 
 == Interlude
@@ -1825,6 +2324,8 @@ They couldn't believe their eyes when...
 While they were waiting...
 
 = Chapter Three
+
+== Scene One
 
 That's all she wrote!
       EOS
@@ -1835,11 +2336,95 @@ That's all she wrote!
       assert_css '#header h1', output, 1
       assert_css '#content h1', output, 3
       assert_css '#content h1.sect0', output, 3
-      assert_css 'h2', output, 1
-      assert_css '#content h2', output, 1
+      assert_css 'h2', output, 3
+      assert_css '#content h2', output, 3
       assert_xpath '//h1[@id="_chapter_one"][text() = "Chapter One"]', output, 1
       assert_xpath '//h1[@id="_chapter_two"][text() = "Chapter Two"]', output, 1
       assert_xpath '//h1[@id="_chapter_three"][text() = "Chapter Three"]', output, 1
+    end
+
+    test 'should add partintro style to child paragraph of part' do
+      input = <<-EOS
+= Book
+:doctype: book
+
+= Part 1
+
+part intro
+
+== Chapter 1
+      EOS
+
+      doc = document_from_string input
+      partintro = doc.blocks.first.blocks.first
+      assert_equal :open, partintro.context
+      assert_equal 'partintro', partintro.style
+    end
+
+    test 'should add partintro style to child open block of part' do
+      input = <<-EOS
+= Book
+:doctype: book
+
+= Part 1
+
+--
+part intro
+--
+
+== Chapter 1
+      EOS
+
+      doc = document_from_string input
+      partintro = doc.blocks.first.blocks.first
+      assert_equal :open, partintro.context
+      assert_equal 'partintro', partintro.style
+    end
+
+    test 'should wrap child paragraphs of part in partintro open block' do
+      input = <<-EOS
+= Book
+:doctype: book
+
+= Part 1
+
+part intro
+
+more part intro
+
+== Chapter 1
+      EOS
+
+      doc = document_from_string input
+      partintro = doc.blocks.first.blocks.first
+      assert_equal :open, partintro.context
+      assert_equal 'partintro', partintro.style
+      assert_equal 2, partintro.blocks.size
+      assert_equal :paragraph, partintro.blocks[0].context
+      assert_equal :paragraph, partintro.blocks[1].context
+    end
+
+    test 'should warn if part has no sections' do
+      input = <<-EOS
+= Book
+:doctype: book
+
+= Part 1
+
+[partintro]
+intro
+      EOS
+
+      doc = nil
+      warnings = nil
+      redirect_streams do |out, err|
+        doc = document_from_string input
+        warnings = err.string
+      end
+
+      refute_nil warnings
+      assert !warnings.empty?
+      assert_match(/ERROR:.*section/, warnings)
     end
 
     test 'should create parts and chapters in docbook backend' do
@@ -1850,6 +2435,7 @@ Doc Writer
 
 = Part 1
 
+[partintro]
 The adventure.
 
 == Chapter One
@@ -1862,6 +2448,7 @@ They couldn't believe their eyes when...
 
 = Part 2
 
+[partintro]
 The return.
 
 == Chapter Three
@@ -1916,9 +2503,9 @@ Appendix subsection content
 
       output = nil
       errors = nil
-      redirect_streams do |stdout, stderr|
+      redirect_streams do |out, err|
         output = render_string input, :backend => 'docbook'
-        errors = stdout.string
+        errors = out.string
       end
       assert errors.empty?
       assert_xpath '/book/preface', output, 1

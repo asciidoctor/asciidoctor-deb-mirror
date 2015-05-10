@@ -1,5 +1,8 @@
 # encoding: UTF-8
-require 'test_helper'
+unless defined? ASCIIDOCTOR_PROJECT_DIR
+  $: << File.dirname(__FILE__); $:.uniq!
+  require 'test_helper'
+end
 require 'asciidoctor/cli/options'
 require 'asciidoctor/cli/invoker'
 
@@ -7,9 +10,9 @@ context 'Invoker' do
   test 'should parse source and render as html5 article by default' do
     invoker = nil
     output = nil
-    redirect_streams do |stdout, stderr|
+    redirect_streams do |out, err|
       invoker = invoke_cli %w(-o -)
-      output = stdout.string
+      output = out.string
     end
     assert !invoker.nil?
     doc = invoker.document
@@ -58,6 +61,18 @@ context 'Invoker' do
     assert_xpath '/*[@class="paragraph"]/p[text()="content"]', output, 1
   end
 
+  test 'should not fail to rewind input if reading document from stdin' do
+    io = STDIN.dup
+    class << io
+      def readlines
+        ['paragraph']
+      end
+    end
+    invoker = invoke_cli_to_buffer(%w(-s), '-') { io }
+    assert_equal 0, invoker.code
+    assert_equal 1, invoker.document.blocks.size
+  end
+
   test 'should accept document from stdin and write to output file' do
     sample_outpath = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'sample-output.html'))
     begin
@@ -73,7 +88,7 @@ context 'Invoker' do
       assert_equal sample_outpath, doc.attr('outfile')
       assert File.exist?(sample_outpath)
     ensure
-      FileUtils::rm_f(sample_outpath)
+      FileUtils.rm_f(sample_outpath)
     end
   end
 
@@ -86,31 +101,63 @@ context 'Invoker' do
   end
 
   test 'should display version and exit' do
-    redirect_streams do |stdout, stderr|
-      invoke_cli %w(--version)
-      assert_equal "Asciidoctor #{Asciidoctor::VERSION} [http://asciidoctor.org]", stdout.string.chomp
+    expected = %(Asciidoctor #{Asciidoctor::VERSION} [http://asciidoctor.org]\nRuntime Environment (#{RUBY_DESCRIPTION}))
+    ['--version', '-V'].each do |switch|
+      actual = nil
+      redirect_streams do |out, err|
+        invoke_cli [switch]
+        actual = out.string.rstrip
+      end
+      refute_nil actual
+      assert actual.start_with?(expected), %(Expected to print version when using #{switch} switch)
     end
   end
 
+  test 'should print warnings to stderr by default' do
+    input = <<-EOS
+2. second
+3. third
+    EOS
+    warnings = nil
+    redirect_streams do |out, err|
+      invoke_cli_to_buffer(%w(-o /dev/null), '-') { input }
+      warnings = err.string
+    end
+    assert_match(/WARNING/, warnings)
+  end
+
+  test 'should silence warnings if -q flag is specified' do
+    input = <<-EOS
+2. second
+3. third
+    EOS
+    warnings = nil
+    redirect_streams do |out, err|
+      invoke_cli_to_buffer(%w(-q -o /dev/null), '-') { input }
+      warnings = err.string
+    end
+    assert_equal '', warnings
+  end
+
   test 'should report usage if no input file given' do
-    redirect_streams do |stdout, stderr|
+    redirect_streams do |out, err|
       invoke_cli [], nil
-      assert_match(/Usage:/, stderr.string)
+      assert_match(/Usage:/, err.string)
     end
   end
 
   test 'should report error if input file does not exist' do
-    redirect_streams do |stdout, stderr|
+    redirect_streams do |out, err|
       invoker = invoke_cli [], 'missing_file.asciidoc'
-      assert_match(/input file .* missing/, stderr.string)
+      assert_match(/input file .* missing or cannot be read/, err.string)
       assert_equal 1, invoker.code
     end
   end
 
   test 'should treat extra arguments as files' do
-    redirect_streams do |stdout, stderr|
+    redirect_streams do |out, err|
       invoker = invoke_cli %w(-o /dev/null extra arguments sample.asciidoc), nil
-      assert_match(/input file .* missing/, stderr.string)
+      assert_match(/input file .* missing or cannot be read/, err.string)
       assert_equal 1, invoker.code
     end
   end
@@ -130,7 +177,7 @@ context 'Invoker' do
       assert_xpath '/html/head/title[text() = "Document Title"]', output, 1
       assert_xpath '/html/body/*[@id="header"]/h1[text() = "Document Title"]', output, 1
     ensure
-      FileUtils::rm_f(sample_outpath)
+      FileUtils.rm_f(sample_outpath)
     end
   end
 
@@ -138,7 +185,7 @@ context 'Invoker' do
     destination_path = File.expand_path(File.join(File.dirname(__FILE__), 'test_output'))
     sample_outpath = File.join(destination_path, 'sample.html')
     begin
-      FileUtils::mkdir_p(destination_path) 
+      FileUtils.mkdir_p(destination_path) 
       # QUESTION should -D be relative to working directory or source directory?
       invoker = invoke_cli %w(-D test/test_output)
       #invoker = invoke_cli %w(-D ../../test/test_output)
@@ -146,8 +193,8 @@ context 'Invoker' do
       assert_equal sample_outpath, doc.attr('outfile')
       assert File.exist?(sample_outpath)
     ensure
-      FileUtils::rm_f(sample_outpath)
-      FileUtils::rmdir(destination_path)
+      FileUtils.rm_f(sample_outpath)
+      FileUtils.rmdir(destination_path)
     end
   end
 
@@ -159,14 +206,14 @@ context 'Invoker' do
       assert_equal sample_outpath, doc.attr('outfile')
       assert File.exist?(sample_outpath)
     ensure
-      FileUtils::rm_f(sample_outpath)
+      FileUtils.rm_f(sample_outpath)
     end
   end
 
-  test 'should copy default css to target directory if linkcss is specified' do
+  test 'should copy default stylesheet to target directory if linkcss is specified' do
     sample_outpath = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'sample-output.html'))
     asciidoctor_stylesheet = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'asciidoctor.css'))
-    coderay_stylesheet = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'asciidoctor-coderay.css'))
+    coderay_stylesheet = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'coderay-asciidoctor.css'))
     begin
       invoker = invoke_cli %W(-o #{sample_outpath} -a linkcss -a source-highlighter=coderay)
       invoker.document
@@ -174,13 +221,13 @@ context 'Invoker' do
       assert File.exist?(asciidoctor_stylesheet)
       assert File.exist?(coderay_stylesheet)
     ensure
-      FileUtils::rm_f(sample_outpath)
-      FileUtils::rm_f(asciidoctor_stylesheet)
-      FileUtils::rm_f(coderay_stylesheet)
+      FileUtils.rm_f(sample_outpath)
+      FileUtils.rm_f(asciidoctor_stylesheet)
+      FileUtils.rm_f(coderay_stylesheet)
     end
   end
 
-  test 'should not copy default css to target directory if linkcss is set and copycss is unset' do
+  test 'should not copy default stylesheet to target directory if linkcss is set and copycss is unset' do
     sample_outpath = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'sample-output.html'))
     default_stylesheet = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'asciidoctor.css'))
     begin
@@ -189,7 +236,44 @@ context 'Invoker' do
       assert File.exist?(sample_outpath)
       assert !File.exist?(default_stylesheet)
     ensure
-      FileUtils::rm_f(sample_outpath)
+      FileUtils.rm_f(sample_outpath)
+      FileUtils.rm_f(default_stylesheet)
+    end
+  end
+
+  test 'should copy custom stylesheet to target directory if stylesheet and linkcss is specified' do
+    destdir = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'output'))
+    sample_outpath = File.join destdir, 'sample-output.html'
+    stylesdir = File.join destdir, 'styles'
+    custom_stylesheet = File.join stylesdir, 'custom.css'
+    begin
+      invoker = invoke_cli %W(-o #{sample_outpath} -a linkcss -a copycss=stylesheets/custom.css -a stylesdir=./styles -a stylesheet=custom.css)
+      invoker.document
+      assert File.exist?(sample_outpath)
+      assert File.exist?(custom_stylesheet)
+    ensure
+      FileUtils.rm_f(sample_outpath)
+      FileUtils.rm_f(custom_stylesheet)
+      FileUtils.rmdir(stylesdir)
+      FileUtils.rmdir(destdir)
+    end
+  end
+
+  test 'should not copy custom stylesheet to target directory if stylesheet and linkcss are set and copycss is unset' do
+    destdir = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'output'))
+    sample_outpath = File.join destdir, 'sample-output.html'
+    stylesdir = File.join destdir, 'styles'
+    custom_stylesheet = File.join stylesdir, 'custom.css'
+    begin
+      invoker = invoke_cli %W(-o #{sample_outpath} -a linkcss -a stylesdir=./styles -a stylesheet=custom.css -a copycss!)
+      invoker.document
+      assert File.exist?(sample_outpath)
+      assert !File.exist?(custom_stylesheet)
+    ensure
+      FileUtils.rm_f(sample_outpath)
+      FileUtils.rm_f(custom_stylesheet)
+      FileUtils.rmdir(stylesdir) if File.directory? stylesdir
+      FileUtils.rmdir(destdir)
     end
   end
 
@@ -197,24 +281,55 @@ context 'Invoker' do
     basic_outpath = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'basic.html'))
     sample_outpath = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'sample.html'))
     begin
-      invoke_cli_with_filenames %w(), %w(basic.asciidoc sample.asciidoc)
+      invoke_cli_with_filenames [], %w(basic.asciidoc sample.asciidoc)
       assert File.exist?(basic_outpath)
       assert File.exist?(sample_outpath)
     ensure
-      FileUtils::rm_f(basic_outpath)
-      FileUtils::rm_f(sample_outpath)
+      FileUtils.rm_f(basic_outpath)
+      FileUtils.rm_f(sample_outpath)
+    end
+  end
+
+  test 'options should not be modified when processing multiple files' do
+    destination_path = File.expand_path(File.join(File.dirname(__FILE__), 'test_output'))
+    basic_outpath = File.join(destination_path, 'basic.htm')
+    sample_outpath = File.join(destination_path, 'sample.htm')
+    begin
+      invoke_cli_with_filenames %w(-D test/test_output -a outfilesuffix=.htm), %w(basic.asciidoc sample.asciidoc)
+      assert File.exist?(basic_outpath)
+      assert File.exist?(sample_outpath)
+    ensure
+      FileUtils.rm_f(basic_outpath)
+      FileUtils.rm_f(sample_outpath)
+      FileUtils.rmdir(destination_path)
     end
   end
 
   test 'should render all files that matches a glob expression' do
     basic_outpath = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'basic.html'))
     begin
-      invoke_cli_to_buffer %w(), "ba*.asciidoc"
+      invoke_cli_to_buffer [], "ba*.asciidoc"
       assert File.exist?(basic_outpath)
     ensure
-      FileUtils::rm_f(basic_outpath)
+      FileUtils.rm_f(basic_outpath)
     end
-  end 
+  end
+
+  test 'should render all files that matches an absolute path glob expression' do
+    basic_outpath = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'basic.html'))
+    glob = File.join(File.dirname(__FILE__), 'fixtures', 'ba*.asciidoc')
+    # test Windows using backslash-style pathname
+    if ::File::ALT_SEPARATOR == '\\'
+      glob = glob.tr '/', '\\'
+    end
+
+    begin
+      invoke_cli_to_buffer [], glob
+      assert File.exist?(basic_outpath)
+    ensure
+      FileUtils.rm_f(basic_outpath)
+    end
+  end
 
   test 'should suppress header footer if specified' do
     invoker = invoke_cli_to_buffer %w(-s -o -)
@@ -223,28 +338,12 @@ context 'Invoker' do
     assert_xpath '/*[@id="preamble"]', output, 1
   end
 
-  test 'should not compact output by default' do
-    # NOTE we are relying on the fact that the template leaves blank lines
-    # this will always fail when using a template engine which strips blank lines by default
-    invoker = invoke_cli_to_buffer(%w(-o -), '-') { '* content' }
-    output = invoker.read_output
-    assert_match(/\n[[:blank:]]*\n/, output)
-  end
-
-  test 'should compact output if specified' do
-    # NOTE we are relying on the fact that the template leaves blank lines
-    # this will always succeed when using a template engine which strips blank lines by default
-    invoker = invoke_cli_to_buffer(%w(-C -s -o -), '-') { '* content' }
-    output = invoker.read_output
-    assert_no_match(/\n[[:blank:]]*\n/, output)
-  end
-
   test 'should output a trailing endline to stdout' do
     invoker = nil
     output = nil
-    redirect_streams do |stdout, stderr|
+    redirect_streams do |out, err|
       invoker = invoke_cli %w(-o -)
-      output = stdout.string
+      output = out.string
     end
     assert !invoker.nil?
     assert !output.nil?
@@ -261,7 +360,7 @@ context 'Invoker' do
   end
 
   test 'should set backend to docbook45 if specified' do
-    invoker = invoke_cli_to_buffer %w(-b docbook45 -o -)
+    invoker = invoke_cli_to_buffer %w(-b docbook45 -a xmlns -o -)
     doc = invoker.document
     assert_equal 'docbook45', doc.attr('backend')
     assert_equal '.xml', doc.attr('outfilesuffix')
@@ -289,7 +388,10 @@ context 'Invoker' do
     custom_backend_root = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'custom-backends'))
     invoker = invoke_cli_to_buffer %W(-E haml -T #{custom_backend_root} -o -)
     doc = invoker.document
-    assert doc.renderer.views['block_paragraph'].is_a? Tilt::HamlTemplate
+    assert doc.converter.is_a? Asciidoctor::Converter::CompositeConverter
+    selected = doc.converter.find_converter 'paragraph'
+    assert selected.is_a? Asciidoctor::Converter::TemplateConverter
+    assert selected.templates['paragraph'].is_a? Tilt::HamlTemplate
   end
 
   test 'should load custom templates from multiple template directories' do
@@ -394,22 +496,33 @@ context 'Invoker' do
       require 'open3'
       #cmd = "#{executable} -o - --trace #{input_path}"
       cmd = "#{File.join RbConfig::CONFIG['bindir'], RbConfig::CONFIG['ruby_install_name']} #{executable} -o - --trace #{input_path}"
-      _, stdout, stderr = Open3.popen3 cmd
-      stderr_lines = stderr.readlines
-      puts stderr_lines.join unless stderr_lines.empty?
-      assert stderr_lines.empty?, 'Command failed. Expected to receive a rendered document.'
-      stdout_lines = stdout.readlines
+      _, out, _ = Open3.popen3 cmd
+      #stderr_lines = stderr.readlines
+      # warnings may be issued, so don't assert on stderr
+      #assert stderr_lines.empty?, 'Command failed. Expected to receive a rendered document.'
+      stdout_lines = out.readlines
       assert !stdout_lines.empty?
-      if Asciidoctor::FORCE_ENCODING
-        stdout_lines.each do |l|
-          l.force_encoding Encoding::UTF_8
-        end
-      end
+      stdout_lines.each {|l| l.force_encoding Encoding::UTF_8 } if Asciidoctor::FORCE_ENCODING
       stdout_str = stdout_lines.join
       assert stdout_str.include?('Codierungen sind verrückt auf älteren Versionen von Ruby') 
     ensure
       ENV['LANG'] = old_lang
     end
+  end
+
+  test 'should print timings when -t flag is specified' do
+    input = <<-EOS
+    Sample *AsciiDoc*
+    EOS
+    invoker = nil
+    error = nil
+    redirect_streams do |out, err|
+      invoker = invoke_cli(%w(-t -o /dev/null), '-') { input }
+      error = err.string
+    end
+    assert !invoker.nil?
+    assert !error.nil?
+    assert_match(/Total time/, error)
   end
 
 end

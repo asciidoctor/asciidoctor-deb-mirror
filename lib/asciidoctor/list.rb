@@ -1,3 +1,4 @@
+# encoding: UTF-8
 module Asciidoctor
 # Public: Methods for managing AsciiDoc lists (ordered, unordered and labeled lists)
 class List < AbstractBlock
@@ -6,8 +7,8 @@ class List < AbstractBlock
   alias :items :blocks
   alias :items? :blocks?
 
-  def initialize(parent, context)
-    super(parent, context)
+  def initialize parent, context
+    super
   end
 
   # Public: Get the items in this list as an Array
@@ -15,10 +16,21 @@ class List < AbstractBlock
     @blocks
   end
 
-  def render
-    result = super
-    @document.callouts.next_list if @context == :colist
-    result
+  def convert
+    if @context == :colist
+      result = super
+      @document.callouts.next_list
+      result
+    else
+      super
+    end
+  end
+
+  # Alias render to convert to maintain backwards compatibility
+  alias :render :convert
+
+  def to_s
+    %(#<#{self.class}@#{object_id} {context: #{@context.inspect}, style: #{@style.inspect}, items: #{items.size}}>)
   end
 
 end
@@ -33,14 +45,14 @@ class ListItem < AbstractBlock
   #
   # parent - The parent list block for this list item
   # text - the String text (default nil)
-  def initialize(parent, text = nil)
-    super(parent, :list_item)
+  def initialize parent, text = nil
+    super parent, :list_item
     @text = text
     @level = parent.level
   end
 
   def text?
-    !@text.to_s.empty?
+    !@text.nil_or_empty?
   end
 
   def text
@@ -59,23 +71,20 @@ class ListItem < AbstractBlock
   #
   # Returns nothing
   def fold_first(continuation_connects_first_block = false, content_adjacent = false)
-    if !(first_block = @blocks.first).nil? && first_block.is_a?(Block) &&
+    if (first_block = @blocks[0]) && first_block.is_a?(Block) &&
         ((first_block.context == :paragraph && !continuation_connects_first_block) ||
         ((content_adjacent || !continuation_connects_first_block) && first_block.context == :literal &&
             first_block.option?('listparagraph')))
 
       block = blocks.shift
-      unless @text.to_s.empty?
-        block.lines.unshift("#@text\n")
-      end
-
+      block.lines.unshift @text unless @text.nil_or_empty?
       @text = block.source
     end
     nil
   end
 
   def to_s
-    "#@context [text:#@text, blocks:#{(@blocks || []).size}]"
+    %(#<#{self.class}@#{object_id} {list_context: #{parent.context.inspect}, text: #{@text.inspect}, blocks: #{(@blocks || []).size}}>)
   end
 
 end

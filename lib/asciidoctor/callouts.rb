@@ -1,3 +1,4 @@
+# encoding: UTF-8
 module Asciidoctor
 # Public: Maintains a catalog of callouts and their associations.
 class Callouts
@@ -36,8 +37,8 @@ class Callouts
   # Public: Get the next callout index in the document
   #
   # Reads the next callout index in the document and advances the pointer.
-  # This method is used during rendering to retrieve the unique id of the
-  # callout that was generated during lexing.
+  # This method is used during conversion to retrieve the unique id of the
+  # callout that was generated during parsing.
   #
   # Returns The unique String id of the next callout in the document
   def read_next_id
@@ -60,10 +61,7 @@ class Callouts
   #
   # Returns A space-separated String of callout ids associated with the specified list item
   def callout_ids(li_ordinal)
-    current_list.inject([]) {|collector, element|
-      collector << element[:id] if element[:ordinal] == li_ordinal
-      collector
-    } * ' '
+    current_list.map {|element| element[:ordinal] == li_ordinal ? %(#{element[:id]} ) : nil }.join.chop
   end
 
   # Public: The current list for which callouts are being collected
@@ -89,7 +87,7 @@ class Callouts
   end
 
   # Public: Rewind the list index pointer, intended to be used when switching
-  # from the parsing to rendering phase.
+  # from the parsing to conversion phase.
   #
   # Returns nothing
   def rewind

@@ -1,16 +1,16 @@
 asciidoctor (1.5.2-1) unstable; urgency=medium
 
-  * Update to Asciidoctor 1.5.2
-
- -- Guillaume Grossetie <ggrossetie@gmail.com>  Wed, 27 May 2015 21:31:24 +0200
-
-
-asciidoctor (0.1.4-4) UNRELEASED; urgency=medium
-
+  [ Sebastien Badia ]
   * Team upload.
   * d/watch: Fall-back to Github (githubredir webservice was discontinued)
 
- -- Sebastien Badia <seb@sebian.fr>  Wed, 08 Apr 2015 16:08:59 +0200
+  [ Guillaume Grossetie ]
+  * Update to Asciidoctor 1.5.2
+  * Bump Standards-Version to 3.9.6, no changes
+  * Remove obsolete patches
+  * Update patch for updated asciidoctor.1 manpage
+
+ -- Guillaume Grossetie <ggrossetie@gmail.com>  Wed, 27 May 2015 21:31:24 +0200
 
 asciidoctor (0.1.4-3) unstable; urgency=low
 

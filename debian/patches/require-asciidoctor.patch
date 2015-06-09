@@ -1,0 +1,17 @@
+Index: asciidoctor/bin/asciidoctor
+===================================================================
+--- asciidoctor.orig/bin/asciidoctor	2015-06-15 22:07:39.149451578 +0200
++++ asciidoctor/bin/asciidoctor	2015-06-15 22:17:06.909460761 +0200
+@@ -2,7 +2,11 @@
+ 
+ require 'rubygems' if RUBY_VERSION < '1.9'
+ 
+-require File.join File.dirname(__FILE__), '../lib/asciidoctor'
++if File.exist?(asciidoctor_lib_path = File.join(File.dirname(__FILE__), '../lib/asciidoctor'))
++  require asciidoctor_lib_path
++else
++  require 'asciidoctor'
++end
+ require 'asciidoctor/cli'
+ 
+ invoker = Asciidoctor::Cli::Invoker.new ARGV

@@ -1,1 +1,2 @@
 update-asciidoctor.1-manpage.patch
+require-asciidoctor.patch

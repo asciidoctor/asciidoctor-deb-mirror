@@ -2,7 +2,7 @@ Source: asciidoctor
 Section: ruby
 Priority: optional
 Maintainer: Debian Ruby Extras Maintainers <pkg-ruby-extras-maintainers@lists.alioth.debian.org>
-Uploaders: Per Andersson <avtobiff@gmail.com>
+Uploaders: Per Andersson <avtobiff@gmail.com>, Guillaume Grossetie <ggrossetie@gmail.com>
 Build-Depends:
  debhelper (>= 7.0.50~),
  gem2deb (>= 0.7.5~),

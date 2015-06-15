@@ -1,3 +1,11 @@
+asciidoctor (1.5.2-2) unstable; urgency=medium
+
+  * Include data directory into the package (stylesheets)
+  * Require asciidoctor with a non relative path in bin/asciidoctor
+  * Add Guillaume Grossetie as Uploaders
+
+ -- Guillaume Grossetie <ggrossetie@gmail.com>  Wed, 27 May 2015 21:31:24 +0200
+
 asciidoctor (1.5.2-1) unstable; urgency=medium
 
   [ Sebastien Badia ]

@@ -1,3 +1,6 @@
+From: Guillaume Grossetie <ggrossetie@gmail.com>
+Subject: Require asciidoctor with a non relative path in bin/asciidoctor
+Bug-Debian: https://bugs.debian.org/764664
 Index: asciidoctor/bin/asciidoctor
 ===================================================================
 --- asciidoctor.orig/bin/asciidoctor	2015-06-15 22:07:39.149451578 +0200

@@ -1,7 +1,7 @@
 asciidoctor (1.5.2-2) unstable; urgency=medium
 
-  * Include data directory into the package (stylesheets)
-  * Require asciidoctor with a non relative path in bin/asciidoctor
+  * Include data directory into the package (stylesheets) (Closes: #788052)
+  * Require asciidoctor with a non relative path in bin/asciidoctor (Closes: #788051)
   * Add Guillaume Grossetie as Uploaders
 
  -- Guillaume Grossetie <ggrossetie@gmail.com>  Wed, 27 May 2015 21:31:24 +0200
@@ -13,7 +13,7 @@ asciidoctor (1.5.2-1) unstable; urgency=medium
   * d/watch: Fall-back to Github (githubredir webservice was discontinued)
 
   [ Guillaume Grossetie ]
-  * Update to Asciidoctor 1.5.2
+  * Update to Asciidoctor 1.5.2 (Closes: #764664)
   * Bump Standards-Version to 3.9.6, no changes
   * Remove obsolete patches
   * Update patch for updated asciidoctor.1 manpage

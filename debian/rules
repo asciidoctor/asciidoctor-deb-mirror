@@ -24,6 +24,7 @@ override_dh_auto_build:
 	rdoc --main=README.adoc lib
 
 override_dh_auto_install:
+	dh_install
 	dh_auto_install
 	# remove asciidoctor-safe
 	rm -f debian/asciidoctor/usr/bin/asciidoctor-safe

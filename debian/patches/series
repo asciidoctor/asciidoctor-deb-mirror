@@ -1,3 +1,4 @@
 update-asciidoctor.1-manpage.patch
 require-asciidoctor.patch
 data_path.patch
+lib_directory_in_tests.patch

@@ -1,0 +1,17 @@
+Description: Skip test that depends on unpackaged optional library
+Author: Antonio Terceiro <terceiro@debian.org>
+Origin: vendor
+Forwarded: not-needed
+Last-Update: 2015-11-17
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/test/blocks_test.rb
++++ b/test/blocks_test.rb
+@@ -1278,6 +1278,7 @@ sqrt(3x-1)+(1+x)^2 < y
+     end
+ 
+     test 'should render asciimath block in textobject of equation in DocBook backend' do
++      skip 'depends on unpackaged dependency'
+       input = <<-'EOS'
+ [asciimath]
+ ++++

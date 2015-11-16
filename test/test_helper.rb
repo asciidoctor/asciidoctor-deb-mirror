@@ -10,7 +10,12 @@ require 'simplecov' if ENV['COVERAGE'] == 'true'
 
 require File.join(ASCIIDOCTOR_PROJECT_DIR, 'lib', 'asciidoctor')
 
-require 'minitest/autorun'
+# NOTE we require minitest libraries explicitly to avoid a superfluous warning
+require 'minitest/unit'
+require 'minitest/spec'
+require 'minitest/mock'
+MiniTest::Unit.autorun
+
 require 'socket'
 require 'nokogiri'
 require 'tmpdir'
@@ -180,7 +185,7 @@ class Minitest::Test
     else
       # this is required because nokogiri is ignorant
       result = document_from_string(src, opts).render
-      result = result.sub(RE_XMLNS_ATTRIBUTE, '')
+      result = result.sub(RE_XMLNS_ATTRIBUTE, '') if result
       result
     end
   end

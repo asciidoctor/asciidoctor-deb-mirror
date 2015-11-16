@@ -49,7 +49,7 @@ module Asciidoctor
             require 'thread_safe'.to_s unless defined? ::ThreadSafe
             new ::ThreadSafe::Cache.new
           rescue ::LoadError
-            warn 'asciidoctor: WARNING: gem \'thread_safe\' is not installed. This gem recommended when registering custom converters.'
+            warn 'asciidoctor: WARNING: gem \'thread_safe\' is not installed. This gem is recommended when registering custom converters.'
             new
           end
         end
@@ -207,6 +207,11 @@ module Asciidoctor
             require 'asciidoctor/converter/docbook45'.to_s
           end
           DocBook45Converter.new backend, opts
+        when 'manpage'
+          unless defined? ::Asciidoctor::Converter::ManPageConverter
+            require 'asciidoctor/converter/manpage'.to_s
+          end
+          ManPageConverter.new backend, opts
         end
 
         return base_converter unless opts.key? :template_dirs

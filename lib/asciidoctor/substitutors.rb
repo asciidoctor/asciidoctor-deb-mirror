@@ -80,7 +80,7 @@ module Substitutors
     elsif subs == :normal
       subs = SUBS[:normal]
     elsif expand
-      if subs.is_a? ::Symbol
+      if ::Symbol === subs
         subs = COMPOSITE_SUBS[subs] || [subs]
       else
         effective_subs = []
@@ -98,7 +98,7 @@ module Substitutors
 
     return source if subs.empty?
 
-    text = (multiline = source.is_a? ::Array) ? (source * EOL) : source
+    text = (multiline = ::Array === source) ? source * EOL : source
 
     if (has_passthroughs = subs.include? :macros)
       text = extract_passthroughs text
@@ -108,7 +108,7 @@ module Substitutors
     subs.each do |type|
       case type
       when :specialcharacters
-        text = sub_specialcharacters text
+        text = sub_specialchars text
       when :quotes
         text = sub_quotes text
       when :attributes
@@ -138,7 +138,7 @@ module Substitutors
   #
   # returns - A String with normal substitutions performed
   def apply_normal_subs(lines)
-    apply_subs lines.is_a?(::Array) ? (lines * EOL) : lines
+    apply_subs(::Array === lines ? lines * EOL : lines)
   end
 
   # Public: Apply substitutions for titles.
@@ -356,12 +356,12 @@ module Substitutors
   # text - The String text to process
   #
   # returns The String text with special characters replaced
-  def sub_specialcharacters(text)
+  def sub_specialchars(text)
     SUPPORTS_GSUB_RESULT_HASH ?
       text.gsub(SPECIAL_CHARS_PATTERN, SPECIAL_CHARS) :
       text.gsub(SPECIAL_CHARS_PATTERN) { SPECIAL_CHARS[$&] }
   end
-  alias :sub_specialchars :sub_specialcharacters
+  alias :sub_specialcharacters :sub_specialchars
 
   # Public: Substitute quoted text (includes emphasis, strong, monospaced, etc)
   #
@@ -448,7 +448,7 @@ module Substitutors
     return data if data.nil_or_empty?
 
     # normalizes data type to an array (string becomes single-element array)
-    if (string_data = String === data)
+    if (string_data = ::String === data)
       data = [data]
     end
 
@@ -520,7 +520,7 @@ module Substitutors
       result << line unless reject || (reject_if_empty && line.empty?)
     end
 
-    string_data ? (result * EOL) : result
+    string_data ? result * EOL : result
   end
 
   # Public: Substitute inline macros (e.g., links, images, etc)
@@ -632,7 +632,7 @@ module Substitutors
     # TODO this handling needs some cleanup
     if (extensions = @document.extensions) && extensions.inline_macros? # && found[:macroish]
       extensions.inline_macros.each do |extension|
-        result = result.gsub(extension.config[:regexp]) {
+        result = result.gsub(extension.instance.regexp) {
           # alias match for Ruby 1.8.7 compat
           m = $~
           # honor the escape
@@ -678,7 +678,7 @@ module Substitutors
           @document.register(:images, target)
         end
         attrs = parse_attributes(raw_attrs, posattrs)
-        attrs['alt'] ||= File.basename(target, File.extname(target))
+        attrs['alt'] ||= Helpers.basename(target, true).tr('_-', ' ')
         Inline.new(self, :image, nil, :type => type, :target => target, :attributes => attrs).convert
       }
     end
@@ -828,10 +828,10 @@ module Substitutors
         end
 
         if text.empty?
-          text = if @document.attr? 'hide-uri-scheme'
-            target.sub UriSniffRx, ''
+          if @document.attr? 'hide-uri-scheme'
+            text = target.sub UriSniffRx, ''
           else
-            target
+            text = target
           end
 
           if attrs
@@ -1069,6 +1069,9 @@ module Substitutors
 
         if id.include? '#'
           path, fragment = id.split('#')
+        # QUESTION perform this check and throw it back if it fails?
+        #elsif (start_chr = id.chr) == '.' || start_chr == '/'
+        #  next m[0][1..-1]
         else
           path = nil
           fragment = id
@@ -1318,8 +1321,7 @@ module Substitutors
     return [] if subs.nil_or_empty?
     candidates = nil
     modifiers_present = SubModifierSniffRx =~ subs
-    subs.split(',').each do |val|
-      key = val.strip
+    subs.tr(' ', '').split(',').each do |key|
       modifier_operation = nil
       if modifiers_present
         if (first = key.chr) == '+'
@@ -1394,10 +1396,34 @@ module Substitutors
   # process_callouts - a Boolean flag indicating whether callout marks should be substituted
   #
   # returns the highlighted source code, if a source highlighter is defined
-  # on the document, otherwise the unprocessed text
-  def highlight_source(source, process_callouts, highlighter = nil)
-    highlighter ||= @document.attributes['source-highlighter']
-    Helpers.require_library highlighter, (highlighter == 'pygments' ? 'pygments.rb' : highlighter)
+  # on the document, otherwise the source with verbatim substituions applied
+  def highlight_source source, process_callouts, highlighter = nil
+    case (highlighter ||= @document.attributes['source-highlighter'])
+    when 'coderay'
+      unless (highlighter_loaded = defined? ::CodeRay) || @document.attributes['coderay-unavailable']
+        if (Helpers.require_library 'coderay', true, :warn).nil?
+          # prevent further attempts to load CodeRay
+          @document.set_attr 'coderay-unavailable', true
+        else
+          highlighter_loaded = true
+        end
+      end
+    when 'pygments'
+      unless (highlighter_loaded = defined? ::Pygments) || @document.attributes['pygments-unavailable']
+        if (Helpers.require_library 'pygments', 'pygments.rb', :warn).nil?
+          # prevent further attempts to load Pygments
+          @document.set_attr 'pygments-unavailable', true
+        else
+          highlighter_loaded = true
+        end
+      end
+    else
+      # unknown highlighting library (something is misconfigured if we arrive here)
+      highlighter_loaded = false
+    end
+
+    return sub_source source, process_callouts unless highlighter_loaded
+
     lineno = 0
     callout_on_last = false
     if process_callouts
@@ -1428,19 +1454,32 @@ module Substitutors
     end
 
     linenums_mode = nil
+    highlight_lines = nil
 
     case highlighter
     when 'coderay'
+      if (linenums_mode = (attr? 'linenums') ? (@document.attributes['coderay-linenums-mode'] || :table).to_sym : nil)
+        if attr? 'highlight', nil, false
+          highlight_lines = resolve_lines_to_highlight(attr 'highlight', nil, false)
+        end
+      end
       result = ::CodeRay::Duo[attr('language', :text, false).to_sym, :html, {
           :css => (@document.attributes['coderay-css'] || :class).to_sym,
-          :line_numbers => (linenums_mode = ((attr? 'linenums') ? (@document.attributes['coderay-linenums-mode'] || :table).to_sym : nil)),
-          :line_number_anchors => false}].highlight source
+          :line_numbers => linenums_mode,
+          :line_number_anchors => false,
+          :highlight_lines => highlight_lines,
+          :bold_every => false}].highlight source
     when 'pygments'
       lexer = ::Pygments::Lexer[attr('language', nil, false)] || ::Pygments::Lexer['text']
       opts = { :cssclass => 'pyhl', :classprefix => 'tok-', :nobackground => true }
       unless (@document.attributes['pygments-css'] || 'class') == 'class'
         opts[:noclasses] = true
         opts[:style] = (@document.attributes['pygments-style'] || Stylesheets::DEFAULT_PYGMENTS_STYLE)
+      end
+      if attr? 'highlight', nil, false
+        unless (highlight_lines = resolve_lines_to_highlight(attr 'highlight', nil, false)).empty?
+          opts[:hl_lines] = highlight_lines * ' '
+        end
       end
       if attr? 'linenums'
         # TODO we could add the line numbers in ourselves instead of having to strip out the junk
@@ -1503,6 +1542,44 @@ module Substitutors
     else
       result
     end
+  end
+
+  # e.g., highlight="1-5, !2, 10" or highlight=1-5;!2,10
+  def resolve_lines_to_highlight spec
+    lines = []
+    spec.delete(' ').split(DataDelimiterRx).map do |entry|
+      negate = false
+      if entry.start_with? '!'
+        entry = entry[1..-1]
+        negate = true
+      end
+      if entry.include? '-'
+        s, e = entry.split '-', 2
+        line_nums = (s.to_i..e.to_i).to_a
+        if negate
+          lines -= line_nums
+        else
+          lines.concat line_nums
+        end
+      else
+        if negate
+          lines.delete entry.to_i
+        else
+          lines << entry.to_i
+        end
+      end
+    end
+    lines.sort.uniq
+  end
+
+  # Public: Apply verbatim substitutions on source (for use when highlighting is disabled).
+  #
+  # source - the source code String on which to apply verbatim substitutions
+  # process_callouts - a Boolean flag indicating whether callout marks should be substituted
+  #
+  # returns the substituted source
+  def sub_source source, process_callouts
+    return process_callouts ? sub_callouts(sub_specialchars(source)) : sub_specialchars(source)
   end
 
   # Internal: Lock-in the substitutions for this block

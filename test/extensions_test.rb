@@ -125,7 +125,7 @@ end
 
 class MetaAppDocinfoProcessor < Asciidoctor::Extensions::DocinfoProcessor
   use_dsl
-  at_location :header
+  at_location :head
 
   def process document
     '<meta name="application-name" content="Asciidoctor App">'
@@ -310,7 +310,7 @@ context 'Extensions' do
       registry.docinfo_processor SampleDocinfoProcessor
       registry.activate Asciidoctor::Document.new
       assert registry.docinfo_processors?
-      assert registry.docinfo_processors?(:header)
+      assert registry.docinfo_processors?(:head)
       extensions = registry.docinfo_processors
       assert_equal 1, extensions.size
       assert extensions.first.is_a? Asciidoctor::Extensions::ProcessorExtension
@@ -589,6 +589,25 @@ snippet::12345[]
       end
     end
 
+    test 'should resolve regexp for inline macro lazily' do
+      begin
+        Asciidoctor::Extensions.register do
+          inline_macro do
+            named :label
+            using_format :short
+            process do |parent, target|
+              %(<label>#{target}</label>)
+            end
+          end
+        end
+
+        output = render_embedded_string 'label:[Checkbox]'
+        assert output.include?('<label>Checkbox</label>')
+      ensure
+        Asciidoctor::Extensions.unregister_all
+      end
+    end
+
     test 'should not carry over attributes if block processor returns nil' do
       begin
         Asciidoctor::Extensions.register do
@@ -687,7 +706,7 @@ sample content
 
         doc = document_from_string input, :safe => :server
         assert_equal '<meta name="robots" content="index,follow">
-<meta name="application-name" content="Asciidoctor App">', doc.docinfo(:header)
+<meta name="application-name" content="Asciidoctor App">', doc.docinfo
         assert_equal '<script><!-- analytics code --></script>', doc.docinfo(:footer)
       ensure
         Asciidoctor::Extensions.unregister_all

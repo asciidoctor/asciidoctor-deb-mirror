@@ -22,7 +22,7 @@ module Asciidoctor
   # As an optimization, scan results and templates are cached for the lifetime
   # of the Ruby process. If the {https://rubygems.org/gems/thread_safe
   # thread_safe} gem is installed, these caches are guaranteed to be thread
-  # safe. If this gem is not present, a warning is issued.
+  # safe. If this gem is not present, they are not and a warning is issued.
   class Converter::TemplateConverter < Converter::Base
     DEFAULT_ENGINE_OPTIONS = {
       :erb =>  { :trim => '<' },
@@ -37,9 +37,9 @@ module Asciidoctor
       require 'thread_safe' unless defined? ::ThreadSafe
       @caches = { :scans => ::ThreadSafe::Cache.new, :templates => ::ThreadSafe::Cache.new }
     rescue ::LoadError
-      @caches = {}
-      # FIXME perhaps only warn if the cache option is enabled?
-      warn 'asciidoctor: WARNING: gem \'thread_safe\' is not installed. This gem recommended when using custom backend templates.'
+      @caches = { :scans => {}, :templates => {} }
+      # FIXME perhaps only warn if the cache option is enabled (meaning not disabled)?
+      warn 'asciidoctor: WARNING: gem \'thread_safe\' is not installed. This gem is recommended when using custom backend templates.'
     end
 
     def self.caches
@@ -52,28 +52,33 @@ module Asciidoctor
     end
 
     def initialize backend, template_dirs, opts = {}
+      Helpers.require_library 'tilt' unless defined? ::Tilt
       @backend = backend
       @templates = {}
       @template_dirs = template_dirs
       @eruby = opts[:eruby]
+      @safe = opts[:safe]
       @engine = opts[:template_engine]
       @engine_options = DEFAULT_ENGINE_OPTIONS.inject({}) do |accum, (engine, default_opts)|
         accum[engine] = default_opts.dup
         accum
+      end
+      if opts[:htmlsyntax] == 'html'
+        @engine_options[:haml][:format] = :html5
+        @engine_options[:slim][:format] = :html
       end
       if (overrides = opts[:template_engine_options])
         overrides.each do |engine, override_opts|
           (@engine_options[engine] ||= {}).update override_opts
         end
       end
-      @engine_options[:haml][:format] = @engine_options[:slim][:format] = :html5 if opts[:htmlsyntax] == 'html'
       case opts[:template_cache]
       when true
         @caches = self.class.caches
       when ::Hash
         @caches = opts[:template_cache]
       else
-        @caches = {}
+        @caches = {} # the empty Hash effectively disables caching
       end
       scan
       #create_handlers
@@ -97,7 +102,8 @@ module Asciidoctor
       engine = @engine
       @template_dirs.each do |template_dir|
         # FIXME need to think about safe mode restrictions here
-        template_dir = path_resolver.system_path template_dir, nil
+        next unless ::File.directory?(template_dir = (path_resolver.system_path template_dir, nil))
+
         # NOTE last matching template wins for template name if no engine is given
         file_pattern = '*'
         if engine
@@ -177,11 +183,8 @@ module Asciidoctor
         raise %(Could not find a custom template to handle transform: #{template_name})
       end
 
-      # Slim doesn't include helpers in the template's execution scope such as
-      # HAML, so we must do it ourselves.
-      if (defined? ::Slim::Helpers) && (template.is_a? ::Slim::Template)
-        node.extend ::Slim::Helpers
-      end
+      # Slim doesn't include helpers in the template's execution scope (like HAML), so do it ourselves
+      node.extend ::Slim::Helpers if (defined? ::Slim::Helpers) && (::Slim::Template === template)
 
       # NOTE opts become locals in the template
       if template_name == 'document'
@@ -247,12 +250,16 @@ module Asciidoctor
         template_class = ::Tilt
         extra_engine_options = {}
         if ext_name == 'slim'
-          # slim doesn't get loaded by Tilt, so we have to load it explicitly
-          Helpers.require_library 'slim' unless defined? ::Slim
-          # load include plugin when using Slim >= 2.1
-          unless ::Slim::VERSION < '2.1' || (defined? ::Slim::Include)
-            Helpers.require_library 'slim/include', false
+          unless defined? ::Slim
+            # slim doesn't get loaded by Tilt, so we have to load it explicitly
+            Helpers.require_library 'slim'
+            if @safe && ::Slim::VERSION >= '3.0'
+              slim_asciidoc_opts = (@engine_options[:slim][:asciidoc] ||= {})
+              slim_asciidoc_opts[:safe] ||= @safe
+            end
           end
+          # load include plugin when using Slim >= 2.1
+          require 'slim/include' unless (defined? ::Slim::Include) || ::Slim::VERSION < '2.1'
         elsif ext_name == 'erb'
           template_class, extra_engine_options = (eruby_loaded ||= load_eruby(@eruby))
         end

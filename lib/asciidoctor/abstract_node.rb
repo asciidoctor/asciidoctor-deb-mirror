@@ -90,7 +90,7 @@ class AbstractNode
   # return the value of the attribute or the default value if the attribute
   # is not found in the attributes of this node or the document node
   def attr(name, default_value = nil, inherit = true)
-    name = name.to_s if name.is_a?(::Symbol)
+    name = name.to_s if ::Symbol === name
     inherit = false if self == @document
     if inherit
       @attributes[name] || @document.attributes[name] || default_value
@@ -117,7 +117,7 @@ class AbstractNode
   # comparison value is specified, whether the value of the attribute matches
   # the comparison value
   def attr?(name, expect = nil, inherit = true)
-    name = name.to_s if name.is_a?(::Symbol)
+    name = name.to_s if ::Symbol === name
     inherit = false if self == @document
     if expect.nil?
       @attributes.has_key?(name) || (inherit && @document.attributes.has_key?(name))
@@ -130,23 +130,18 @@ class AbstractNode
 
   # Public: Assign the value to the attribute name for the current node.
   #
-  # name      - The String attribute name
-  # value     - The Object value to assign to the attribute name
+  # name      - The String attribute name to assign
+  # value     - The Object value to assign to the attribute
   # overwrite - A Boolean indicating whether to assign the attribute
-  #             if currently present in the attributes Hash
+  #             if currently present in the attributes Hash (default: true)
   #
   # Returns a [Boolean] indicating whether the assignment was performed
-  def set_attr name, value, overwrite = nil
-    if overwrite.nil?
+  def set_attr name, value, overwrite = true
+    if overwrite == false && (@attributes.key? name)
+      false
+    else
       @attributes[name] = value
       true
-    else
-      if overwrite || !(@attributes.key? name)
-        @attributes[name] = value
-        true
-      else
-        false
-      end
     end
   end
 
@@ -226,6 +221,21 @@ class AbstractNode
     end
   end
 
+  # Public: A convenience method that adds the given role directly to this node
+  def add_role(name)
+    unless (roles = (@attributes['role'] || '').split(' ')).include? name
+      @attributes['role'] = roles.push(name) * ' '
+    end
+  end
+
+  # Public: A convenience method that removes the given role directly from this node
+  def remove_role(name)
+    if (roles = (@attributes['role'] || '').split(' ')).include? name
+      roles.delete name
+      @attributes['role'] = roles * ' '
+    end
+  end
+
   # Public: A convenience method that checks if the reftext attribute is specified
   def reftext?
     @attributes.has_key?('reftext') || @document.attributes.has_key?('reftext')
@@ -301,8 +311,8 @@ class AbstractNode
   # Returns A String reference or data URI for the target image
   def image_uri(target_image, asset_dir_key = 'imagesdir')
     if (doc = @document).safe < SafeMode::SECURE && doc.attr?('data-uri')
-      if is_uri?(target_image) ||
-          (asset_dir_key && (images_base = doc.attr(asset_dir_key)) && is_uri?(images_base) &&
+      if (Helpers.uriish? target_image) ||
+          (asset_dir_key && (images_base = doc.attr(asset_dir_key)) && (Helpers.uriish? images_base) &&
           (target_image = normalize_web_path(target_image, images_base, false)))
         if doc.attr?('allow-uri-read')
           generate_data_uri_from_uri target_image, doc.attr?('cache-uri')
@@ -330,8 +340,9 @@ class AbstractNode
   #
   # Returns A String data URI containing the content of the target image
   def generate_data_uri(target_image, asset_dir_key = nil)
-    ext = ::File.extname(target_image)[1..-1]
-    mimetype = (ext == 'svg' ? 'image/svg+xml' : %(image/#{ext}))
+    ext = ::File.extname target_image
+    # QUESTION what if ext is empty?
+    mimetype = (ext == '.svg' ? 'image/svg+xml' : %(image/#{ext[1..-1]}))
     if asset_dir_key
       image_path = normalize_system_path(target_image, @document.attr(asset_dir_key), nil, :target_name => 'image')
     else
@@ -352,6 +363,7 @@ class AbstractNode
     else
       bindata = ::File.open(image_path, 'rb') {|file| file.read }
     end
+    # NOTE base64 is autoloaded by reference to ::Base64
     %(data:#{mimetype};base64,#{::Base64.encode64(bindata).delete EOL})
   end
  
@@ -368,7 +380,6 @@ class AbstractNode
   # Returns A data URI string built from Base64 encoded data read from the URI
   # and the mime type specified in the Content Type header.
   def generate_data_uri_from_uri image_uri, cache_uri = false
-    Helpers.require_library 'base64'
     if cache_uri
       # caching requires the open-uri-cached gem to be installed
       # processing will be automatically aborted if these libraries can't be opened
@@ -384,7 +395,8 @@ class AbstractNode
         mimetype = file.content_type 
         file.read
       }
-      %(data:#{mimetype};base64,#{Base64.encode64(bindata).delete EOL})
+      # NOTE base64 is autoloaded by reference to ::Base64
+      %(data:#{mimetype};base64,#{::Base64.encode64(bindata).delete EOL})
     rescue
       warn %(asciidoctor: WARNING: could not retrieve image data from URI: #{image_uri})
       image_uri
@@ -393,6 +405,46 @@ class AbstractNode
       # uncomment to return 1 pixel white dot instead
       #'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='
     end
+  end
+
+  # Public: Resolve the URI or system path to the specified target, then read and return its contents
+  #
+  # The URI or system path of the target is first resolved. If the resolved path is a URI, read the
+  # contents from the URI if the allow-uri-read attribute is set, enabling caching if the cache-uri
+  # attribute is also set. If the resolved path is not a URI, read the contents of the file from the
+  # file system. If the normalize option is set, the data will be normalized.
+  #
+  # target - The URI or local path from which to read the data.
+  # opts   - a Hash of options to control processing (default: {})
+  #          * :label the String label of the target to use in warning messages (default: 'asset')
+  #          * :normalize a Boolean that indicates whether the data should be normalized (default: false)
+  #          * :start the String relative base path to use when resolving the target (default: nil)
+  #          * :warn_on_failure a Boolean that indicates whether warnings are issued if the target cannot be read (default: true)
+  # Returns the contents of the resolved target or nil if the resolved target cannot be read
+  # --
+  # TODO refactor other methods in this class to use this method were possible (repurposing if necessary)
+  def read_contents target, opts = {}
+    doc = @document
+    if (Helpers.uriish? target) || ((start = opts[:start]) && (Helpers.uriish? start) &&
+        (target = (@path_resolver ||= PathResolver.new).web_path target, start))
+      if doc.attr? 'allow-uri-read'
+        Helpers.require_library 'open-uri/cached', 'open-uri-cached' if doc.attr? 'cache-uri'
+        begin
+          data = ::OpenURI.open_uri(target) {|fd| fd.read }
+          data = (Helpers.normalize_lines_from_string data) * EOL if opts[:normalize]
+        rescue
+          warn %(asciidoctor: WARNING: could not retrieve contents of #{opts[:label] || 'asset'} at URI: #{target}) if opts.fetch :warn_on_failure, true
+          data = nil
+        end
+      else
+        warn %(asciidoctor: WARNING: cannot retrieve contents of #{opts[:label] || 'asset'} at URI: #{target} (allow-uri-read attribute not enabled)) if opts.fetch :warn_on_failure, true
+        data = nil
+      end
+    else
+      target = normalize_system_path target, opts[:start], nil, :target_name => (opts[:label] || 'asset')
+      data = read_asset target, :normalize => opts[:normalize], :warn_on_failure => (opts.fetch :warn_on_failure, true)
+    end
+    data
   end
 
   # Public: Read the contents of the file at the specified path.
@@ -413,9 +465,9 @@ class AbstractNode
     opts = { :warn_on_failure => (opts != false) } unless ::Hash === opts
     if ::File.readable? path
       if opts[:normalize]
-        # QUESTION should we strip content?
         Helpers.normalize_lines_from_string(::IO.read(path)) * EOL
       else
+        # QUESTION should we chomp or rstrip content?
         ::IO.read(path)
       end
     else
@@ -434,7 +486,7 @@ class AbstractNode
   #
   # Returns the resolved [String] path 
   def normalize_web_path(target, start = nil, preserve_uri_target = true)
-    if preserve_uri_target && is_uri?(target)
+    if preserve_uri_target && (Helpers.uriish? target)
       target
     else
       (@path_resolver ||= PathResolver.new).web_path target, start
@@ -497,8 +549,10 @@ class AbstractNode
 
   # Public: Check whether the specified String is a URI by
   # matching it against the Asciidoctor::UriSniffRx regex.
+  #
+  # @deprecated Use Helpers.uriish? instead
   def is_uri? str
-    str.include?(':') && UriSniffRx =~ str
+    Helpers.uriish? str
   end
 
   # Public: Retrieve the list marker keyword for the specified list type.
@@ -511,6 +565,5 @@ class AbstractNode
   def list_marker_keyword(list_type = nil)
     ORDERED_LIST_KEYWORDS[list_type || @style]
   end
-
 end
 end

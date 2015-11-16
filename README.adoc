@@ -1,18 +1,20 @@
 = Asciidoctor
 Dan Allen <https://github.com/mojavelinux[@mojavelinux]>; Sarah White <https://github.com/graphitefriction[@graphitefriction]>; Ryan Waldron <https://github.com/erebor[@erebor]>
+v1.5.3, 2015-10-31
 // settings:
 :page-layout: base
 :idprefix:
-ifdef::env-github[:idprefix: user-content-]
 :idseparator: -
 :source-language: ruby
 :language: {source-language}
+ifdef::env-github[:badges:]
 // URIs:
 :uri-org: https://github.com/asciidoctor
 :uri-repo: {uri-org}/asciidoctor
 :uri-asciidoctorj: {uri-org}/asciidoctorj
 :uri-asciidoctorjs: {uri-org}/asciidoctor.js
 :uri-project: http://asciidoctor.org
+ifdef::awestruct-version[:uri-project: link:]
 :uri-docs: {uri-project}/docs
 :uri-news: {uri-project}/news
 :uri-manpage: {uri-project}/man/asciidoctor
@@ -30,7 +32,7 @@ endif::[]
 :uri-tests: {uri-rel-tree-base}test
 :uri-discuss: http://discuss.asciidoctor.org
 :uri-irc: irc://irc.freenode.org/#asciidoctor
-:uri-rubygem: http://rubygems.org/gems/asciidoctor
+:uri-rubygem: https://rubygems.org/gems/asciidoctor
 :uri-what-is-asciidoc: {uri-docs}/what-is-asciidoc
 :uri-user-manual: {uri-docs}/user-manual
 :uri-install-doc: {uri-docs}/install-toolchain
@@ -42,16 +44,24 @@ endif::[]
 :uri-freesoftware: https://www.gnu.org/philosophy/free-sw.html
 :uri-foundation: http://foundation.zurb.com
 :uri-tilt: https://github.com/rtomayko/tilt
+:uri-ruby: https://ruby-lang.org
 // images:
 :image-uri-screenshot: https://raw.githubusercontent.com/asciidoctor/asciidoctor/master/screenshot.png
 
-{uri-project}[Asciidoctor] is a _fast_ text processor and publishing toolchain for converting {uri-what-is-asciidoc}[AsciiDoc] content to HTML5, DocBook 5 (or 4.5) and other formats.
+{uri-project}/[Asciidoctor] is a _fast_ text processor and publishing toolchain for converting {uri-what-is-asciidoc}[AsciiDoc] content to HTML5, DocBook 5 (or 4.5) and other formats.
 Asciidoctor is written in Ruby, packaged as a RubyGem and published to {uri-rubygem}[RubyGems.org].
 The gem is also included in several Linux distributions, including Fedora, Debian and Ubuntu.
-Asciidoctor is open source, {uri-repo}[hosted on GitHub] and released under the MIT license.
+Asciidoctor is open source, {uri-repo}[hosted on GitHub] and released under {uri-license}[the MIT license].
 
-[TIP]
-====
+.Key documentation
+[.compact]
+* {uri-docs}/what-is-asciidoc[What is Asciidoc?]
+* {uri-docs}/asciidoc-writers-guide[AsciiDoc Writer's Guide]
+* {uri-docs}/asciidoc-syntax-quick-reference[AsciiDoc Syntax Reference]
+* {uri-docs}/user-manual[Asciidoctor User Manual]
+
+.Where Ruby goes, Asciidoctor follows
+****
 You can run Asciidoctor on the JVM using JRuby.
 To invoke the Asciidoctor API directly from Java and other JVM languages, use {uri-asciidoctorj}[AsciidoctorJ].
 There are plugins available, based on AsciidoctorJ, that integrate the Asciidoctor processor into Apache Maven, Gradle or Javadoc builds.
@@ -59,27 +69,21 @@ There are plugins available, based on AsciidoctorJ, that integrate the Asciidoct
 Asciidoctor also runs in JavaScript.
 We use http://opalrb.org[Opal] to transcompile the Ruby source to JavaScript to produce {uri-asciidoctorjs}[Asciidoctor.js], a fully-functional version of Asciidoctor that works in any JavaScript environment, such as a web browser or Node.js.
 Asciidoctor.js is used to power the AsciiDoc preview extensions for Chrome, Atom, Brackets and other web-based tooling.
-====
+****
 
-.Key documentation
-[square]
-* {uri-docs}/what-is-asciidoc[What is Asciidoc?]
-* {uri-docs}/asciidoc-writers-guide[AsciiDoc Writer's Guide]
-* {uri-docs}/asciidoc-syntax-quick-reference[AsciiDoc Syntax Reference]
-* {uri-docs}/user-manual[Asciidoctor User Manual]
-
-ifdef::env-github[]
-.*Project Health*
-image:http://img.shields.io/travis/asciidoctor/asciidoctor/master.svg[Build Status, link=https://travis-ci.org/asciidoctor/asciidoctor] 
-//image:http://img.shields.io/coveralls/asciidoctor/asciidoctor/master.svg[Coverage Status, link=https://coveralls.io/r/asciidoctor/asciidoctor]
+ifdef::badges[]
+.*Project health*
+image:https://img.shields.io/travis/asciidoctor/asciidoctor/master.svg[Build Status (Travis CI), link=https://travis-ci.org/asciidoctor/asciidoctor] 
+image:https://ci.appveyor.com/api/projects/status/ifplu67oxvgn6ceq/branch/master?svg=true&amp;passingText=green%20bar&amp;failingText=%23fail&amp;pendingText=building%2E%2E%2E[Build Status (AppVeyor), link=https://ci.appveyor.com/project/asciidoctor/asciidoctor] 
+//image:https://img.shields.io/coveralls/asciidoctor/asciidoctor/master.svg[Coverage Status, link=https://coveralls.io/r/asciidoctor/asciidoctor]
 image:https://codeclimate.com/github/asciidoctor/asciidoctor/badges/gpa.svg[Code Climate, link="https://codeclimate.com/github/asciidoctor/asciidoctor"]
-image:http://inch-ci.org/github/asciidoctor/asciidoctor.svg?branch=master[Inline docs, link="http://inch-ci.org/github/asciidoctor/asciidoctor"]
-endif::env-github[]
+image:https://inch-ci.org/github/asciidoctor/asciidoctor.svg?branch=master[Inline docs, link="https://inch-ci.org/github/asciidoctor/asciidoctor"]
+endif::[]
 
 == The Big Picture
 
 Asciidoctor reads content written in plain text, as shown in the panel on the left in the image below, and converts it to HTML5, as shown rendered in the right panel.
-Asciidoctor adds a default stylesheet to the HTML5 document, as shown, to provide a pleasant out-of-the-box experience.
+Asciidoctor applies a default stylesheet to the HTML5 document to provide a pleasant out-of-the-box experience.
 
 image::{image-uri-screenshot}[Preview of AsciiDoc source and corresponding rendered HTML]
 
@@ -89,17 +93,17 @@ Asciidoctor reads and parses text written in the AsciiDoc syntax, then feeds the
 You have the option of writing your own converter or providing {uri-tilt}[Tilt]-supported templates to customize the generated output or produce alternative formats.
 
 NOTE: Asciidoctor is a drop-in replacement for the original AsciiDoc Python processor (`asciidoc.py`).
-The Asciidoctor test suite has {uri-tests}[> 1,500 tests] to ensure compatibility with the AsciiDoc syntax.
+The Asciidoctor test suite has {uri-tests}[> 1,600 tests] to ensure compatibility with the AsciiDoc syntax.
 
-In addition to the standard AsciiDoc syntax, Asciidoctor recognizes additional markup and formatting options, such as font-based icons (e.g., [x-]`icon:fire[]`) and UI elements (e.g., [x-]`button:[Save]`).
+In addition to the standard AsciiDoc syntax, Asciidoctor recognizes additional markup and formatting options, such as font-based icons (e.g., `+icon:fire[]+`) and UI elements (e.g., `+button:[Save]+`).
 Asciidoctor also offers a modern, responsive theme based on {uri-foundation}[Foundation] to style the HTML5 output.
 
 == Requirements
 
-Asciidoctor works on Linux, OSX (Mac) and Windows and requires one of the following implementations of Ruby:
+Asciidoctor works on Linux, OSX (Mac) and Windows and requires one of the following implementations of {uri-ruby}[Ruby]:
 
-* MRI (Ruby 1.8.7, 1.9.3, 2.0.0 & 2.1.2)
-* JRuby 1.7 (Ruby 1.8 and 1.9 modes)
+* MRI (Ruby 1.8.7, 1.9.3, 2.0, 2.1 & 2.2)
+* JRuby 1.7 (Ruby 1.8 and 1.9 modes) & 9000
 * Rubinius 2.2.x
 * Opal (JavaScript)
 
@@ -116,7 +120,7 @@ If you need the latest version, you can always fallback to using the `gem` comma
 
 === (a) gem install
 
-Open a terminal and type: (without the leading `$`)
+Open a terminal and type (excluding the leading `$`):
 
  $ gem install asciidoctor
 
@@ -129,7 +133,7 @@ If you want to install a pre-release version (e.g., a release candidate), use:
 ====
 If you have an earlier version of Asciidoctor installed, you can update it using:
 
- $ gem upgrade asciidoctor
+ $ gem update asciidoctor
 
 If you install a new version of the gem using `gem install` instead of gem update, you'll have multiple versions installed.
 If that's the case, use the following gem command to remove the old versions:
@@ -147,7 +151,7 @@ If that's the case, use the following gem command to remove the old versions:
 source 'https://rubygems.org'
 gem 'asciidoctor'
 # or specify the version explicitly
-# gem 'asciidoctor', '1.5.0'
+# gem 'asciidoctor', '1.5.3'
 ----
 
 . Save the Gemfile
@@ -156,19 +160,19 @@ gem 'asciidoctor'
  $ bundle
 
 To upgrade the gem, specify the new version in the Gemfile and run `bundle` again.
-Using `bundle update` is not recommended as it will also update other gems, which may not be the desired result.
+Using `bundle update` is *not* recommended as it will also update other gems, which may not be the desired result.
 
 === (c) Linux package managers
 
-==== Yum (Fedora 18 or greater)
+==== Yum (Fedora 21 or greater)
 
-To install the gem on Fedora 18 or greater using yum, open a terminal and type:
+To install the gem on Fedora 21 or greater using yum, open a terminal and type:
 
- $ sudo yum install -y rubygem-asciidoctor
+ $ sudo yum install -y asciidoctor
 
 To upgrade the gem, use:
 
- $ sudo yum update -y rubygem-asciidoctor
+ $ sudo yum update -y asciidoctor
 
 TIP: Your Fedora system may be configured to automatically update packages, in which case no action is required by you to update the gem.
 
@@ -200,8 +204,8 @@ You should see information about the Asciidoctor version and your Ruby environme
 
 [.output]
 ....
-Asciidoctor 1.5.0 [http://asciidoctor.org]
-Runtime Environment (ruby 2.1.2p95 (2014-05-08 revision 45877) [x86_64-linux])
+Asciidoctor 1.5.3 [http://asciidoctor.org]
+Runtime Environment (ruby 2.2.2p95 [x86_64-linux]) (lc:UTF-8 fs:UTF-8 in:- ex:UTF-8)
 ....
 
 Asciidoctor also provides an API.
@@ -241,18 +245,18 @@ require 'asciidoctor'
 You can then convert an AsciiDoc source file to an HTML file using:
 
 [source]
-Asciidoctor.convert_file 'README.adoc', to_file: true, safe: 'safe'
+Asciidoctor.convert_file 'README.adoc', to_file: true, safe: :safe
 
 WARNING: When using Asciidoctor via the API, the default safe mode is `:secure`.
 In secure mode, several core features are disabled, including the `include` directive.
-If you want to enable these features, you'll need to explicitly set the safe mode to `server` (recommended) or `safe`.
+If you want to enable these features, you'll need to explicitly set the safe mode to `:server` (recommended) or `:safe`.
 
 You can also convert an AsciiDoc string to embeddable HTML (for inserting in an HTML page) using:
 
 [source]
 ----
 content = '_Zen_ in the art of writing http://asciidoctor.org[AsciiDoc].'
-Asciidoctor.convert content, safe: 'safe'
+Asciidoctor.convert content, safe: :safe
 ----
 
 If you want the full HTML document, enable the `header_footer` option as follows:
@@ -260,7 +264,7 @@ If you want the full HTML document, enable the `header_footer` option as follows
 [source]
 ----
 content = '_Zen_ in the art of writing http://asciidoctor.org[AsciiDoc].'
-html = Asciidoctor.convert content, header_footer: true, safe: 'safe'
+html = Asciidoctor.convert content, header_footer: true, safe: :safe
 ----
 
 If you need access to the parsed document, you can split the conversion into discrete steps:
@@ -268,15 +272,19 @@ If you need access to the parsed document, you can split the conversion into dis
 [source]
 ----
 content = '_Zen_ in the art of writing http://asciidoctor.org[AsciiDoc].'
-document = Asciidoctor.load content, header_footer: true, safe: 'safe'
+document = Asciidoctor.load content, header_footer: true, safe: :safe
 puts document.doctitle
 html = document.convert
 ----
 
-Keep in mind, if you don't like the output Asciidoctor produces, _you can change it!_
-Asciidoctor supports custom {uri-tilt}[Tilt]-supported templates, which to allow you customize the output piecemeal, or custom converters, which give you 100% control over the output.
+Keep in mind that if you don't like the output Asciidoctor produces, _you can change it!_
+Asciidoctor supports custom converters that can handle converting from the parsed document to the generated output.
 
-For more information about how to use the API or to customize the output, see the {uri-user-manual}[user manual].
+One easy way to customize the output piecemeal is by using the template converter.
+The template converter allows you uses supply a {uri-tilt}[Tilt]-supported template file to handle converting any node in the document.
+
+However you go about it, you _can_ have 100% control over the output.
+For more information about how to use the API or to customize the output, refer to the {uri-user-manual}[user manual].
 
 == Contributing
 
@@ -310,13 +318,14 @@ We encourage you to ask questions and discuss any aspects of the project on the 
 
 Mailing list:: {uri-discuss}
 Twitter (Chat):: #asciidoctor hashtag
+Gitter (Chat):: image:https://badges.gitter.im/Join%20In.svg[Gitter, link=https://gitter.im/asciidoctor/asciidoctor]
 IRC (Chat):: {uri-irc}[#asciidoctor] on FreeNode IRC
 
+ifdef::env-github[]
 Further information and documentation about Asciidoctor can be found on the project's website.
 
-Home:: {uri-project}
-News:: {uri-news}
-Docs:: {uri-docs}
+{uri-project}/[Home] | {uri-news}[News] | {uri-docs}[Docs]
+endif::[]
 
 The Asciidoctor organization on GitHub hosts the project's source code, issue tracker, and sub-projects.
 
@@ -326,19 +335,114 @@ Asciidoctor organization on GitHub:: {uri-org}
 
 == Copyright and Licensing
 
-Copyright (C) 2012-2014 Dan Allen, Ryan Waldron and the Asciidoctor Project.
+Copyright (C) 2012-2015 Dan Allen, Ryan Waldron and the Asciidoctor Project.
 Free use of this software is granted under the terms of the MIT License.
 
 See the {uri-license}[LICENSE] file for details.
 
 == Authors
 
-*Asciidoctor* is lead by https://github.com/mojavelinux[Dan Allen] and https://github.com/graphitefriction[Sarah White] and has received contributions from {uri-contributors}[many other individuals] in Asciidoctor's awesome community.
+*Asciidoctor* is led by https://github.com/mojavelinux[Dan Allen] and https://github.com/graphitefriction[Sarah White] and has received contributions from {uri-contributors}[many other individuals] in Asciidoctor's awesome community.
 The project was initiated in 2012 by https://github.com/erebor[Ryan Waldron] and based on {uri-prototype}[a prototype] written by https://github.com/nickh[Nick Hengeveld].
 
 *AsciiDoc* was started by Stuart Rackham and has received contributions from many other individuals in the AsciiDoc community.
 
 == Changelog
+
+== 1.5.3 (2015-10-31) - @mojavelinux
+
+Enhancements::
+  * add support for interactive & inline SVGs (#1301, #1224)
+  * add built-in manpage backend (@davidgamba) (#651)
+  * create Mallard backend; asciidoctor/asciidoctor-mallard (@bk2204) (#425)
+  * add AsciiMath to MathML converter to support AsciiMath in DocBook converter (@pepijnve) (#954)
+  * allow text of selected lines to be highlighted in source block by Pygments or CodeRay (#1429)
+  * use value of `docinfo` attribute to control docinfo behavior (#1510)
+  * add `docinfosubs` attribute to control which substitutions are performed on docinfo files (@mogztter) (#405)
+  * add title accessor as alias to main on Document::Title (@rmannibucau) (#1350)
+  * make XrefInlineRx regexp more permissive (Mathieu Boespflug) (#844)
+
+Improvements::
+  * load JavaScript and CSS at the end of HTML document (@mogztter) (#1238)
+  * list available backends in help text (@plaindocs) (#1271)
+  * properly expand tabs in literal text (#1170, #841)
+  * add `source-indent` as document attribute (@mogztter) (#1169)
+  * upgrade MathJax to 2.5.3 (#1329)
+  * upgrade Font Awesome to 4.4.0 (@mogztter) (#1465)
+  * upgrade highlight.js to 8.6 (now 8.9.1) (#1390)
+  * don't abort if syntax highlighter isn't available (#1253)
+  * insert docinfo footer below footer div (#1503)
+  * insert toc at default location in embeddable HTML (#1443)
+  * replace _ and - in generated alt text for inline images
+  * restore attributes to header attributes after parse (#1255)
+  * allow docdate and doctime to be overridden (#1495)
+  * add CSS class `.center` for center block alignment (#1456)
+  * recognize U+2022 as alternative marker for unordered lists (@mogztter) (#1177)
+  * allow videos to work for local files by prepending asset-uri-scheme (Chris) (#1320)
+  * always assign playlist param when loop option is enabled for YouTube video
+  * parse isolated version in revision line (@bk2204) (#790)
+  * autoload Tilt when template converter is instantiated (#1313)
+  * don't overwrite existing id entry in references table (#1256)
+  * use outfilesuffix attribute defined in header when resolving outfile (#1412)
+  * make AsciiDoc safe mode option on Slim engine match document (#1347)
+  * honor htmlsyntax attribute when backend is html/html5 (#1530)
+  * tighten spacing of wrapped lines in TOC (#1542)
+  * tune padding around table cells in horizontal dlist (#1418)
+  * load Droid Sans Mono 700 in default stylesheet
+  * set line height of table cells used for syntax highlighting
+  * set font-family of kbd; refine styling (#1423)
+  * extract condition into `quote_lines?` method (@mogztter)
+  * extract inline code into `read_paragraph` method (@mogztter)
+  * parent of block in ListItem should be ListItem (#1359)
+  * add helper methods to List and ListItem (#1551)
+  * add method `AbstractNode#add_role` and `AbstractNode#remove_role` (@robertpanzer) (#1366)
+  * introduce helper methods for sniffing URIs (#1422)
+  * add helper to calculate basename without file extension
+  * document `-I` and `-r` options in the manual page (@bk2204)
+  * fix `+--help+` output text for `-I` (@bk2204)
+  * don't require open-uri-cached if already loaded
+  * do not attempt to scan pattern of non-existent directory
+
+Compliance::
+  * use `<sup>` for footnote reference in text instead of `<span>` (#1523)
+  * fix alignment of wrapped text in footnote (#1524)
+  * include full stop after footnote number in embeddable HTML
+  * show manpage title & name section in embeddable HTML (#1179)
+  * resolve missing attribute in ifeval to empty string (#1387)
+  * support unbreakable & breakable options on table (rockyallen) (#1140)
+
+Bug fixes::
+  * don't truncate exception stack in `Asciidoctor.load` (#1248)
+  * don't fail to save cause of Java exception (@robertpanzer) (#1458)
+  * fix precision error in timings report (#1342)
+  * resolve regexp for inline macro lazily (#1336)
+  * block argument to `find_by` should filter results (#1393)
+  * strip comment lines in indented text of dlist item (#1537)
+  * preserve escaped delimiter at end of line in a table (#1306)
+  * correctly calculate colnames for implicit columns (#1556)
+  * don't crash if colspan exceeds colspec (#1460)
+  * account for empty records in colspec (#1375)
+  * ignore empty cols attribute on table
+  * use `.inspect` to print MathJax delimiters (again) (#1198)
+  * use while loop instead of begin/while loop to address bug in Asciidoctor.js (#1408)
+  * force encoding of attribute values passed from cli (#1191)
+  * don't copy css if stylesheet or stylesdir is a URI (#1400)
+  * fix invalid color value in default CodeRay theme
+  * built-in writer no longer fails if output is nil (#1544)
+  * custom template engine options should take precedence
+  * fallback to require with a non-relative path to support Debian package (@mogztter)
+  * pass opts to recursive invocations of `PathResolver#system_path`
+  * fix and test external links in docbook backend
+  * use format symbol `:html` instead of `:html5` for Slim to fix warnings
+  * fix documentation for inline_macro and block_macro (Andrea Bedini)
+  * fix grammar in warning messages regarding thread_safe gem
+
+Infrastructure::
+  * migrate opal_ext from core to Asciidoctor.js (#1517)
+  * add Ruby 2.2 to CI build; only specify minor Ruby versions
+  * enable containerized builds on Travis CI
+  * add config to run CI build on AppVeyor
+  * exclude benchmark folder from gem (#1522)
 
 == 1.5.2 (2014-11-27) - @mojavelinux
 
@@ -350,13 +454,13 @@ Enhancements::
 
 Improvements::
 
-  * recognize `--` as valid line comment for callout numbers; make line comment configurable (#1068)
+  * recognize `+--+` as valid line comment for callout numbers; make line comment configurable (#1068)
   * upgrade highlight.js to version 8.4 (#1216)
   * upgrade Font Awesome to version 4.2.0 (@clojens) (#1201)
   * define JAVASCRIPT_PLATFORM constant to simplify conditional logic in the JavaScript environment (#897)
   * provide access to destination directory, outfile and outdir via Document object (#1203)
   * print encoding information in version report produced by `asciidoctor -v` (#1210)
-  * add intrinsic attribute named `cpp` with value `C++` (#1208)
+  * add intrinsic attribute named `cpp` with value `pass:[C++]` (#1208)
   * preserve URI targets passed to `stylesheet` and related attributes (#1192)
   * allow numeric characters in block attribute name (#1103)
   * support custom YouTube playlists (#1105)
@@ -402,184 +506,5 @@ Improvements::
   * assign sectnumlevels and toclevels values to maxdepth attribute on AsciiDoc processing instructions in DocBook output
   * add test for usage of image block macro with data URI
   * use badges from shields.io in README
-
-=== 1.5.0 (2014-08-12) - @mojavelinux
-
-Performance::
-
-  * 10% increase in speed compared to 0.1.4
-  * rewrite built-in converters in Ruby instead of ERB
-
-Enhancements::
-
-  * introduce new curved quote syntax (pass:["`double quotes`"], pass:['`single quotes`']) if compat-mode attribute not set (#1046)
-  * add single curved quote replacement for pass:[`'] (#715)
-  * use backtick (pass:[`]) for monospaced text if compat-mode attribute not set (#714, #718)
-  * use single and double plus (pass:[+], pass:[++]) for inline passthrough if compat-mode attribute not set (#714, #718)
-  * disable single quotes as formatting marks for emphasized text if compat-mode attribute not set (#717)
-  * enable compat-mode by default if document has atx-style doctitle
-  * output phrase surrounded by # as marked text (i.e., <mark>) (#225)
-  * add MathJax integration and corresponding blocks and macros (#492, #760)
-  * switch to open source fonts (Open Sans, Noto Serif and Droid Sans Mono) in default stylesheet, major refinements to theme (#879)
-  * embed remote images when data-uri and allow-uri-read attributes are set (#612)
-  * support leveloffset on include directive and honor relative leveloffset values (#530)
-  * switch default docbook backend to docbook5 (@bk2204) (#554)
-  * added hide-uri-scheme attribute to hide uri scheme in automatic links (#800)
-  * allow substitutions to be incrementally added & removed (#522)
-  * add compatibility with Opal, add shim compat library, use compatibility regexp, require libraries properly (@mogztter) (#679, #836, #846)
-  * output XHTML when backend is xhtml or xhtml5 (#494)
-  * add shorthand subs and specialchars as an alias for specialcharacters (#579)
-  * deprecate toc2 attribute in favor of position and placement values on toc attribute (e.g., toc=left) (#706)
-  * add source map (file and line number) information to blocks (#861)
-  * write to file by default if input is file (#907)
-  * add -r and -I flags from ruby command to asciidoctor command for loading additional libraries (#574)
-  * support backslash (\) as line continuation character in the value of an attribute entry (#1022)
-  * disable subs on pass block by default (#737)
-  * add basic support for resolving xref target from reftext (#589)
-  * add time range anchor to video element (#886)
-  * match implicit URLs that use the file scheme (#853)
-  * added sectnumlevels to control depth of section numbering (#549)
-  * add hardbreaks option to block (#630)
-  * sub attributes in manname (e.g., pass:[{docname}])
-  * warn on reference to missing attribute if attribute-missing is "warn"
-  * only enable toc macro if toc is enabled and toc-placement attribute has the value macro (#706)
-  * add sectnums attribute as alternative alias to numbered attribute (#684)
-
-Improvements::
-
-  * don't select lines that contain a tag directive when including tagged lines, make tag regexp more strict (#1027)
-  * use https scheme for assets by default
-  * upgrade to Font Awesome 4.1 (@mogztter) (#752)
-  * improve print styles, add print styles for book doctype (@leif81) (#997, #952)
-  * add proper grid and frame styles for tables (@leif81) (#569)
-  * use glyphs for checkboxes when not using font icons (#878)
-  * prefer source-language attribute over language attribute for defining default source language (#888)
-  * pass document as first argument to process method on Preprocessor
-  * don't parse link attributes when linkattrs is set unless text contains equal sign
-  * detect bare links, mark with bare class; don't repeat URL of bare link in print styles
-  * allow Treeprocessor#process method to replace tree (#1035)
-  * add AbstractNode#find_by method to locate nodes in tree (#862)
-  * add API for parsing title and subtitle (#1000)
-  * add use_fallback option to doctitle, document method
-  * constrain subscript & superscript markup (#564, #936)
-  * match cell specs when cell separator is customized (#985)
-  * use stylesheet to set default table width (#975)
-  * display nested elements correctly in toc (@kenfinnigan) (#967)
-  * add support for id attribute on links (@mogztter) (#935)
-  * add support for title attribute on links (@aslakknutsen)
-  * add -t flag to cli to control output of timing information (@mogztter) (#909)
-  * rewrite converter API (#778)
-  * rewrite extensions to support extension instances for AsciidoctorJ (#804)
-  * integrate thread_safe gem (#638)
-  * allow inline macro extensions that define a custom regexp to be matched (#792)
-  * make Reader#push_include work with default file, path and dir (@bk2204) (#743)
-  * honor custom outfilesuffix and introduce relfileprefix (#801)
-  * add author and copyright to meta in HTML5 backend (#838)
-  * output attribution in front of citetitle for quote and verse blocks
-  * recognize float style with shorthand syntax outside block (#818)
-  * honor background color in syntax highlighting themes (#813)
-  * print runtime environment in version output, support -v as version flag (#785)
-  * unwrap preamble if standalone (#533)
-  * drop leading & trailing blank lines in verbatim & raw content (#724)
-  * remove trailing endlines from source data (#727)
-  * add flag to cli to suppress warnings (#557)
-  * emit warning if tag(s) not found in include file (#639)
-  * use <th> element for vertical table headers instead of header class (@davidgamba) (#738)
-  * share select references between AsciiDoc-style cell & main document (#729)
-  * number chapters sequentially, always (#685)
-  * add vbar attribute, make brvbar resolve properly (#643)
-  * add implicit user-home attribute that resolves to user's home directory (#629)
-  * enable sidebar toc for small screens (#628)
-  * add square brackets around button in HTML output (#631)
-  * make language hover text work for all languages in listing block
-  * set background color on toc2 to cover scrolling content (@neher)
-  * make document parsing a discrete step, make Reader accessible as property on Document
-  * allow custom converter to set backend info such as outfilesuffix and htmlsyntax
-  * report an informative error message when a converter cannot be resolved (@mogztter)
-  * add conum class to b element when icons are disabled, make conum CSS selector more specific
-  * expose Document object to extension point IncludeProcessor (@aslakknutsen)
-  * style audioblock title, simplify rules for block titles
-  * alias :name_attributes to :positional_attributes in extension DSL
-  * upgrade to highlight.js 7.4 (and later 8.0) (@mogztter) (#756)
-
-Compliance::
-
-  * only include xmlns in docbook45 backend if xmlns attribute is specified (#929)
-  * add xmlns attribute for xhtml output (@bk2204)
-  * warn if table without a body is converted to DocBook (#961)
-  * wrap <para> around admonition inside example block in DocBook 4.5 (#931)
-  * use <informalfigure> if block image doesn't have a title (#927)
-  * fix invalid docbook when adding role to formatted text (#956)
-  * move all compliance flags to Compliance module (#624)
-  * add compliance setting to control use of shorthand property syntax (#789)
-  * wrap top-level content inside preamble in DocBook backend when doctype is book (#971)
-  * escape special chars in image alt text (#972)
-  * set starting number in ordered list for docbook (@megathaum) (#925)
-  * match word characters in regular expressions as defined by Unicode (#892)
-  * put source language class names on child code element of pre element (#921)
-  * ignore case of attribute in conditional directives (#903)
-  * allow attribute entry to reset / reseed counter (#870)
-  * allow doctype to be set in AsciiDoc table cell (#863)
-  * match URL macro following entity (@jmbruel) (#819)
-  * handle BOM when normalizing source (#824)
-  * don't output revhistory if revdate is not set (#802)
-  * perform normal subs on verse content (#799)
-  * automatically wrap part intro content in partintro block, emit warning if part is invalid (#768)
-  * force encoding of docinfo content to UTF-8 (#773)
-  * add scaling & alignment attributes to block image in DocBook backend (#763)
-  * add support for pass:[anchor:<id>[<reftext>\]] macro (#531)
-  * substitute anchor and xref macros in footnotes (#676)
-  * remove all string mutation operations for compatibility with Opal (#735)
-  * honor reftext defined in embedded section title anchor (#697)
-  * allow spaces in reftext defined in block anchor (#695)
-  * use reftext of section or block in text of xref link (#693)
-  * number sections in appendix using appendix number (#683)
-  * unescape escaped square closing bracket in footnote text (#677)
-  * support quoted index terms that may contain commas (#597)
-  * don't assign role attribute if quoted text has no roles (#647)
-  * disallow quoted values in block and inline anchors
-  * add % to scaledwidth if no units given
-  * ignore block attribute with unquoted value None
-  * preserve entity references with 5 digits
-
-Bug Fixes::
-
-  * resolve relative paths relative to base_dir in unsafe mode (#690)
-  * properly handle nested passthroughs (#1034)
-  * don't clobber outfilesuffix attribute if locked (#1024)
-  * correctly calculate columns if colspan used in first row of table (#924)
-  * pass theme to Pygments when pygments-css=style (#919)
-  * fallback to text lexer when using pygments for source highlighting (#987)
-  * only make special section if style is specified (#917)
-  * an unresolved footnote ref should not crash processor (#876)
-  * rescue failure to resolve ::Dir.home (#896)
-  * recognize Windows UNC path as absolute and preserve it (#806)
-  * adjust file glob to account for backslash in Windows paths (#805)
-  * don't match e-mail address inside URL (#866)
-  * test include directive resolves file with space in name (#798)
-  * return nil from Reader#push_include and Reader#pop_include methods (#745)
-  * fixed broken passthroughs caused by source highlighting (#720)
-  * copy custom stylesheet if linkcss is set (#300)
-  * honor list continuations for indented, nested list items (#664)
-  * fix syntax errors in converters (@jljouannic)
-  * fix iconfont-remote setting
-  * fix syntax error (target -> node.target) in Docbook 5 converter (@jf647)
-  * output and style HTML for toc macro correctly
-
-Infrastructure::
-
-  * add Ruby 2.1 to list of supported platforms
-  * reenable rbx in Travis build
-  * switch tests to minitest (@ktdreyer)
-  * update RPM for Fedora Rawhide (@ktdreyer)
-  * refactor unit tests so they work in RubyMine (@cmoulliard)
-  * add preliminary benchmark files to repository (#1021)
-  * clean out old fixtures from test suite (#960)
-  * add initial Cucumber test infrastructure (#731)
-  * use gem tasks from Bundler in Rakefile (#654)
-  * build gemspec files using git ls-tree (#653)
-  * use in-process web server for URI tests
-  * update manpage to reflect updates in 1.5.0
-  * rework README (@mogztter) (#651)
 
 Refer to the {uri-changelog}[CHANGELOG] for a complete list of changes in older releases.

@@ -438,7 +438,7 @@ class Reader
       break_on_blank_lines = options[:break_on_blank_lines]
       break_on_list_continuation = options[:break_on_list_continuation]
     end
-    skip_line_comments = options[:skip_line_comments]
+    skip_comments = options[:skip_line_comments]
     line_read = false
     line_restored = false
     
@@ -466,7 +466,7 @@ class Reader
           line_restored = true
         end
       else
-        unless skip_line_comments && line.start_with?('//') && CommentLineRx =~ line
+        unless skip_comments && line.start_with?('//') && CommentLineRx =~ line
           result << line
           line_read = true
         end
@@ -578,8 +578,8 @@ class PreprocessorReader < Reader
       result.pop while (last = result[-1]) && last.empty?
     end
 
-    if (indent = opts.fetch(:indent, nil))
-      Parser.reset_block_indent! result, indent.to_i
+    if opts[:indent]
+      Parser.adjust_indentation! result, opts[:indent], (@document.attr 'tabsize')
     end
 
     result
@@ -753,11 +753,14 @@ class PreprocessorReader < Reader
         end
 
         lhs = resolve_expr_val expr_match[1]
-        # regex enforces a restrict set of math-related operations
-        op = expr_match[2]
         rhs = resolve_expr_val expr_match[3]
 
-        skip = !(lhs.send op.to_sym, rhs)
+        # regex enforces a restricted set of math-related operations
+        if (op = expr_match[2]) == '!='
+          skip = lhs.send :==, rhs
+        else
+          skip = !(lhs.send op.to_sym, rhs)
+        end
       end
     end
 
@@ -838,7 +841,7 @@ class PreprocessorReader < Reader
         else
           ::File.join @dir, target
         end
-      elsif target.include?(':') && UriSniffRx =~ target
+      elsif Helpers.uriish? target
         unless @document.attributes.has_key? 'allow-uri-read'
           replace_line %(link:#{target}[])
           return true
@@ -849,7 +852,7 @@ class PreprocessorReader < Reader
         if @document.attributes.has_key? 'cache-uri'
           # caching requires the open-uri-cached gem to be installed
           # processing will be automatically aborted if these libraries can't be opened
-          Helpers.require_library 'open-uri/cached', 'open-uri-cached'
+          Helpers.require_library 'open-uri/cached', 'open-uri-cached' unless defined? ::OpenURI::Cache
         elsif !::RUBY_ENGINE_OPAL
           # autoload open-uri
           ::OpenURI
@@ -1126,65 +1129,65 @@ class PreprocessorReader < Reader
   # Examples
   #
   #   expr = '"value"'
-  #   resolve_expr_val(expr)
+  #   resolve_expr_val expr
   #   # => "value"
   #
   #   expr = '"value'
-  #   resolve_expr_val(expr)
+  #   resolve_expr_val expr
   #   # => "\"value"
   #
   #   expr = '"{undefined}"'
-  #   resolve_expr_val(expr)
+  #   resolve_expr_val expr
   #   # => ""
   #
   #   expr = '{undefined}'
-  #   resolve_expr_val(expr)
+  #   resolve_expr_val expr
   #   # => nil
   #
   #   expr = '2'
-  #   resolve_expr_val(expr)
+  #   resolve_expr_val expr
   #   # => 2
   #
   #   @document.attributes['name'] = 'value'
   #   expr = '"{name}"'
-  #   resolve_expr_val(expr)
+  #   resolve_expr_val expr
   #   # => "value"
   #
   # Returns The value of the expression, coerced to the appropriate type
-  def resolve_expr_val(str)
-    val = str
-    type = nil
-
-    if val.start_with?('"') && val.end_with?('"') ||
-        val.start_with?('\'') && val.end_with?('\'')
-      type = :string
+  def resolve_expr_val val
+    if ((val.start_with? '"') && (val.end_with? '"')) ||
+        ((val.start_with? '\'') && (val.end_with? '\''))
+      quoted = true
       val = val[1...-1]
+    else
+      quoted = false
     end
 
     # QUESTION should we substitute first?
+    # QUESTION should we also require string to be single quoted (like block attribute values?)
     if val.include? '{'
-      val = @document.sub_attributes val
+      val = @document.sub_attributes val, :attribute_missing => 'drop'
     end
 
-    unless type == :string
+    if quoted
+      val
+    else
       if val.empty?
-        val = nil
-      elsif val.strip.empty?
-        val = ' '
+        nil
       elsif val == 'true'
-        val = true
+        true
       elsif val == 'false'
-        val = false
-      elsif val.include?('.')
-        val = val.to_f
+        false
+      elsif val.rstrip.empty?
+        ' '
+      elsif val.include? '.'
+        val.to_f
       else
         # fallback to coercing to integer, since we
         # require string values to be explicitly quoted
-        val = val.to_i
+        val.to_i
       end
     end
-
-    val
   end
 
   def include_processors?

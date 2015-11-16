@@ -83,7 +83,7 @@ module Asciidoctor
       result * EOL
     end
 
-    DLIST_TAGS = {
+    (DLIST_TAGS = {
       'labeled' => {
         :list  => 'variablelist',
         :entry => 'varlistentry',
@@ -103,8 +103,7 @@ module Asciidoctor
         :term  => 'glossterm',
         :item  => 'glossdef'
       }
-    }
-    DLIST_TAGS.default = DLIST_TAGS['labeled']
+    }).default = DLIST_TAGS['labeled']
 
     def dlist node
       result = []
@@ -188,6 +187,8 @@ module Asciidoctor
     def image node
       width_attribute = (node.attr? 'width') ? %( contentwidth="#{node.attr 'width'}") : nil
       depth_attribute = (node.attr? 'height') ? %( contentdepth="#{node.attr 'height'}") : nil
+      # FIXME if scaledwidth is set, we should remove width & depth
+      # See http://www.docbook.org/tdg/en/html/imagedata.html#d0e92271 for details
       swidth_attribute = (node.attr? 'scaledwidth') ? %( width="#{node.attr 'scaledwidth'}" scalefit="1") : nil
       scale_attribute = (node.attr? 'scale') ? %( scale="#{node.attr 'scale'}") : nil
       align_attribute = (node.attr? 'align') ? %( align="#{node.attr 'align'}") : nil
@@ -254,9 +255,11 @@ module Asciidoctor
       if node.style == 'latexmath'
         equation_data = %(<alt><![CDATA[#{equation}]]></alt>
 <mediaobject><textobject><phrase></phrase></textobject></mediaobject>)
-      # asciimath
+      elsif node.style == 'asciimath' && ((defined? ::AsciiMath) || (!(defined? @asciimath_loaded) ?
+          (@asciimath_loaded = Helpers.require_library 'asciimath', true, :warn) : @asciimath_loaded))
+        equation_data = ::AsciiMath.parse(equation).to_mathml 'mml:', 'xmlns:mml' => 'http://www.w3.org/1998/Math/MathML'
       else
-        # DocBook backends can't handle AsciiMath, so output raw expression in text object
+        # Unsupported math style, so output raw expression in text object
         equation_data = %(<mediaobject><textobject><phrase><![CDATA[#{equation}]]></phrase></textobject></mediaobject>)
       end
       if node.title?
@@ -374,6 +377,11 @@ module Asciidoctor
       result = []
       pgwide_attribute = (node.option? 'pgwide') ? ' pgwide="1"' : nil
       result << %(<#{tag_name = node.title? ? 'table' : 'informaltable'}#{common_attributes node.id, node.role, node.reftext}#{pgwide_attribute} frame="#{node.attr 'frame', 'all'}" rowsep="#{['none', 'cols'].include?(node.attr 'grid') ? 0 : 1}" colsep="#{['none', 'rows'].include?(node.attr 'grid') ? 0 : 1}">)
+      if (node.option? 'unbreakable')
+        result << '<?dbfo keep-together="always"?>'
+      elsif (node.option? 'breakable')
+        result << '<?dbfo keep-together="auto"?>'
+      end
       result << %(<title>#{node.title}</title>) if tag_name == 'table'
       if (width = (node.attr? 'width') ? (node.attr 'width') : nil)
         TABLE_PI_NAMES.each do |pi_name|
@@ -488,16 +496,18 @@ module Asciidoctor
       when :ref
         %(<anchor#{common_attributes node.target, nil, node.text}/>)
       when :xref
-        if node.attr? 'path', nil
-          linkend = (node.attr 'fragment') || node.target
-          (text = node.text) ? %(<link linkend="#{linkend}">#{text}</link>) : %(<xref linkend="#{linkend}"/>)
+        if (path = node.attributes['path'])
+          # QUESTION should we use refid as fallback text instead? (like the html5 backend?)
+          %(<link xlink:href="#{node.target}">#{node.text || path}</link>)
         else
-          %(<link xlink:href="#{target}">#{node.text || (node.attr 'path')}</link>)
+          linkend = node.attributes['fragment'] || node.target
+          (text = node.text) ? %(<link linkend="#{linkend}">#{text}</link>) : %(<xref linkend="#{linkend}"/>)
         end
       when :link
         %(<link xlink:href="#{node.target}">#{node.text}</link>)
       when :bibref
-        %(<anchor#{common_attributes node.target, nil, "[#{node.target}]"}/>[#{node.target}])
+        target = node.target
+        %(<anchor#{common_attributes target, nil, "[#{target}]"}/>[#{target}])
       else
         warn %(asciidoctor: WARNING: unknown anchor type: #{node.type.inspect})
       end
@@ -561,8 +571,7 @@ module Asciidoctor
       if (keys = node.attr 'keys').size == 1
         %(<keycap>#{keys[0]}</keycap>)
       else
-        key_combo = keys.map {|key| %(<keycap>#{key}</keycap>) }.join
-        %(<keycombo>#{key_combo}</keycombo>)
+        %(<keycombo>#{keys.map {|key| "<keycap>#{key}</keycap>" }.join}</keycombo>)
       end
     end
 
@@ -578,7 +587,7 @@ module Asciidoctor
       end
     end
 
-    QUOTE_TAGS = {
+    (QUOTE_TAGS = {
       :emphasis    => ['<emphasis>',               '</emphasis>',    true],
       :strong      => ['<emphasis role="strong">', '</emphasis>',    true],
       :monospaced  => ['<literal>',                '</literal>',     false],
@@ -587,8 +596,7 @@ module Asciidoctor
       :double      => ['&#8220;',                  '&#8221;',        true],
       :single      => ['&#8216;',                  '&#8217;',        true],
       :mark        => ['<emphasis role="marked">', '</emphasis>',    false]
-    }
-    QUOTE_TAGS.default = [nil, nil, true]
+    }).default = [nil, nil, true]
 
     def inline_quoted node
       if (type = node.type) == :latexmath
@@ -672,8 +680,8 @@ module Asciidoctor
           result << %(</revision>
 </revhistory>)
         end
-        unless (header_docinfo = doc.docinfo :header).empty?
-          result << header_docinfo
+        unless (head_docinfo = doc.docinfo).empty?
+          result << head_docinfo
         end
         result << %(<orgname>#{doc.attr 'orgname'}</orgname>) if doc.attr? 'orgname'
       end

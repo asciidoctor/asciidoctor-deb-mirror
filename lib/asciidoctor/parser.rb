@@ -26,6 +26,20 @@ class Parser
 
   BlockMatchData = Struct.new :context, :masq, :tip, :terminator
 
+  # Regexp for replacing tab character
+  TabRx = /\t/
+
+  # Regexp for leading tab indentation
+  TabIndentRx = /^\t+/
+
+  StartOfBlockProc = lambda {|l| ((l.start_with? '[') && BlockAttributeLineRx =~ l) || (is_delimited_block? l) }
+
+  StartOfListProc = lambda {|l| AnyListRx =~ l }
+
+  StartOfBlockOrListProc = lambda {|l| (is_delimited_block? l) || ((l.start_with? '[') && BlockAttributeLineRx =~ l) || AnyListRx =~ l }
+
+  NoOp = nil
+
   # Public: Make sure the Parser object doesn't get initialized.
   #
   # Raises RuntimeError if this constructor is invoked.
@@ -101,6 +115,9 @@ class Parser
       end
       # default to compat-mode if document uses atx-style doctitle
       document.set_attribute 'compat-mode', '' unless single_line
+      if (separator = block_attributes.delete('separator'))
+        document.set_attribute('title-separator', separator)
+      end
       document.header.source_location = source_location if source_location
       document.attributes['doctitle'] = section_title = doctitle
       # QUESTION: should the id assignment on Document be encapsulated in the Document class?
@@ -138,6 +155,9 @@ class Parser
       document.attributes['manvolnum'] = m[2].strip
     else
       warn %(asciidoctor: ERROR: #{reader.prev_line_info}: malformed manpage title)
+      # provide sensible fallbacks
+      document.attributes['mantitle'] = document.attributes['doctitle']
+      document.attributes['manvolnum'] = '1'
     end
 
     reader.skip_blank_lines
@@ -417,7 +437,7 @@ class Parser
       block_extensions = block_macro_extensions = false
     end
     #parent_context = parent.is_a?(Block) ? parent.context : nil
-    in_list = (parent.is_a? List)
+    in_list = ListItem === parent
     block = nil
     style = nil
     explicit_style = nil
@@ -536,7 +556,7 @@ class Parser
               #    end
               #  end
               #  document.register(:images, target)
-              #  attributes['alt'] ||= ::File.basename(target, ::File.extname(target)).tr('_-', ' ')
+              #  attributes['alt'] ||= Helpers.basename(target, true).tr('_-', ' ')
               #  # QUESTION should video or audio have an auto-numbered caption?
               #  block.assign_caption attributes.delete('caption'), 'figure'
               #end
@@ -579,7 +599,8 @@ class Parser
             attributes['style'] = 'arabic'
             reader.unshift_line this_line
             expected_index = 1
-            begin
+            # NOTE skip the match on the first time through as we've already done it (emulates begin...while)
+            while match || (reader.has_more_lines? && (match = CalloutListRx.match(reader.peek_line)))
               # might want to move this check to a validate method
               if match[1].to_i != expected_index
                 # FIXME this lineno - 2 hack means we need a proper look-behind cursor
@@ -597,7 +618,8 @@ class Parser
                   warn %(asciidoctor: WARNING: #{reader.path}: line #{reader.lineno - 2}: no callouts refer to list item #{block.items.size})
                 end
               end
-            end while reader.has_more_lines? && (match = CalloutListRx.match(reader.peek_line))
+              match = nil
+            end
 
             document.callouts.next_list
             break
@@ -682,19 +704,9 @@ class Parser
           if style != 'normal' && LiteralParagraphRx =~ this_line
             # So we need to actually include this one in the read_lines group
             reader.unshift_line this_line
-            lines = reader.read_lines_until(
-                :break_on_blank_lines => true,
-                :break_on_list_continuation => true,
-                :preserve_last_line => true) {|line|
-              # a preceding blank line (skipped > 0) indicates we are in a list continuation
-              # and therefore we should not break at a list item
-              # (this won't stop breaking on item of same level since we've already parsed them out)
-              # QUESTION can we turn this block into a lambda or function call?
-              (break_at_list && AnyListRx =~ line) ||
-              (Compliance.block_terminates_paragraph && (is_delimited_block?(line) || BlockAttributeLineRx =~ line))
-            }
+            lines = read_paragraph_lines reader, break_at_list, :skip_line_comments => text_only
 
-            reset_block_indent! lines
+            adjust_indentation! lines
 
             block = Block.new(parent, :literal, :content_model => :verbatim, :source => lines, :attributes => attributes)
             # a literal gets special meaning inside of a definition list
@@ -704,18 +716,7 @@ class Parser
           # a paragraph is contiguous nonblank/noncontinuation lines
           else
             reader.unshift_line this_line
-            lines = reader.read_lines_until(
-                :break_on_blank_lines => true,
-                :break_on_list_continuation => true,
-                :preserve_last_line => true,
-                :skip_line_comments => true) {|line|
-              # a preceding blank line (skipped > 0) indicates we are in a list continuation
-              # and therefore we should not break at a list item
-              # (this won't stop breaking on item of same level since we've already parsed them out)
-              # QUESTION can we turn this block into a lambda or function call?
-              (break_at_list && AnyListRx =~ line) ||
-              (Compliance.block_terminates_paragraph && (is_delimited_block?(line) || BlockAttributeLineRx =~ line))
-            }
+            lines = read_paragraph_lines reader, break_at_list, :skip_line_comments => true
 
             # NOTE we need this logic because we've asked the reader to skip
             # line comments, which may leave us w/ an empty buffer if those
@@ -759,8 +760,7 @@ class Parser
               # TODO could assume a floating title when inside a block context
               # FIXME Reader needs to be created w/ line info
               block = build_block(:quote, :compound, false, parent, Reader.new(lines), attributes)
-            elsif !text_only && lines.size > 1 && first_line.start_with?('"') &&
-                lines[-1].start_with?('-- ') && lines[-2].end_with?('"')
+            elsif !text_only && (blockquote? lines, first_line)
               lines[0] = first_line[1..-1]
               attribution, citetitle = lines.pop[3..-1].split(', ', 2)
               lines.pop while lines[-1].empty?
@@ -771,16 +771,10 @@ class Parser
               attributes['citetitle'] = citetitle if citetitle
               block = Block.new(parent, :quote, :content_model => :simple, :source => lines, :attributes => attributes)
             else
-              # if [normal] is used over an indented paragraph, unindent it
-              if style == 'normal' && ((first_char = lines[0].chr) == ' ' || first_char == TAB)
-                first_line = lines[0]
-                first_line_shifted = first_line.lstrip
-                indent = line_length(first_line) - line_length(first_line_shifted)
-                lines[0] = first_line_shifted
-                # QUESTION should we fix the rest of the lines, since in XML output it's insignificant?
-                lines.size.times do |i|
-                  lines[i] = lines[i][indent..-1] if i > 0
-                end
+              # if [normal] is used over an indented paragraph, shift content to left margin
+              if style == 'normal'
+                # QUESTION do we even need to shift since whitespace is normalized by XML in this case?
+                adjust_indentation! lines
               end
 
               block = Block.new(parent, :paragraph, :content_model => :simple, :source => lines, :attributes => attributes)
@@ -814,20 +808,26 @@ class Parser
         when :listing, :fenced_code, :source
           if block_context == :fenced_code
             style = attributes['style'] = 'source'
-            language, linenums = this_line[3..-1].split(',', 2)
-            if language && !(language = language.strip).empty?
+            language, linenums = this_line[3..-1].tr(' ', '').split(',', 2)
+            if !language.nil_or_empty?
               attributes['language'] = language
-              attributes['linenums'] = '' if linenums && !linenums.strip.empty?
+              attributes['linenums'] = '' unless linenums.nil_or_empty?
             elsif (default_language = document.attributes['source-language'])
               attributes['language'] = default_language
+            end
+            if !attributes.key?('indent') && document.attributes.key?('source-indent')
+              attributes['indent'] = document.attributes['source-indent']
             end
             terminator = terminator[0..2]
           elsif block_context == :source
             AttributeList.rekey(attributes, [nil, 'language', 'linenums'])
-            unless attributes.has_key? 'language'
+            unless attributes.key? 'language'
               if (default_language = document.attributes['source-language'])
                 attributes['language'] = default_language
               end
+            end
+            if !attributes.key?('indent') && document.attributes.key?('source-indent')
+              attributes['indent'] = document.attributes['source-indent']
             end
           end
           block = build_block(:listing, :verbatim, terminator, parent, reader, attributes)
@@ -905,8 +905,8 @@ class Parser
       if block.context == :image
         resolved_target = attributes['target']
         block.document.register(:images, resolved_target)
-        attributes['alt'] ||= ::File.basename(resolved_target, ::File.extname(resolved_target)).tr('_-', ' ')
-        attributes['alt'] = block.sub_specialcharacters attributes['alt']
+        attributes['alt'] ||= Helpers.basename(resolved_target, true).tr('_-', ' ')
+        attributes['alt'] = block.sub_specialchars attributes['alt']
         block.assign_caption attributes.delete('caption'), 'figure'
         if (scaledwidth = attributes['scaledwidth'])
           # append % to scaledwidth if ends in number (no units present)
@@ -945,6 +945,21 @@ class Parser
     end
 
     block
+  end
+
+  def self.blockquote? lines, first_line = nil
+    lines.size > 1 && ((first_line || lines[0]).start_with? '"') &&
+        (lines[-1].start_with? '-- ') && (lines[-2].end_with? '"')
+  end
+
+  def self.read_paragraph_lines reader, break_at_list, opts = {}
+    opts[:break_on_blank_lines] = true
+    opts[:break_on_list_continuation] = true
+    opts[:preserve_last_line] = true
+    break_condition = (break_at_list ?
+        (Compliance.block_terminates_paragraph ? StartOfBlockOrListProc : StartOfListProc) :
+        (Compliance.block_terminates_paragraph ? StartOfBlockProc : NoOp))
+    reader.read_lines_until opts, &break_condition
   end
 
   # Public: Determines whether this line is the start of any of the delimited blocks
@@ -1035,14 +1050,7 @@ class Parser
         lines = reader.read_lines_until(:break_on_blank_lines => true, :break_on_list_continuation => true)
       else
         content_model = :simple if content_model == :compound
-        lines = reader.read_lines_until(
-            :break_on_blank_lines => true,
-            :break_on_list_continuation => true,
-            :preserve_last_line => true,
-            :skip_line_comments => true,
-            :skip_processing => skip_processing) {|line|
-          Compliance.block_terminates_paragraph && (is_delimited_block?(line) || BlockAttributeLineRx =~ line)
-        }
+        lines = read_paragraph_lines reader, false, :skip_line_comments => true, :skip_processing => true
         # QUESTION check for empty lines after grabbing lines for simple content model?
       end
       block_reader = nil
@@ -1065,8 +1073,12 @@ class Parser
       return lines
     end
 
-    if content_model == :verbatim && (indent = attributes['indent'])
-      reset_block_indent! lines, indent.to_i
+    if content_model == :verbatim
+      if (indent = attributes['indent'])
+        adjust_indentation! lines, indent, (attributes['tabsize'] || parent.document.attributes['tabsize'])
+      elsif (tab_size = (attributes['tabsize'] || parent.document.attributes['tabsize']).to_i) > 0
+        adjust_indentation! lines, nil, tab_size
+      end 
     end
 
     if (extension = options[:extension])
@@ -1238,7 +1250,8 @@ class Parser
     # that uses the same delimiter (::, :::, :::: or ;;)
     sibling_pattern = DefinitionListSiblingRx[match[2]]
 
-    begin
+    # NOTE skip the match on the first time through as we've already done it (emulates begin...while)
+    while match || (reader.has_more_lines? && (match = sibling_pattern.match(reader.peek_line)))
       term, item = next_list_item(reader, list_block, match, sibling_pattern)
       if previous_pair && !previous_pair[-1]
         previous_pair.pop
@@ -1248,7 +1261,8 @@ class Parser
         # FIXME this misses the automatic parent assignment
         list_block.items << (previous_pair = [[term], item])
       end
-    end while reader.has_more_lines? && (match = sibling_pattern.match(reader.peek_line))
+      match = nil
+    end
 
     list_block
   end
@@ -1333,8 +1347,9 @@ class Parser
       # about sections) since the reader is confined within the boundaries of a
       # list
       while list_item_reader.has_more_lines?
-        new_block = next_block(list_item_reader, list_block, {}, options)
-        list_item << new_block if new_block
+        if (new_block = next_block(list_item_reader, list_item, {}, options))
+          list_item << new_block
+        end
       end
 
       list_item.fold_first(continuation_connects_first_block, content_adjacent)
@@ -1821,9 +1836,16 @@ class Parser
       if reader.has_more_lines? && !reader.next_line_empty?
         rev_line = reader.read_line 
         if (match = RevisionInfoLineRx.match(rev_line))
-          rev_metadata['revdate'] = match[2].strip
-          rev_metadata['revnumber'] = match[1].rstrip unless match[1].nil?
-          rev_metadata['revremark'] = match[3].rstrip unless match[3].nil?
+          rev_metadata['revnumber'] = match[1].rstrip if match[1]
+          unless (component = match[2].strip) == ''
+            # version must begin with 'v' if date is absent
+            if !match[1] && (component.start_with? 'v')
+              rev_metadata['revnumber'] = component[1..-1]
+            else
+              rev_metadata['revdate'] = component
+            end
+          end
+          rev_metadata['revremark'] = match[3].rstrip if match[3]
         else
           # throw it back
           reader.unshift_line rev_line
@@ -1917,7 +1939,7 @@ class Parser
 
       segments = nil
       if names_only
-        # splitting on ' ' will collapse repeating spaces
+        # splitting on ' ' with limit will collapse repeating spaces
         segments = author_entry.split(' ', 3)
       elsif (match = AuthorInfoLineRx.match(author_entry))
         segments = match.to_a
@@ -2254,11 +2276,11 @@ class Parser
       table.assign_caption attributes.delete('caption')
     end
 
-    if attributes.has_key? 'cols'
+    if attributes['cols'].nil_or_empty?
+      explicit_col_specs = false
+    else
       table.create_columns(parse_col_specs(attributes['cols']))
       explicit_col_specs = true
-    else
-      explicit_col_specs = false
     end
 
     skipped = table_reader.skip_blank_lines
@@ -2303,7 +2325,13 @@ class Parser
             end
           else
             if m.pre_match.end_with? '\\'
-              line = parser_ctx.skip_matched_delimiter(m, true)
+              # skip over escaped delimiter
+              # handle special case when end of line is reached (see issue #1306)
+              if (line = parser_ctx.skip_matched_delimiter(m, true)).empty?
+                parser_ctx.buffer = %(#{parser_ctx.buffer}#{EOL})
+                parser_ctx.keep_cell_open
+                break
+              end
               next
             end
           end
@@ -2380,9 +2408,12 @@ class Parser
     end
 
     specs = []
-    records.split(',').each {|record|
+    # NOTE -1 argument ensures we don't drop empty records
+    records.split(',', -1).each {|record|
+      if record == ''
+        specs << { 'width' => 1 }
       # TODO might want to use scan rather than this mega-regexp
-      if (m = ColumnSpecRx.match(record))
+      elsif (m = ColumnSpecRx.match(record))
         spec = {}
         if m[2]
           # make this an operation
@@ -2397,18 +2428,20 @@ class Parser
 
         # to_i permits us to support percentage width by stripping the %
         # NOTE this is slightly out of compliance w/ AsciiDoc, but makes way more sense
-        spec['width'] = !m[3].nil? ? m[3].to_i : 1
+        spec['width'] = (m[3] ? m[3].to_i : 1)
 
         # make this an operation
         if m[4] && Table::TEXT_STYLES.has_key?(m[4])
           spec['style'] = Table::TEXT_STYLES[m[4]]
         end
 
-        repeat = !m[1].nil? ? m[1].to_i : 1
-
-        1.upto(repeat) {
-          specs << spec.dup
-        }
+        if m[1]
+          1.upto(m[1].to_i) {
+            specs << spec.dup
+          }
+        else
+          specs << spec
+        end
       end
     }
     specs
@@ -2591,18 +2624,14 @@ class Parser
     end
   end
 
-  # Remove the indentation (block offset) shared by all the lines, then
-  # indent the lines by the specified amount if specified
+  # Remove the block indentation (the leading whitespace equal to the amount of
+  # leading whitespace of the least indented line), then replace tabs with
+  # spaces (using proper tab expansion logic) and, finally, indent the lines by
+  # the amount specified.
   #
-  # Trim the leading whitespace (indentation) equivalent to the length
-  # of the indent on the least indented line. If the indent argument
-  # is specified, indent the lines by this many spaces (columns).
-  # 
-  # The purpose of this method is to shift a block of text to
-  # align to the left margin, while still preserving the relative
-  # indentation between lines
+  # This method preserves the relative indentation of the lines.
   #
-  # lines  - the Array of String lines to process
+  # lines  - the Array of String lines to process (no trailing endlines)
   # indent - the integer number of spaces to add to the beginning
   #          of each line; if this value is nil, the existing
   #          space is preserved (optional, default: 0)
@@ -2615,55 +2644,83 @@ class Parser
   #       end
   #   EOS
   #
-  #   source.split("\n")
+  #   source.split "\n"
   #   # => ["    def names", "      @names.split ' '", "    end"]
   #
-  #   Parser.reset_block_indent(source.split "\n")
-  #   # => ["def names", "  @names.split ' '", "end"]
-  #
-  #   puts Parser.reset_block_indent(source.split "\n") * "\n"
+  #   puts Parser.adjust_indentation!(source.split "\n") * "\n"
   #   # => def names
   #   # =>   @names.split ' '
   #   # => end
   #
-  # returns the Array of String lines with block offset removed
+  # returns Nothing
   #--
-  # FIXME refactor gsub matchers into compiled regex
-  def self.reset_block_indent!(lines, indent = 0)
-    return if !indent || lines.empty?
+  # QUESTION should indent be called margin?
+  def self.adjust_indentation! lines, indent = 0, tab_size = 0
+    return if lines.empty?
 
-    tab_detected = false
-    # TODO make tab size configurable
-    tab_expansion = '    '
-    # strip leading block indent
-    offsets = lines.map do |line|
-      # break if the first char is non-whitespace
-      break [] unless line.chr.lstrip.empty?
-      if line.include? TAB
-        tab_detected = true
-        line = line.gsub(TAB_PATTERN, tab_expansion)
+    # expand tabs if a tab is detected unless tab_size is nil
+    if (tab_size = tab_size.to_i) > 0 && (lines.join.include? TAB)
+    #if (tab_size = tab_size.to_i) > 0 && (lines.index {|line| line.include? TAB })
+      full_tab_space = ' ' * tab_size
+      lines.map! do |line|
+        next line if line.empty?
+
+        if line.start_with? TAB
+          line.sub!(TabIndentRx) {|tabs| full_tab_space * tabs.length }
+        end
+
+        if line.include? TAB
+          # keeps track of how many spaces were added to adjust offset in match data
+          spaces_added = 0
+          line.gsub!(TabRx) {
+            # calculate how many spaces this tab represents, then replace tab with spaces
+            if (offset = ($~.begin 0) + spaces_added) % tab_size == 0
+              spaces_added += (tab_size - 1)
+              full_tab_space
+            else
+              unless (spaces = tab_size - offset % tab_size) == 1
+                spaces_added += (spaces - 1)
+              end
+              ' ' * spaces
+            end
+          }
+        else
+          line
+        end
       end
-      if (flush_line = line.lstrip).empty?
-        nil
-      elsif (offset = line.length - flush_line.length) == 0
-        break []
+    end
+
+    # skip adjustment of gutter if indent is -1
+    return unless indent && (indent = indent.to_i) > -1
+
+    # determine width of gutter
+    gutter_width = nil
+    lines.each do |line|
+      next if line.empty?
+      # NOTE this logic assumes no whitespace-only lines
+      if (line_indent = line.length - line.lstrip.length) == 0
+        gutter_width = nil
+        break
       else
-        offset
-      end
-    end
-    
-    unless offsets.empty? || (offsets = offsets.compact).empty?
-      if (offset = offsets.min) > 0
-        lines.map! {|line|
-          line = line.gsub(TAB_PATTERN, tab_expansion) if tab_detected
-          line[offset..-1].to_s
-        }
+        unless gutter_width && line_indent > gutter_width
+          gutter_width = line_indent
+        end
       end
     end
 
-    if indent > 0
+    # remove gutter then apply new indent if specified
+    # NOTE gutter_width is > 0 if not nil
+    if indent == 0
+      if gutter_width
+        lines.map! {|line| line.empty? ? line : line[gutter_width..-1] }
+      end
+    else
       padding = ' ' * indent
-      lines.map! {|line| %(#{padding}#{line}) }
+      if gutter_width
+        lines.map! {|line| line.empty? ? line : padding + line[gutter_width..-1] }
+      else
+        lines.map! {|line| line.empty? ? line : padding + line }
+      end
     end
 
     nil

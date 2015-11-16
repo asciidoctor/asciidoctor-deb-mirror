@@ -46,6 +46,15 @@ context 'Invoker' do
     assert invoker.read_output.empty?
   end
 
+  test 'should allow docdate and doctime to be overridden' do
+    sample_filepath = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'sample.asciidoc'))
+    invoker = invoke_cli_to_buffer %w(-o /dev/null -a docdate=2015-01-01 -a doctime=10:00:00-07:00), sample_filepath
+    doc = invoker.document
+    assert doc.attr?('docdate', '2015-01-01')
+    assert doc.attr?('doctime', '10:00:00-07:00')
+    assert doc.attr?('docdatetime', '2015-01-01 10:00:00-07:00')
+  end
+
   test 'should accept document from stdin and write to stdout' do
     invoker = invoke_cli_to_buffer(%w(-s), '-') { 'content' }
     doc = invoker.document
@@ -272,6 +281,22 @@ context 'Invoker' do
     ensure
       FileUtils.rm_f(sample_outpath)
       FileUtils.rm_f(custom_stylesheet)
+      FileUtils.rmdir(stylesdir) if File.directory? stylesdir
+      FileUtils.rmdir(destdir)
+    end
+  end
+
+  test 'should not copy custom stylesheet to target directory if stylesdir is a URI' do
+    destdir = File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'output'))
+    sample_outpath = File.join destdir, 'sample-output.html'
+    stylesdir = File.join destdir, 'http:'
+    begin
+      invoker = invoke_cli %W(-o #{sample_outpath} -a linkcss -a stylesdir=http://example.org/styles -a stylesheet=custom.css)
+      invoker.document
+      assert File.exist?(sample_outpath)
+      assert !File.exist?(stylesdir)
+    ensure
+      FileUtils.rm_f(sample_outpath)
       FileUtils.rmdir(stylesdir) if File.directory? stylesdir
       FileUtils.rmdir(destdir)
     end

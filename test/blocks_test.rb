@@ -823,6 +823,33 @@ end
       assert_equal expected.chomp, result
     end
 
+    test 'should not remove block indent if indent attribute is -1' do
+      input = <<-EOS
+[indent="-1"]
+----
+    def names
+
+      @names.split ' '
+
+    end
+----
+      EOS
+
+      expected = <<-EOS
+    def names
+
+      @names.split ' '
+
+    end
+      EOS
+
+      output = render_embedded_string input
+      assert_css 'pre', output, 1
+      assert_css '.listingblock pre', output, 1
+      result = xmlnodes_at_xpath('//pre', output, 1).text
+      assert_equal expected.chomp, result
+    end
+
     test 'should set block indent to value specified by indent attribute' do
       input = <<-EOS
 [indent="1"]
@@ -837,10 +864,68 @@ end
 
       expected = <<-EOS
  def names
- 
+
    @names.split ' '
- 
+
  end
+      EOS
+
+      output = render_embedded_string input
+      assert_css 'pre', output, 1
+      assert_css '.listingblock pre', output, 1
+      result = xmlnodes_at_xpath('//pre', output, 1).text
+      assert_equal expected.chomp, result
+    end
+
+    test 'should set block indent to value specified by indent document attribute' do
+      input = <<-EOS
+:source-indent: 1
+
+[source,ruby]
+----
+    def names
+
+      @names.split ' '
+
+    end
+----
+      EOS
+
+      expected = <<-EOS
+ def names
+
+   @names.split ' '
+
+ end
+      EOS
+
+      output = render_embedded_string input
+      assert_css 'pre', output, 1
+      assert_css '.listingblock pre', output, 1
+      result = xmlnodes_at_xpath('//pre', output, 1).text
+      assert_equal expected.chomp, result
+    end
+
+    test 'should expand tabs if tabsize attribute is positive' do
+      input = <<-EOS
+:tabsize: 4
+
+[indent=0]
+----
+	def names
+
+		@names.split ' '
+
+	end
+----
+      EOS
+
+      expected = <<-EOS
+def names
+
+    @names.split ' '
+
+end
       EOS
 
       output = render_embedded_string input
@@ -1200,11 +1285,9 @@ x+b/(2a)<+-sqrt((b^2)/(4a^2)-c/a)
 ++++
       EOS
 
-      expect = <<-'EOS'
-<informalequation>
-<mediaobject><textobject><phrase><![CDATA[x+b/(2a)<+-sqrt((b^2)/(4a^2)-c/a)]]></phrase></textobject></mediaobject>
-</informalequation>
-      EOS
+      expect = %(<informalequation>
+<mml:math xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>x</mml:mi><mml:mo>+</mml:mo><mml:mfrac><mml:mi>b</mml:mi><mml:mrow><mml:mn>2</mml:mn><mml:mi>a</mml:mi></mml:mrow></mml:mfrac><mml:mo>&#x003C;</mml:mo><mml:mo>&#x00B1;</mml:mo><mml:msqrt><mml:mrow><mml:mfrac><mml:msup><mml:mi>b</mml:mi><mml:mn>2</mml:mn></mml:msup><mml:mrow><mml:mn>4</mml:mn><mml:msup><mml:mi>a</mml:mi><mml:mn>2</mml:mn></mml:msup></mml:mrow></mml:mfrac><mml:mo>&#x2212;</mml:mo><mml:mfrac><mml:mi>c</mml:mi><mml:mi>a</mml:mi></mml:mfrac></mml:mrow></mml:msqrt></mml:math>
+</informalequation>)
 
       output = render_embedded_string input, :backend => :docbook
       assert_equal expect.strip, output.strip
@@ -1362,6 +1445,111 @@ image::images/tiger.png[Tiger]
 
       output = render_embedded_string input
       assert_xpath '/*[@class="imageblock"]//img[@src="images/tiger.png"][@alt="Tiger"]', output, 1
+    end
+
+    test 'renders SVG image using img element by default' do
+      input = <<-EOS
+image::tiger.svg[Tiger]
+      EOS
+
+      output = render_embedded_string input, :safe => Asciidoctor::SafeMode::SERVER
+      assert_xpath '/*[@class="imageblock"]//img[@src="tiger.svg"][@alt="Tiger"]', output, 1
+    end
+
+    test 'renders interactive SVG image with alt text using object element' do
+      input = <<-EOS
+:imagesdir: images
+
+[%interactive]
+image::tiger.svg[Tiger,100]
+      EOS
+
+      output = render_embedded_string input, :safe => Asciidoctor::SafeMode::SERVER
+      assert_xpath '/*[@class="imageblock"]//object[@type="image/svg+xml"][@data="images/tiger.svg"][@width="100"]/span[@class="alt"][text()="Tiger"]', output, 1
+    end
+
+    test 'renders SVG image with alt text using img element when safe mode is secure' do
+      input = <<-EOS
+[%interactive]
+image::images/tiger.svg[Tiger,100]
+      EOS
+
+      output = render_embedded_string input
+      assert_xpath '/*[@class="imageblock"]//img[@src="images/tiger.svg"][@alt="Tiger"]', output, 1
+    end
+
+    test 'inserts fallback image for SVG inside object element using same dimensions' do
+      input = <<-EOS
+:imagesdir: images
+
+[%interactive]
+image::tiger.svg[Tiger,100,fallback=tiger.png]
+      EOS
+
+      output = render_embedded_string input, :safe => Asciidoctor::SafeMode::SERVER
+      assert_xpath '/*[@class="imageblock"]//object[@type="image/svg+xml"][@data="images/tiger.svg"][@width="100"]/img[@src="images/tiger.png"][@width="100"]', output, 1
+    end
+
+    test 'detects SVG image URI that contains a query string' do
+      input = <<-EOS
+:imagesdir: images
+
+[%interactive]
+image::http://example.org/tiger.svg?foo=bar[Tiger,100]
+      EOS
+
+      output = render_embedded_string input, :safe => Asciidoctor::SafeMode::SERVER
+      assert_xpath '/*[@class="imageblock"]//object[@type="image/svg+xml"][@data="http://example.org/tiger.svg?foo=bar"][@width="100"]/span[@class="alt"][text()="Tiger"]', output, 1
+    end
+
+    test 'detects SVG image when format attribute is svg' do
+      input = <<-EOS
+:imagesdir: images
+
+[%interactive]
+image::http://example.org/tiger-svg[Tiger,100,format=svg]
+      EOS
+
+      output = render_embedded_string input, :safe => Asciidoctor::SafeMode::SERVER
+      assert_xpath '/*[@class="imageblock"]//object[@type="image/svg+xml"][@data="http://example.org/tiger-svg"][@width="100"]/span[@class="alt"][text()="Tiger"]', output, 1
+    end
+
+    test 'renders inline SVG image using svg element' do
+      input = <<-EOS
+:imagesdir: fixtures
+
+[%inline]
+image::circle.svg[Tiger,100]
+      EOS
+
+      output = render_embedded_string input, :safe => Asciidoctor::SafeMode::SERVER, :attributes => { 'docdir' => ::File.dirname(__FILE__) }
+      assert_match(/<svg [^>]*width="100px"[^>]*>/, output, 1)
+      refute_match(/<svg [^>]*width="500px"[^>]*>/, output)
+      refute_match(/<svg [^>]*height="500px"[^>]*>/, output)
+      refute_match(/<svg [^>]*style="width:500px;height:500px"[^>]*>/, output)
+    end
+
+    test 'renders inline SVG image using svg element even when data-uri is set' do
+      input = <<-EOS
+:imagesdir: fixtures
+:data-uri:
+
+[%inline]
+image::circle.svg[Tiger,100]
+      EOS
+
+      output = render_embedded_string input, :safe => Asciidoctor::SafeMode::SERVER, :attributes => { 'docdir' => ::File.dirname(__FILE__) }
+      assert_match(/<svg [^>]*width="100px">/, output, 1)
+    end
+
+    test 'renders alt text for inline svg element if svg cannot be read' do
+      input = <<-EOS
+[%inline]
+image::no-such-image.svg[Alt Text]
+      EOS
+
+      output = render_embedded_string input, :safe => Asciidoctor::SafeMode::SERVER
+      assert_xpath '//span[@class="alt"][text()="Alt Text"]', output, 1
     end
 
     test 'can render block image with alt text defined in macro containing escaped square bracket' do
@@ -1805,7 +1993,7 @@ video::67480300[vimeo, 400, 300, start=60, options=autoplay]
       output = render_embedded_string input
       assert_css 'video', output, 0
       assert_css 'iframe', output, 1
-      assert_css 'iframe[src="//player.vimeo.com/video/67480300#at=60?autoplay=1"]', output, 1
+      assert_css 'iframe[src="https://player.vimeo.com/video/67480300#at=60?autoplay=1"]', output, 1
       assert_css 'iframe[width="400"]', output, 1
       assert_css 'iframe[height="300"]', output, 1
     end
@@ -1817,7 +2005,7 @@ video::U8GBXvdmHT4/PLg7s6cbtAD15Das5LK9mXt_g59DLWxKUe[youtube, 640, 360, start=6
       output = render_embedded_string input
       assert_css 'video', output, 0
       assert_css 'iframe', output, 1
-      assert_css 'iframe[src="//www.youtube.com/embed/U8GBXvdmHT4?rel=0&start=60&autoplay=1&list=PLg7s6cbtAD15Das5LK9mXt_g59DLWxKUe&modestbranding=1&theme=light"]', output, 1
+      assert_css 'iframe[src="https://www.youtube.com/embed/U8GBXvdmHT4?rel=0&start=60&autoplay=1&list=PLg7s6cbtAD15Das5LK9mXt_g59DLWxKUe&modestbranding=1&theme=light"]', output, 1
       assert_css 'iframe[width="640"]', output, 1
       assert_css 'iframe[height="360"]', output, 1
     end
@@ -1829,7 +2017,7 @@ video::SCZF6I-Rc4I,AsKGOeonbIs,HwrPhOp6-aM[youtube, 640, 360, start=60, options=
       output = render_embedded_string input
       assert_css 'video', output, 0
       assert_css 'iframe', output, 1
-      assert_css 'iframe[src="//www.youtube.com/embed/SCZF6I-Rc4I?rel=0&start=60&autoplay=1&playlist=AsKGOeonbIs,HwrPhOp6-aM"]', output, 1
+      assert_css 'iframe[src="https://www.youtube.com/embed/SCZF6I-Rc4I?rel=0&start=60&autoplay=1&playlist=AsKGOeonbIs,HwrPhOp6-aM"]', output, 1
       assert_css 'iframe[width="640"]', output, 1
       assert_css 'iframe[height="360"]', output, 1
     end
@@ -1961,7 +2149,7 @@ You can use icons for admonitions by setting the 'icons' attribute.
       EOS
 
       output = render_string input, :safe => Asciidoctor::SafeMode::SERVER
-      assert_css 'html > head > link[rel="stylesheet"][href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.2.0/css/font-awesome.min.css"]', output, 1
+      assert_css 'html > head > link[rel="stylesheet"][href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.4.0/css/font-awesome.min.css"]', output, 1
       assert_xpath '//*[@class="admonitionblock tip"]//*[@class="icon"]/i[@class="fa icon-tip"]', output, 1
     end
 
@@ -1978,8 +2166,8 @@ puts "AsciiDoc, FTW!"
       EOS
 
       output = render_string input, :safe => Asciidoctor::SafeMode::SAFE
-      assert_css 'html > head > link[rel="stylesheet"][href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.2.0/css/font-awesome.min.css"]', output, 1
-      assert_css 'html > head > script[src="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.4/highlight.min.js"]', output, 1
+      assert_css 'html > head > link[rel="stylesheet"][href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.4.0/css/font-awesome.min.css"]', output, 1
+      assert_css 'html > body > script[src="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.9.1/highlight.min.js"]', output, 1
     end
 
     test 'should use no uri scheme for assets when asset-uri-scheme is blank' do
@@ -1995,8 +2183,8 @@ puts "AsciiDoc, FTW!"
       EOS
 
       output = render_string input, :safe => Asciidoctor::SafeMode::SAFE
-      assert_css 'html > head > link[rel="stylesheet"][href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.2.0/css/font-awesome.min.css"]', output, 1
-      assert_css 'html > head > script[src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.4/highlight.min.js"]', output, 1
+      assert_css 'html > head > link[rel="stylesheet"][href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.4.0/css/font-awesome.min.css"]', output, 1
+      assert_css 'html > body > script[src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.9.1/highlight.min.js"]', output, 1
     end
   end
 

@@ -102,6 +102,28 @@ context 'Tables' do
       assert_xpath '/table/tbody/tr/td[2]/p[text()="a | there"]', output, 1
     end
 
+    test 'preserves escaped delimiters at the end of the line' do
+      input = <<-EOS
+[%header,cols="1,1"]
+|====
+|A |B\\|
+|A1 |B1\\|
+|A2 |B2\\|
+|====
+      EOS
+      output = render_embedded_string input
+      assert_css 'table', output, 1
+      assert_css 'table > colgroup > col', output, 2
+      assert_css 'table > thead > tr', output, 1
+      assert_css 'table > thead > tr:nth-child(1) > th', output, 2
+      assert_xpath '/table/thead/tr[1]/th[2][text()="B|"]', output, 1
+      assert_css 'table > tbody > tr', output, 2
+      assert_css 'table > tbody > tr:nth-child(1) > td', output, 2
+      assert_xpath '/table/tbody/tr[1]/td[2]/p[text()="B1|"]', output, 1
+      assert_css 'table > tbody > tr:nth-child(2) > td', output, 2
+      assert_xpath '/table/tbody/tr[2]/td[2]/p[text()="B2|"]', output, 1
+    end
+
     test 'should treat trailing pipe as an empty cell' do
       input = <<-EOS
 |====
@@ -181,7 +203,7 @@ A | here| a | there
       assert_css 'table > tbody > tr:nth-child(2) > td', output, 4
     end
 
-    test 'colspec attribute sets number of columns' do
+    test 'colspec attribute using asterisk syntax sets number of columns' do
       input = <<-EOS
 [cols="3*"]
 |===
@@ -207,7 +229,7 @@ A | here| a | there
       assert_css 'table > tbody > tr', output, 2
     end
 
-    test 'table with explicit deprecated syntax column count can have multiple rows on a single line' do
+    test 'table with explicit deprecated colspec syntax can have multiple rows on a single line' do
       input = <<-EOS
 [cols="3"]
 |===
@@ -219,6 +241,35 @@ A | here| a | there
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 3
       assert_css 'table > tbody > tr', output, 2
+    end
+
+    test 'columns are added for empty records in colspec attribute' do
+      input = <<-EOS
+[cols="<,"]
+|===
+|one |two
+|1 |2 |a |b
+|===
+      EOS
+      output = render_embedded_string input
+      assert_css 'table', output, 1
+      assert_css 'table > colgroup > col', output, 2
+      assert_css 'table > tbody > tr', output, 3
+    end
+
+    test 'empty cols attribute should be ignored' do
+      input = <<-EOS
+[cols=""]
+|===
+|one |two
+|1 |2 |a |b
+|===
+      EOS
+      output = render_embedded_string input
+      assert_css 'table', output, 1
+      assert_css 'table > colgroup > col', output, 2
+      assert_css 'col[style="width: 50%;"]', output, 2
+      assert_css 'table > tbody > tr', output, 3
     end
 
     test 'table with header and footer' do
@@ -548,6 +599,59 @@ d|9 2+>|10
       assert_xpath '/table/tbody/tr[3]/td[1]/p[text()="2"]', output, 1
       assert_xpath '/table/tbody/tr[3]/td[2]/p[text()="b"]', output, 1
       assert_xpath '/table/tbody/tr[3]/td[3]/p[text()="c"]', output, 1
+    end
+
+    test 'calculates colnames correctly when using implicit column count and single cell with colspan' do
+      input = <<-EOS
+|===
+2+|Two Columns
+|One Column |One Column
+|===
+      EOS
+
+      output = render_embedded_string input, :backend => 'docbook'
+      assert_xpath '//colspec', output, 2
+      assert_xpath '(//colspec)[1][@colname="col_1"]', output, 1
+      assert_xpath '(//colspec)[2][@colname="col_2"]', output, 1
+      assert_xpath '//row', output, 2
+      assert_xpath '(//row)[1]/entry', output, 1
+      assert_xpath '(//row)[1]/entry[@namest="col_1"][@nameend="col_2"]', output, 1
+    end
+
+    test 'calculates colnames correctly when using implicit column count and cells with mixed colspans' do
+      input = <<-EOS
+|===
+2+|Two Columns | One Column
+|One Column |One Column |One Column
+|===
+      EOS
+
+      output = render_embedded_string input, :backend => 'docbook'
+      assert_xpath '//colspec', output, 3
+      assert_xpath '(//colspec)[1][@colname="col_1"]', output, 1
+      assert_xpath '(//colspec)[2][@colname="col_2"]', output, 1
+      assert_xpath '(//colspec)[3][@colname="col_3"]', output, 1
+      assert_xpath '//row', output, 2
+      assert_xpath '(//row)[1]/entry', output, 2
+      assert_xpath '(//row)[1]/entry[@namest="col_1"][@nameend="col_2"]', output, 1
+      assert_xpath '(//row)[2]/entry[@namest]', output, 0
+      assert_xpath '(//row)[2]/entry[@nameend]', output, 0
+    end
+
+    test 'ignores cell with colspan that exceeds colspec' do
+      input = <<-EOS
+[cols="1,1"]
+|===
+3+|A
+|B
+a|C
+
+more C
+|===
+      EOS
+      output = render_embedded_string input
+      assert_css 'table', output, 1
+      assert_css 'table *', output, 0
     end
 
     test 'paragraph, verse and literal content' do
@@ -959,6 +1063,58 @@ single cell
 
       output = render_embedded_string input
       assert_css 'table td', output, 1
+    end
+
+    test 'table with breakable db45' do
+      input = <<-EOS
+.Table with breakable
+[options="breakable"]
+|===
+|Item       |Quantity
+|Item 1     |1        
+|===
+      EOS
+      output = render_embedded_string input, :backend => 'docbook45'
+      assert output.include?('<?dbfo keep-together="auto"?>')
+    end
+
+    test 'table with breakable db5' do
+      input = <<-EOS
+.Table with breakable
+[options="breakable"]
+|===
+|Item       |Quantity
+|Item 1     |1        
+|===
+      EOS
+      output = render_embedded_string input, :backend => 'docbook5'
+      assert output.include?('<?dbfo keep-together="auto"?>')
+    end
+
+    test 'table with unbreakable db5' do
+      input = <<-EOS
+.Table with unbreakable
+[options="unbreakable"]
+|===
+|Item       |Quantity
+|Item 1     |1        
+|===
+      EOS
+      output = render_embedded_string input, :backend => 'docbook5'
+      assert output.include?('<?dbfo keep-together="always"?>')
+    end
+
+    test 'table with unbreakable db45' do
+      input = <<-EOS
+.Table with unbreakable
+[options="unbreakable"]
+|===
+|Item       |Quantity
+|Item 1     |1        
+|===
+      EOS
+      output = render_embedded_string input, :backend => 'docbook45'
+      assert output.include?('<?dbfo keep-together="always"?>')
     end
   end
 end

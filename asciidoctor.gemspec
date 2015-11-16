@@ -4,7 +4,6 @@ require File.expand_path '../lib/asciidoctor/version', __FILE__
 Gem::Specification.new do |s|
   s.name              = 'asciidoctor'
   s.version           = Asciidoctor::VERSION
-  s.rubyforge_project = s.name
 
   s.summary           = 'An implementation of the AsciiDoc text processor and publishing toolchain in Ruby'
   s.description       = <<-EOS
@@ -17,7 +16,7 @@ A fast, open source text processor and publishing toolchain, written in Ruby, fo
   s.license           = 'MIT'
 
   begin
-    s.files           = `git ls-files -z -- */* {CHANGELOG,LICENSE,README,Rakefile}*`.split "\0"
+    s.files           = `git ls-files -z -- */* {CHANGELOG,LICENSE,README,Rakefile}* :/!benchmark/`.split "\0"
   rescue
     s.files           = Dir['**/*']
   end
@@ -31,9 +30,11 @@ A fast, open source text processor and publishing toolchain, written in Ruby, fo
   #s.extra_rdoc_files  = %w(CHANGELOG.adoc LICENSE.adoc README.adoc)
   s.extra_rdoc_files  = %w(LICENSE.adoc)
 
+  # asciimath is needed for testing AsciiMath in DocBook backend
   # erubis is needed for testing use of alternative eRuby impls
   # tilt, slim and haml are needed for testing custom templates
   # coderay is needed for testing syntax highlighting
+  s.add_development_dependency 'asciimath', '~> 1.0.1'
   s.add_development_dependency 'coderay', '~> 1.1.0'
   s.add_development_dependency 'cucumber', '~> 1.3.1'
   s.add_development_dependency 'erubis', '~> 2.7.0'

@@ -453,6 +453,17 @@ List
       assert_xpath '//ul/li', output, 3
     end
 
+    test 'indented unicode bullet elements using spaces' do
+      input = <<-EOS
+ • Foo
+ • Boo
+ • Blech
+      EOS
+      output = render_string input
+      assert_xpath '//ul', output, 1
+      assert_xpath '//ul/li', output, 3
+    end if ::RUBY_MIN_VERSION_1_9
+
     test 'indented asterisk elements using tabs' do
       input = <<-EOS
 \t*\tFoo
@@ -803,6 +814,27 @@ List
       assert_xpath '((((//ul)[1]/li//ul)[1]/li//ul)[1]/li//ul)[1]/li', output, 1
       assert_xpath '(((((//ul)[1]/li//ul)[1]/li//ul)[1]/li//ul)[1]/li//ul)[1]/li', output, 1
     end
+
+    test 'nested elements (5) with unicode bullet' do
+      input = <<-EOS
+List
+====
+
+• Foo
+•• Boo
+••• Snoo
+•••• Froo
+••••• Groo
+• Blech
+      EOS
+      output = render_string input
+      assert_xpath '//ul', output, 5
+      assert_xpath '(//ul)[1]/li', output, 2
+      assert_xpath '((//ul)[1]/li//ul)[1]/li', output, 1
+      assert_xpath '(((//ul)[1]/li//ul)[1]/li//ul)[1]/li', output, 1
+      assert_xpath '((((//ul)[1]/li//ul)[1]/li//ul)[1]/li//ul)[1]/li', output, 1
+      assert_xpath '(((((//ul)[1]/li//ul)[1]/li//ul)[1]/li//ul)[1]/li//ul)[1]/li', output, 1
+    end if ::RUBY_MIN_VERSION_1_9
 
     test "nested ordered elements (2)" do
       input = <<-EOS
@@ -1848,6 +1880,39 @@ term2::
       assert_xpath '(//dl/dt)[2]/following-sibling::dd/p[text() = "def2"]', output, 1
     end
 
+    test "multi-line elements with indented paragraph content that includes comment lines" do
+      input = <<-EOS
+term1::
+ def1
+// comment
+term2::
+  def2
+// comment
+  def2 continued
+      EOS
+      output = render_embedded_string input
+      assert_xpath '//dl', output, 1
+      assert_xpath '//dl/dt', output, 2
+      assert_xpath '//dl/dt/following-sibling::dd', output, 2
+      assert_xpath '(//dl/dt)[1][normalize-space(text()) = "term1"]', output, 1
+      assert_xpath '(//dl/dt)[1]/following-sibling::dd/p[text() = "def1"]', output, 1
+      assert_xpath '(//dl/dt)[2][normalize-space(text()) = "term2"]', output, 1
+      assert_xpath %((//dl/dt)[2]/following-sibling::dd/p[text() = "def2\ndef2 continued"]), output, 1
+    end
+
+    test "should not strip comment line in literal paragraph block attached to list item" do
+      input = <<-EOS
+term1::
++
+ line 1
+// not a comment
+ line 3
+      EOS
+      output = render_embedded_string input
+      assert_xpath '//*[@class="literalblock"]', output, 1
+      assert_xpath %(//*[@class="literalblock"]//pre[text()=" line 1\n// not a comment\n line 3"]), output, 1
+    end
+
     test 'multi-line element with paragraph starting with multiple dashes should not be seen as list' do
       input = <<-EOS
 term1::
@@ -2224,6 +2289,18 @@ section text
       assert_xpath '/*[@class="sect1"]', output, 1
       assert_xpath '/*[@class="sect1"]/h2[text()="Section"]', output, 1
       assert_xpath '/*[@class="ulist"]/following-sibling::*[@class="sect1"]', output, 1
+    end
+
+    test 'more than 4 consecutive colons should become part of description list term' do
+      input = <<-EOS
+A term::::: a description
+      EOS
+
+      output = render_embedded_string input
+      assert_xpath '//dl', output, 1
+      assert_xpath '//dt', output, 1
+      assert_xpath '//dt[text()="A term:"]', output, 1
+      assert_xpath '//dd/p[text()="a description"]', output, 1
     end
   end
 
@@ -4178,5 +4255,101 @@ context 'Lists model' do
     items = list.items
     assert_equal 3, items.size
     assert_equal list.items, list.content
+  end
+
+  test 'list item should be the parent of block attached to a list item' do
+    input = <<-EOS
+* list item 1
++
+----
+listing block in list item 1
+----
+    EOS
+
+    doc = document_from_string input
+    list = doc.blocks.first
+    list_item_1 = list.items.first
+    listing_block = list_item_1.blocks.first
+    assert_equal :listing, listing_block.context
+    assert_equal list_item_1, listing_block.parent
+  end
+
+  test 'outline? should return true for unordered list' do
+    input = <<-EOS
+* one
+* two
+* three
+    EOS
+
+    doc = document_from_string input
+    list = doc.blocks.first
+    assert list.outline?
+  end
+
+  test 'outline? should return true for ordered list' do
+    input = <<-EOS
+. one
+. two
+. three
+    EOS
+
+    doc = document_from_string input
+    list = doc.blocks.first
+    assert list.outline?
+  end
+
+  test 'outline? should return false for description list' do
+    input = <<-EOS
+label:: desc
+    EOS
+
+    doc = document_from_string input
+    list = doc.blocks.first
+    assert !list.outline?
+  end
+
+  test 'simple? should return true for list item with no nested blocks' do
+    input = <<-EOS
+* one
+* two
+* three
+    EOS
+
+    doc = document_from_string input
+    list = doc.blocks.first
+    assert list.items.first.simple?
+    assert !list.items.first.compound?
+  end
+
+  test 'simple? should return true for list item with nested outline list' do
+    input = <<-EOS
+* one
+  ** more about one
+  ** and more
+* two
+* three
+    EOS
+
+    doc = document_from_string input
+    list = doc.blocks.first
+    assert list.items.first.simple?
+    assert !list.items.first.compound?
+  end
+
+  test 'simple? should return false for list item with block content' do
+    input = <<-EOS
+* one
++
+----
+listing block in list item 1
+----
+* two
+* three
+    EOS
+
+    doc = document_from_string input
+    list = doc.blocks.first
+    assert !list.items.first.simple?
+    assert list.items.first.compound?
   end
 end

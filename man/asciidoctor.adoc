@@ -2,7 +2,7 @@
 Dan Allen; Sarah White; Ryan Waldron
 :doctype: manpage
 :man manual: Asciidoctor Manual
-:man source: Asciidoctor 1.5.2
+:man source: Asciidoctor 1.5.3
 :page-layout: base
 
 == NAME
@@ -15,7 +15,7 @@ asciidoctor - converts AsciiDoc source files to HTML, DocBook and other formats
 
 == DESCRIPTION
 
-The asciidoctor(1) command converts the AsciiDoc source file(s) _FILE_ to HTML5, DocBook 4.5, DocBook 5.0 and other custom output formats.
+The asciidoctor(1) command converts the AsciiDoc source file(s) _FILE_ to HTML5, DocBook 5, DocBook 4.5, man(ual) page and other custom output formats.
 
 If _FILE_ is _-_ then the AsciiDoc source is read from standard input.
 
@@ -52,7 +52,7 @@ Values containing spaces should be enclosed in quotes.
 This option may be specified more than once.
 
 *-b, --backend*=_BACKEND_::
-  Backend output file format: _html5_, _docbook45_ and _docbook5_ supported out of the box.
+  Backend output file format: _html5_, _docbook5_, _docbook45_ and _manpage_ are supported out of the box.
   You can also use the backend alias names _html_ (aliased to _html5_) or _docbook_ (aliased to _docbook5_).
   Defaults to _html5_.
   Other options can be passed, but if Asciidoctor cannot find the backend, it will fail during conversion.
@@ -87,6 +87,10 @@ This option may be specified more than once.
   Supported values are _erb_ and _erubis_.
   Defaults to _erb_.
 
+*-I, --load-path*=_DIRECTORY_::
+  Add the specified directory to the load path, so that _-r_ can load extensions from outside the default Ruby load path.
+  This option may be specified more than once.
+
 *-n, --section-numbers*::
   Auto-number section titles.
   Synonym for *--attribute numbered*.
@@ -97,6 +101,10 @@ This option may be specified more than once.
   If the input is read from standard input, then the output file defaults to stdout.
   If _OUT_FILE_ is _-_ then the standard output is also used.
   If specified, the file is resolved relative to the working directory.
+
+*-r, --require*=_LIBRARY_::
+  Require the specified library before executing the processor, using the standard Ruby require.
+  This option may be specified more than once.
 
 *-s, --no-header-footer*::
   Suppress the document header and footer in the output.
@@ -133,6 +141,8 @@ Matching templates found in subsequent directories override ones previously disc
 
 *-V, --version*::
   Print program version number.
++
+`-v` can also be used if no other flags or arguments are present.
 
 == EXIT STATUS
 
@@ -144,7 +154,7 @@ Matching templates found in subsequent directories override ones previously disc
 
 == BUGS
 
-See the *Asciidoctor* issue tracker: <**https://github.com/asciidoctor/asciidoctor/issues?q=is%3Aopen**>
+Refer to the *Asciidoctor* issue tracker at https://github.com/asciidoctor/asciidoctor/issues?q=is%3Aopen.
 
 == AUTHORS
 
@@ -154,17 +164,15 @@ See the *Asciidoctor* issue tracker: <**https://github.com/asciidoctor/asciidoct
 
 == RESOURCES
 
-Git source repository on GitHub: <**https://github.com/asciidoctor/asciidoctor**>
+*Project web site:* http://asciidoctor.org
 
-Project web site: <**http://asciidoctor.org**>
+*Git source repository on GitHub:* https://github.com/asciidoctor/asciidoctor
 
-GitHub organization: <**https://github.com/asciidoctor**>
+*GitHub organization:* https://github.com/asciidoctor
 
-Discussion list / forum: <**http://discuss.asciidoctor.org**>
+*Discussion list / forum:* http://discuss.asciidoctor.org
 
 == COPYING
 
-Copyright \(C) 2012-2014 Dan Allen, Ryan Waldron and the Asciidoctor Project.
+Copyright \(C) 2012-2015 Dan Allen, Ryan Waldron and the Asciidoctor Project.
 Free use of this software is granted under the terms of the MIT License.
-
-// vim: tw=80

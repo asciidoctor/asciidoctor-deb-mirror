@@ -312,6 +312,19 @@ content
       assert_equal 'baz', (node.attr 'foo')
     end
 
+    test 'set_attr should set header attribute in loaded document' do
+      input = <<-EOS
+:uri: http://example.org
+
+{uri}
+      EOS
+
+      doc = Asciidoctor.load input, :attributes => { 'uri' => 'https://github.com' }
+      doc.set_attr 'uri', 'https://google.com'
+      output = doc.convert
+      assert_xpath '//a[@href="https://google.com"]', output, 1
+    end
+
     test 'verify toc attribute matrix' do
       expected_data = <<-EOS
 #attributes                               |toc|toc-position|toc-placement|toc-class
@@ -1052,6 +1065,79 @@ Text
       assert_equal 'option1,option2', para.attributes['options']
       assert para.attributes.has_key?('option1-option')
       assert para.attributes.has_key?('option2-option')
+    end
+
+    test 'a role can be added using add_role when the node has no roles' do
+        input = <<-EOS
+A normal paragraph        
+        EOS
+      doc = document_from_string(input)
+      para = doc.blocks.first
+      para.add_role 'role1'
+      assert_equal 'role1', para.attributes['role']
+      assert para.has_role? 'role1'
+    end
+
+    test 'a role can be added using add_role when the node already has a role' do
+        input = <<-EOS
+[.role1]
+A normal paragraph        
+        EOS
+      doc = document_from_string(input)
+      para = doc.blocks.first
+      para.add_role 'role2'
+      assert_equal 'role1 role2', para.attributes['role']
+      assert para.has_role? 'role1'
+      assert para.has_role? 'role2'
+    end
+
+    test 'a role is not added using add_role if the node already has that role' do
+        input = <<-EOS
+[.role1]
+A normal paragraph        
+        EOS
+      doc = document_from_string(input)
+      para = doc.blocks.first
+      para.add_role 'role1'
+      assert_equal 'role1', para.attributes['role']
+      assert para.has_role? 'role1'
+    end
+
+    test 'an existing role can be removed using remove_role' do
+        input = <<-EOS
+[.role1.role2]
+A normal paragraph        
+        EOS
+      doc = document_from_string(input)
+      para = doc.blocks.first
+      para.remove_role 'role1'
+      assert_equal 'role2', para.attributes['role']
+      assert para.has_role? 'role2'
+      assert !para.has_role?('role1')
+    end
+
+    test 'roles are not changed when a non-existent role is removed using remove_role' do
+        input = <<-EOS
+[.role1]
+A normal paragraph        
+        EOS
+      doc = document_from_string(input)
+      para = doc.blocks.first
+      para.remove_role 'role2'
+      assert_equal 'role1', para.attributes['role']
+      assert para.has_role? 'role1'
+      assert !para.has_role?('role2')
+    end
+
+    test 'roles are not changed when using remove_role if the node has no roles' do
+        input = <<-EOS
+A normal paragraph        
+        EOS
+      doc = document_from_string(input)
+      para = doc.blocks.first
+      para.remove_role 'role1'
+      assert_equal nil, para.attributes['role']
+      assert !para.has_role?('role1')
     end
 
     test 'option can be specified in first position of block style using shorthand syntax' do

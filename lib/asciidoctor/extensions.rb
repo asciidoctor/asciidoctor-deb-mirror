@@ -110,7 +110,7 @@ module Extensions
     #--
     # QUESTION is parse_content the right method name? should we wrap in open block automatically?
     def parse_content parent, content, attributes = {}
-      reader = (content.is_a? Reader) ? reader : (Reader.new content)
+      reader = (content.is_a? Reader) ? content : (Reader.new content)
       while reader.has_more_lines?
         block = Parser.next_block reader, parent, attributes
         parent << block if block
@@ -258,7 +258,7 @@ module Extensions
 
     def initialize config = {}
       super config
-      @config[:location] ||= :header
+      @config[:location] ||= :head
     end
 
     def process document
@@ -423,8 +423,9 @@ module Extensions
   # for example, FormalInlineMacro, ShortInlineMacro (no target) and other patterns
   # FIXME for inline passthrough, we need to have some way to specify the text as a passthrough
   class InlineMacroProcessor < MacroProcessor
-    def initialize name, config = {}
-      super
+    # Lookup the regexp option, resolving it first if necessary.
+    # Once this method is called, the regexp is considered frozen.
+    def regexp
       @config[:regexp] ||= (resolve_regexp @name, @config[:format])
     end
 
@@ -796,7 +797,7 @@ module Extensions
 
     # Public: Checks whether any {DocinfoProcessor} extensions have been registered.
     #
-    # location - A Symbol for selecting docinfo extensions at a given location (:header or :footer) (default: nil)
+    # location - A Symbol for selecting docinfo extensions at a given location (:head or :footer) (default: nil)
     #
     # Returns a [Boolean] indicating whether any DocinfoProcessor extensions are registered.
     def docinfo_processors? location = nil
@@ -814,7 +815,7 @@ module Extensions
     # Public: Retrieves the {Extension} proxy objects for all the
     # DocinfoProcessor instances stored in this registry.
     #
-    # location - A Symbol for selecting docinfo extensions at a given location (:header or :footer) (default: nil)
+    # location - A Symbol for selecting docinfo extensions at a given location (:head or :footer) (default: nil)
     #
     # Returns an [Array] of Extension proxy objects.
     def docinfo_processors location = nil
@@ -877,7 +878,7 @@ module Extensions
     #   end
     #
     #   # as a method block with an explicit block name
-    #   register :shout do
+    #   block :shout do
     #     process |parent, reader, attrs|
     #       ...
     #     end
@@ -940,22 +941,22 @@ module Extensions
     # Examples
     #
     #   # as a BlockMacroProcessor subclass
-    #   block GistBlockMacro
+    #   block_macro GistBlockMacro
     #
     #   # as a BlockMacroProcessor subclass with an explicit macro name
-    #   block GistBlockMacro, :gist
+    #   block_macro GistBlockMacro, :gist
     #
     #   # as an instance of a BlockMacroProcessor subclass
-    #   block GistBlockMacro.new
+    #   block_macro GistBlockMacro.new
     #
     #   # as an instance of a BlockMacroProcessor subclass with an explicit macro name
-    #   block GistBlockMacro.new, :gist
+    #   block_macro GistBlockMacro.new, :gist
     #
     #   # as a name of a BlockMacroProcessor subclass
-    #   block 'GistBlockMacro'
+    #   block_macro 'GistBlockMacro'
     #
     #   # as a name of a BlockMacroProcessor subclass with an explicit macro name
-    #   block 'GistBlockMacro', :gist
+    #   block_macro 'GistBlockMacro', :gist
     #
     #   # as a method block
     #   block_macro do
@@ -966,7 +967,7 @@ module Extensions
     #   end
     #
     #   # as a method block with an explicit macro name
-    #   register :gist do
+    #   block_macro :gist do
     #     process |parent, target, attrs|
     #       ...
     #     end
@@ -1029,22 +1030,22 @@ module Extensions
     # Examples
     #
     #   # as an InlineMacroProcessor subclass
-    #   block ChromeInlineMacro
+    #   inline_macro ChromeInlineMacro
     #
     #   # as an InlineMacroProcessor subclass with an explicit macro name
-    #   block ChromeInineMacro, :chrome
+    #   inline_macro ChromeInineMacro, :chrome
     #
     #   # as an instance of an InlineMacroProcessor subclass
-    #   block ChromeInlineMacro.new
+    #   inline_macro ChromeInlineMacro.new
     #
     #   # as an instance of an InlineMacroProcessor subclass with an explicit macro name
-    #   block ChromeInlineMacro.new, :chrome
+    #   inline_macro ChromeInlineMacro.new, :chrome
     #
     #   # as a name of an InlineMacroProcessor subclass
-    #   block 'ChromeInlineMacro'
+    #   inline_macro 'ChromeInlineMacro'
     #
     #   # as a name of an InlineMacroProcessor subclass with an explicit macro name
-    #   block 'ChromeInineMacro', :chrome
+    #   inline_macro 'ChromeInineMacro', :chrome
     #
     #   # as a method block
     #   inline_macro do
@@ -1055,7 +1056,7 @@ module Extensions
     #   end
     #
     #   # as a method block with an explicit macro name
-    #   register :chrome do
+    #   inline_macro :chrome do
     #     process |parent, target, attrs|
     #       ...
     #     end

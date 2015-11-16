@@ -1,10 +1,8 @@
 From: Guillaume Grossetie <ggrossetie@gmail.com>
 Subject: Exclude lib/ directory from tests
-Index: asciidoctor/Rakefile
-===================================================================
---- asciidoctor.orig/Rakefile	2015-05-27 21:24:17.003082432 +0200
-+++ asciidoctor/Rakefile	2015-06-19 21:34:30.198079043 +0200
-@@ -20,7 +20,7 @@
+--- a/Rakefile
++++ b/Rakefile
+@@ -20,7 +20,7 @@ begin
    Rake::TestTask.new(:test) do |test|
      prepare_test_env
      puts %(LANG: #{ENV['LANG']}) if ENV.key? 'TRAVIS_BUILD_ID'
@@ -13,16 +11,14 @@ Index: asciidoctor/Rakefile
      test.pattern = 'test/**/*_test.rb'
      test.verbose = true
      test.warning = true
-Index: asciidoctor/test/test_helper.rb
-===================================================================
---- asciidoctor.orig/test/test_helper.rb	2015-05-27 21:24:17.087082433 +0200
-+++ asciidoctor/test/test_helper.rb	2015-06-19 21:34:06.406078658 +0200
-@@ -8,7 +8,7 @@
+--- a/test/test_helper.rb
++++ b/test/test_helper.rb
+@@ -8,7 +8,7 @@ end
  
  require 'simplecov' if ENV['COVERAGE'] == 'true'
  
 -require File.join(ASCIIDOCTOR_PROJECT_DIR, 'lib', 'asciidoctor')
 +require 'asciidoctor'
  
- require 'minitest/autorun'
- require 'socket'
+ # NOTE we require minitest libraries explicitly to avoid a superfluous warning
+ require 'minitest/unit'

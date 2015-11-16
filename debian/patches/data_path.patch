@@ -1,11 +1,9 @@
 From: Guillaume Grossetie <ggrossetie@gmail.com>
 Subject: Load data from /usr/share/asciidoctor path
 Bug-Debian: https://bugs.debian.org/788052
-Index: asciidoctor/lib/asciidoctor.rb
-===================================================================
---- asciidoctor.orig/lib/asciidoctor.rb	2015-06-17 20:32:38.975724893 +0200
-+++ asciidoctor/lib/asciidoctor.rb	2015-06-17 20:32:54.199725139 +0200
-@@ -179,7 +179,7 @@
+--- a/lib/asciidoctor.rb
++++ b/lib/asciidoctor.rb
+@@ -178,7 +178,7 @@ module Asciidoctor
    LIB_PATH = ::File.join ROOT_PATH, 'lib'
  
    # The absolute data path of the Asciidoctor RubyGem

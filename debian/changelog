@@ -1,6 +1,12 @@
 asciidoctor (1.5.3-1) UNRELEASED; urgency=medium
 
   * New upstream release
+  * Patches removed (already applied upstream):
+    - require-asciidoctor.patch
+    - update-asciidoctor.1-manpage.patch
+  * Patches refreshed:
+    - data_path.patch
+    - lib_directory_in_tests.patch
 
  -- Antonio Terceiro <terceiro@debian.org>  Mon, 16 Nov 2015 17:30:21 -0200
 

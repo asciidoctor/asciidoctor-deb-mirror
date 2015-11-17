@@ -10,6 +10,8 @@ asciidoctor (1.5.3-1) UNRELEASED; urgency=medium
   * Patches added:
     - skip-asciimath-test.patch: skip test that depends on a library not yet
       in Debian
+    - slim-test.patch: fix code logic to not depend on when the slim library
+      has been loaded.
 
  -- Antonio Terceiro <terceiro@debian.org>  Mon, 16 Nov 2015 17:30:21 -0200
 

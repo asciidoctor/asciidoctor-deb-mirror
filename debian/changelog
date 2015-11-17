@@ -1,6 +1,8 @@
-asciidoctor (1.5.3-1) UNRELEASED; urgency=medium
+asciidoctor (1.5.3-1) unstable; urgency=medium
 
+  * Team upload
   * New upstream release
+    - Includes the manpage backend!
   * Patches removed (already applied upstream):
     - require-asciidoctor.patch
     - update-asciidoctor.1-manpage.patch
@@ -13,7 +15,7 @@ asciidoctor (1.5.3-1) UNRELEASED; urgency=medium
     - slim-test.patch: fix code logic to not depend on when the slim library
       has been loaded.
 
- -- Antonio Terceiro <terceiro@debian.org>  Mon, 16 Nov 2015 17:30:21 -0200
+ -- Antonio Terceiro <terceiro@debian.org>  Tue, 17 Nov 2015 11:47:27 -0200
 
 asciidoctor (1.5.2-2) unstable; urgency=medium
 

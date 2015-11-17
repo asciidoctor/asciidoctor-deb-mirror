@@ -13,6 +13,7 @@ Build-Depends: debhelper (>= 9~),
                ruby-mocha,
                ruby-nokogiri (>= 1.5.10),
                ruby-tilt,
+               ruby-thread-safe,
                ruby-slim,
                ruby-haml,
 Standards-Version: 3.9.6

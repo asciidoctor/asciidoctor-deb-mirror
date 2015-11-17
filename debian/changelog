@@ -3,6 +3,10 @@ asciidoctor (1.5.3-1) unstable; urgency=medium
   * Team upload
   * New upstream release
     - Includes the manpage backend!
+  * Refresh packaging:
+    - bump debian/compat to 9
+    - reformat debian/control, and add Testsuite: header
+    - cleanup debian/rules
   * Patches removed (already applied upstream):
     - require-asciidoctor.patch
     - update-asciidoctor.1-manpage.patch

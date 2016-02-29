@@ -4,6 +4,8 @@ asciidoctor (1.5.4-1) unstable; urgency=medium
   * New upstream release
   * Patches refreshed:
     - lib_directory_in_tests.patch
+  * Patches removed (already applied upstream):
+    - slim-test.patch
 
  -- Guillaume Grossetie <ggrossetie@gmail.com>  Mon, 29 Feb 2016 17:18:00 +0200
 

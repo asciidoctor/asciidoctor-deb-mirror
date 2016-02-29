@@ -4,6 +4,7 @@ asciidoctor (1.5.4-1) unstable; urgency=medium
   * New upstream release
   * Patches refreshed:
     - lib_directory_in_tests.patch
+    - skip-asciimath-test.patch
   * Patches removed (already applied upstream):
     - slim-test.patch
 

@@ -19,6 +19,6 @@ Subject: Exclude lib/ directory from tests
  
 -require File.join(ASCIIDOCTOR_PROJECT_DIR, 'lib', 'asciidoctor')
 +require 'asciidoctor'
- 
- # NOTE we require minitest libraries explicitly to avoid a superfluous warning
- require 'minitest/unit'
+
+ require 'socket'
+ require 'nokogiri'

@@ -2,6 +2,8 @@ asciidoctor (1.5.4-1) unstable; urgency=medium
 
   * Team upload
   * New upstream release
+  * Patches refreshed:
+    - lib_directory_in_tests.patch
 
  -- Guillaume Grossetie <ggrossetie@gmail.com>  Mon, 29 Feb 2016 17:18:00 +0200
 

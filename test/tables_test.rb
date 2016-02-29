@@ -16,10 +16,14 @@ context 'Tables' do
 |=======
       EOS
       cells = [%w(A B C), %w(a b c), %w(1 2 3)]
-      output = render_embedded_string input
+      doc = document_from_string input, :header_footer => false
+      table = doc.blocks[0]
+      assert 100, table.columns.map {|col| col.attributes['colpcwidth'] }.reduce(:+)
+      output = doc.convert
       assert_css 'table', output, 1
       assert_css 'table.tableblock.frame-all.grid-all.spread', output, 1
-      assert_css 'table > colgroup > col[style*="width: 33%"]', output, 3
+      assert_css 'table > colgroup > col[style*="width: 33.3333%"]', output, 2
+      assert_css 'table > colgroup > col:last-of-type[style*="width: 33.3334%"]', output, 1
       assert_css 'table tr', output, 3
       assert_css 'table > tbody > tr', output, 3
       assert_css 'table td', output, 9
@@ -257,6 +261,35 @@ A | here| a | there
       assert_css 'table > tbody > tr', output, 3
     end
 
+    test 'cols attribute may include spaces' do
+      input = <<-EOS
+[cols=" 1, 1 "]
+|===
+|one |two |1 |2 |a |b
+|===
+      EOS
+      output = render_embedded_string input
+      assert_css 'table', output, 1
+      assert_css 'table > colgroup > col', output, 2
+      assert_css 'col[style="width: 50%;"]', output, 2
+      assert_css 'table > tbody > tr', output, 3
+    end
+
+    test 'blank cols attribute should be ignored' do
+      input = <<-EOS
+[cols=" "]
+|===
+|one |two
+|1 |2 |a |b
+|===
+      EOS
+      output = render_embedded_string input
+      assert_css 'table', output, 1
+      assert_css 'table > colgroup > col', output, 2
+      assert_css 'col[style="width: 50%;"]', output, 2
+      assert_css 'table > tbody > tr', output, 3
+    end
+
     test 'empty cols attribute should be ignored' do
       input = <<-EOS
 [cols=""]
@@ -277,10 +310,10 @@ A | here| a | there
 [frame="topbot",options="header,footer"]
 |===
 |Item       |Quantity
-|Item 1     |1        
-|Item 2     |2        
-|Item 3     |3        
-|Total      |6        
+|Item 1     |1
+|Item 2     |2
+|Item 3     |3
+|Total      |6
 |===
       EOS
       output = render_embedded_string input
@@ -302,10 +335,10 @@ A | here| a | there
 [frame="topbot",options="header,footer"]
 |===
 |Item       |Quantity
-|Item 1     |1        
-|Item 2     |2        
-|Item 3     |3        
-|Total      |6        
+|Item 1     |1
+|Item 2     |2
+|Item 3     |3
+|Total      |6
 |===
       EOS
       output = render_embedded_string input, :backend => 'docbook'
@@ -489,10 +522,10 @@ I am getting in shape!
       assert_css 'table[style*="width: 80%"]', output, 1
       assert_xpath '/table/caption[@class="title"][text()="Table 1. Horizontal and vertical source data"]', output, 1
       assert_css 'table > colgroup > col', output, 4
-      assert_css 'table > colgroup > col:nth-child(1)[@style*="width: 17%"]', output, 1
-      assert_css 'table > colgroup > col:nth-child(2)[@style*="width: 11%"]', output, 1
-      assert_css 'table > colgroup > col:nth-child(3)[@style*="width: 11%"]', output, 1
-      assert_css 'table > colgroup > col:nth-child(4)[@style*="width: 58%"]', output, 1
+      assert_css 'table > colgroup > col:nth-child(1)[@style*="width: 17.647%"]', output, 1
+      assert_css 'table > colgroup > col:nth-child(2)[@style*="width: 11.7647%"]', output, 1
+      assert_css 'table > colgroup > col:nth-child(3)[@style*="width: 11.7647%"]', output, 1
+      assert_css 'table > colgroup > col:nth-child(4)[@style*="width: 58.8236%"]', output, 1
       assert_css 'table > thead', output, 1
       assert_css 'table > thead > tr', output, 1
       assert_css 'table > thead > tr > th', output, 4
@@ -538,7 +571,7 @@ d|9 2+>|10
       assert_css 'table > tbody > tr:nth-child(2) > td', output, 3
       assert_css 'table > tbody > tr:nth-child(3) > td', output, 1
       assert_css 'table > tbody > tr:nth-child(4) > td', output, 2
-      
+
       assert_css 'table > tbody > tr:nth-child(1) > td:nth-child(1).halign-left.valign-top p em', output, 1
       assert_css 'table > tbody > tr:nth-child(1) > td:nth-child(2).halign-right.valign-top p strong', output, 1
       assert_css 'table > tbody > tr:nth-child(1) > td:nth-child(3).halign-center.valign-top p', output, 1
@@ -564,7 +597,7 @@ d|9 2+>|10
 |AAA |BBB |CCC
 |===
       EOS
-      output = render_embedded_string input 
+      output = render_embedded_string input
       assert_css 'table > tbody > tr:nth-child(1) > td', output, 2
       assert_css 'table > tbody > tr:nth-child(1) > td:nth-child(1)[colspan="2"]', output, 1
       assert_css 'table > tbody > tr:nth-child(1) > td:nth-child(2):not([colspan])', output, 1
@@ -684,10 +717,10 @@ that I can't know enough...
 that I am always hungrily operating on the margins
 of a potentially great harvest of future knowledge and wisdom.
 
-I wouldn't have it any other way. 
+I wouldn't have it any other way.
 |===
       EOS
-      output = render_embedded_string input 
+      output = render_embedded_string input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 3
       assert_css 'table > thead', output, 1
@@ -783,7 +816,7 @@ output file name is used.
       table = doc.blocks.first
       assert !table.nil?
       tbody = table.rows.body
-      assert_equal 2, tbody.size  
+      assert_equal 2, tbody.size
       body_cell_1_3 = tbody[0][2]
       assert !body_cell_1_3.inner_document.nil?
       assert body_cell_1_3.inner_document.nested?
@@ -796,7 +829,7 @@ output file name is used.
       assert_css 'table > tbody > tr:nth-child(2) > td:nth-child(3) div.dlist', output, 1
     end
 
-    test 'preprocessor directive on first line of AsciiDoc cell should be processed' do
+    test 'preprocessor directive on first line of an AsciiDoc table cell should be processed' do
       input = <<-EOS
 |===
 a|include::fixtures/include-file.asciidoc[]
@@ -807,7 +840,7 @@ a|include::fixtures/include-file.asciidoc[]
       assert_match(/included content/, output)
     end
 
-    test 'cross reference link in AsciiDoc-style table cell should resolve to reference in main document' do
+    test 'cross reference link in an AsciiDoc table cell should resolve to reference in main document' do
       input = <<-EOS
 == Some
 
@@ -825,7 +858,7 @@ content
       assert_xpath '//a[@href="#_more"][text()="More"]', result, 1
     end
 
-    test 'footnotes should not be shared between AsciiDoc-style table cell and main document' do
+    test 'footnotes should not be shared between an AsciiDoc table cell and the main document' do
       input = <<-EOS
 |===
 a|AsciiDoc footnote:[A lightweight markup language.]
@@ -834,6 +867,54 @@ a|AsciiDoc footnote:[A lightweight markup language.]
 
       result = render_string input
       assert_css '#_footnote_1', result, 1
+    end
+
+    test 'callout numbers should be globally unique, including AsciiDoc table cells' do
+      input = <<-EOS
+= Document Title
+
+== Section 1
+
+|====
+a|
+[source, yaml]
+----
+key: value <1>
+----
+<1> First callout
+|====
+
+== Section 2
+
+|====
+a|
+[source, yaml]
+----
+key: value <1>
+----
+<1> Second callout
+|====
+
+== Section 3
+
+[source, yaml]
+----
+key: value <1>
+----
+<1> Third callout
+      EOS
+
+      result = render_string input, :backend => 'docbook'
+      conums = xmlnodes_at_xpath '//co', result
+      assert_equal 3, conums.size
+      ['CO1-1', 'CO2-1', 'CO3-1'].each_with_index do |conum, idx|
+        assert_equal conum, conums[idx].attribute('xml:id').value
+      end
+      callouts = xmlnodes_at_xpath '//callout', result
+      assert_equal 3, callouts.size
+      ['CO1-1', 'CO2-1', 'CO3-1'].each_with_index do |callout, idx|
+        assert_equal callout, callouts[idx].attribute('arearefs').value
+      end
     end
 
     test 'nested table' do
@@ -856,7 +937,74 @@ a|AsciiDoc footnote:[A lightweight markup language.]
       assert_css 'table > tbody > tr > td:nth-child(2) table > tbody > tr > td', output, 2
     end
 
-    test 'nested document in AsciiDoc cell should not see doctitle of parent' do
+    test 'toc from parent document should not be included in an AsciiDoc table cell' do
+      input = <<-EOS
+= Document Title
+:toc:
+
+== Section A
+
+|===
+a|AsciiDoc content
+|===
+      EOS
+
+      output = render_string input
+      assert_css '.toc', output, 1
+      assert_css 'table .toc', output, 0
+    end
+
+    test 'should be able to enable toc in an AsciiDoc table cell' do
+      input = <<-EOS
+= Document Title
+
+== Section A
+
+|===
+a|
+= Subdocument Title
+:toc:
+
+== Subdocument Section A
+
+content
+|===
+      EOS
+
+      output = render_string input
+      assert_css '.toc', output, 1
+      assert_css 'table .toc', output, 1
+    end
+
+    test 'should be able to enable toc in both outer document and in an AsciiDoc table cell' do
+      input = <<-EOS
+= Document Title
+:toc:
+
+== Section A
+
+|===
+a|
+= Subdocument Title
+:toc: macro
+
+[#table-cell-toc]
+toc::[]
+
+== Subdocument Section A
+
+content
+|===
+      EOS
+
+      output = render_string input
+      assert_css '.toc', output, 2
+      assert_css '#toc', output, 1
+      assert_css 'table .toc', output, 1
+      assert_css 'table #table-cell-toc', output, 1
+    end
+
+    test 'document in an AsciiDoc table cell should not see doctitle of parent' do
       input = <<-EOS
 = Document Title
 
@@ -908,9 +1056,13 @@ sshd:x:74:74:Privilege-separated SSH:/var/empty/sshd:/sbin/nologin
 nobody:x:99:99:Nobody:/:/sbin/nologin
 |===
       EOS
-      output = render_embedded_string input
+      doc = document_from_string input, :header_footer => false
+      table = doc.blocks[0]
+      assert 100, table.columns.map {|col| col.attributes['colpcwidth'] }.reduce(:+)
+      output = doc.convert
       assert_css 'table', output, 1
-      assert_css 'table > colgroup > col[style*="width: 14%"]', output, 7
+      assert_css 'table > colgroup > col[style*="width: 14.2857"]', output, 6
+      assert_css 'table > colgroup > col:last-of-type[style*="width: 14.2858%"]', output, 1
       assert_css 'table > tbody > tr', output, 6
       assert_xpath '//tr[4]/td[5]/p/text()', output, 0
       assert_xpath '//tr[3]/td[5]/p[text()="MySQL:Server"]', output, 1
@@ -993,7 +1145,7 @@ Year,Make,Model,Description,Price
 air, moon roof, loaded",4799.00
 |===
       EOS
-      output = render_embedded_string input 
+      output = render_embedded_string input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col[style*="width: 20%"]', output, 5
       assert_css 'table > thead > tr', output, 1
@@ -1034,7 +1186,7 @@ a;b;c
       assert_css 'table > tbody > tr:nth-child(2) > td', output, 3
     end
 
-    test 'custom separator on AsciiDoc table cell' do
+    test 'custom separator for an AsciiDoc table cell' do
       input = <<-EOS
 [cols=2,separator=!]
 |===
@@ -1071,7 +1223,7 @@ single cell
 [options="breakable"]
 |===
 |Item       |Quantity
-|Item 1     |1        
+|Item 1     |1
 |===
       EOS
       output = render_embedded_string input, :backend => 'docbook45'
@@ -1084,7 +1236,7 @@ single cell
 [options="breakable"]
 |===
 |Item       |Quantity
-|Item 1     |1        
+|Item 1     |1
 |===
       EOS
       output = render_embedded_string input, :backend => 'docbook5'
@@ -1097,7 +1249,7 @@ single cell
 [options="unbreakable"]
 |===
 |Item       |Quantity
-|Item 1     |1        
+|Item 1     |1
 |===
       EOS
       output = render_embedded_string input, :backend => 'docbook5'
@@ -1110,7 +1262,7 @@ single cell
 [options="unbreakable"]
 |===
 |Item       |Quantity
-|Item 1     |1        
+|Item 1     |1
 |===
       EOS
       output = render_embedded_string input, :backend => 'docbook45'

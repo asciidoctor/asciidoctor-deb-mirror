@@ -72,7 +72,7 @@ context 'Document' do
       doc = empty_document
       begin
         doc.safe = Asciidoctor::SafeMode::UNSAFE
-        flunk 'safe mode property of Asciidoctor::Document should not be writable!' 
+        flunk 'safe mode property of Asciidoctor::Document should not be writable!'
       rescue
       end
     end
@@ -261,6 +261,30 @@ preamble
       assert doc.attributes.has_key?('toc')
     end
 
+    test 'should output timestamps by default' do
+      doc = document_from_string 'text', :backend => :html5, :attributes => nil
+      result = doc.convert
+      assert doc.attr?('docdate')
+      refute doc.attr? 'reproducible'
+      assert_xpath '//div[@id="footer-text" and contains(string(.//text()), "Last updated")]', result, 1
+    end
+
+    test 'should not output timestamps if reproducible attribute is set in HTML 5' do
+      doc = document_from_string 'text', :backend => :html5, :attributes => { 'reproducible' => '' }
+      result = doc.convert
+      assert doc.attr?('docdate')
+      assert doc.attr?('reproducible')
+      assert_xpath '//div[@id="footer-text" and contains(string(.//text()), "Last updated")]', result, 0
+    end
+
+    test 'should not output timestamps if reproducible attribute is set in DocBook' do
+      doc = document_from_string 'text', :backend => :docbook, :attributes => { 'reproducible' => '' }
+      result = doc.convert
+      assert doc.attr?('docdate')
+      assert doc.attr?('reproducible')
+      assert_xpath '/article/info/date', result, 0
+    end
+
     test 'should not modify options argument' do
       options = {
         :safe => Asciidoctor::SafeMode::SAFE
@@ -304,7 +328,7 @@ preamble
       assert_equal 'sample.asciidoc', section_2.file
       assert_equal 18, section_2.lineno
 
-      last_block = section_2.blocks[-1] 
+      last_block = section_2.blocks[-1]
       assert_equal :ulist, last_block.context
       refute_nil last_block.source_location
       assert_equal 'sample.asciidoc', last_block.file
@@ -467,6 +491,19 @@ content
       result = doc.find_by(:context => :section, :id => 'subsection') {|sect| false }
       refute_nil result
       assert_equal 0, result.size
+    end
+
+    test 'find_by should not crash if dlist entry does not have description' do
+      input = <<-EOS
+term without description::
+      EOS
+      doc = Asciidoctor.load input
+      result = doc.find_by
+      refute_nil result
+      assert_equal 3, result.size
+      assert Asciidoctor::Document === result[0]
+      assert Asciidoctor::List === result[1]
+      assert Asciidoctor::ListItem === result[2]
     end
   end
 
@@ -1085,6 +1122,22 @@ preamble
      assert_equal 'Document Title', doc.first_section.title
     end
 
+    test 'document with doctitle defined as attribute entry followed by block with title' do
+      input = <<-EOS
+:doctitle: Document Title
+
+.Block title
+Block content
+      EOS
+
+      doc = document_from_string input
+      assert_equal 'Document Title', doc.doctitle
+      assert doc.has_header?
+      assert_equal 1, doc.blocks.size
+      assert_equal :paragraph, doc.blocks[0].context
+      assert_equal 'Block title', doc.blocks[0].title
+    end
+
     test 'document with title attribute entry overrides doctitle' do
      input = <<-EOS
 = Document Title
@@ -1190,7 +1243,7 @@ content
       assert_equal 1, nodes.size
       assert_match('<h1><strong>Document</strong> <span class="image"><img src="logo.png" alt="logo"></span> <em>Title</em> <span class="image"><img src="another-logo.png" alt="another logo"></span></h1>', output)
     end
-     
+
     test 'should not choke on empty source' do
       doc = Asciidoctor::Document.new ''
       assert doc.blocks.empty?
@@ -1531,7 +1584,7 @@ Text that has supporting information{empty}footnote:[An example footnote.].
     end
   end
 
-  context 'Backends and Doctypes' do 
+  context 'Backends and Doctypes' do
     test 'html5 backend doctype article' do
       result = render_string("= Title\n\nparagraph", :attributes => {'backend' => 'html5'})
       assert_xpath '/html', result, 1
@@ -1787,7 +1840,7 @@ section body
       assert_xpath '/xmlns:article', result, 1
       doc = xmlnodes_at_xpath('/xmlns:article', result, 1).first
       assert_equal 'http://docbook.org/ns/docbook', doc.namespaces['xmlns']
-      assert_equal 'http://www.w3.org/1999/xlink', doc.namespaces['xmlns:xlink']
+      assert_equal 'http://www.w3.org/1999/xlink', doc.namespaces['xmlns:xl']
       assert_xpath '/xmlns:article[@version="5.0"]', result, 1
       assert_xpath '/xmlns:article/xmlns:info/xmlns:title[text() = "Title"]', result, 1
       assert_xpath '/xmlns:article/xmlns:simpara[text() = "preamble"]', result, 1
@@ -1821,7 +1874,7 @@ section body
       assert_xpath '/xmlns:refentry', result, 1
       doc = xmlnodes_at_xpath('/xmlns:refentry', result, 1).first
       assert_equal 'http://docbook.org/ns/docbook', doc.namespaces['xmlns']
-      assert_equal 'http://www.w3.org/1999/xlink', doc.namespaces['xmlns:xlink']
+      assert_equal 'http://www.w3.org/1999/xlink', doc.namespaces['xmlns:xl']
       assert_xpath '/xmlns:refentry[@version="5.0"]', result, 1
       assert_xpath '/xmlns:refentry/xmlns:info/xmlns:title[text() = "asciidoctor(1)"]', result, 1
       assert_xpath '/xmlns:refentry/xmlns:refmeta/xmlns:refentrytitle[text() = "asciidoctor"]', result, 1
@@ -1855,7 +1908,7 @@ chapter body
       assert_xpath '/xmlns:book', result, 1
       doc = xmlnodes_at_xpath('/xmlns:book', result, 1).first
       assert_equal 'http://docbook.org/ns/docbook', doc.namespaces['xmlns']
-      assert_equal 'http://www.w3.org/1999/xlink', doc.namespaces['xmlns:xlink']
+      assert_equal 'http://www.w3.org/1999/xlink', doc.namespaces['xmlns:xl']
       assert_xpath '/xmlns:book[@version="5.0"]', result, 1
       assert_xpath '/xmlns:book/xmlns:info/xmlns:title[text() = "Title"]', result, 1
       assert_xpath '/xmlns:book/xmlns:preface/xmlns:simpara[text() = "preamble"]', result, 1
@@ -2005,7 +2058,7 @@ asciidoctor - converts AsciiDoc source files to HTML, DocBook and other formats
       EOS
 
        doc = document_from_string input
-       synopsis_section = doc.blocks.first 
+       synopsis_section = doc.blocks.first
        refute_nil synopsis_section
        assert_equal :section, synopsis_section.context
        assert synopsis_section.special

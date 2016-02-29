@@ -96,7 +96,7 @@ module Asciidoctor
 #     begin
 #       resolver.system_path('images', '/etc', '/path/to/docs')
 #     rescue SecurityError => e
-#       puts e.message 
+#       puts e.message
 #     end
 #     => Start path /etc is outside of jail: /path/to/docs'
 #
@@ -145,6 +145,9 @@ class PathResolver
     # Windows roots can begin with drive letter
     elsif @file_separator == BACKSLASH && WindowsRootRx =~ path
       true
+    # Absolute paths in the browser start with file:///
+    elsif ::RUBY_ENGINE_OPAL && ::JAVASCRIPT_PLATFORM == 'browser' && (path.start_with? 'file:///')
+      true
     else
       false
     end
@@ -167,7 +170,7 @@ class PathResolver
   def is_web_root? path
     path.start_with? SLASH
   end
-  
+
   # Public: Normalize path by converting any backslashes to forward slashes
   #
   # path - the String path to normalize
@@ -198,7 +201,7 @@ class PathResolver
     path_segments, path_root, _ = partition_path path
     join_path path_segments, path_root
   end
-  
+
   # Public: Partition the path into path segments and remove any empty segments
   # or segments that are self references (.). The path is converted to a posix
   # path before being partitioned.
@@ -211,7 +214,7 @@ class PathResolver
   # path root (e.g., '/', './', 'c:/') if the path is absolute and the posix
   # version of the path.
   #--
-  # QUESTION is it worth it to normalize slashes? it doubles the time elapsed 
+  # QUESTION is it worth it to normalize slashes? it doubles the time elapsed
   def partition_path path, web_path = false
     if (result = web_path ? @_partition_path_web[path] : @_partition_path_sys[path])
       return result
@@ -238,7 +241,7 @@ class PathResolver
         # ex. /sample/path
         elsif posix_path.start_with? SLASH
           SLASH
-        # ex. c:/sample/path
+        # ex. c:/sample/path (or file:///sample/path in browser environment)
         else
           posix_path[0..(posix_path.index SLASH)]
         end
@@ -255,6 +258,11 @@ class PathResolver
     # shift twice for a UNC path
     if root == DOUBLE_SLASH
       path_segments = path_segments[2..-1]
+    # shift twice for a file:/// path and adjust root
+    # NOTE technically file:/// paths work without this adjustment
+    #elsif ::RUBY_ENGINE_OPAL && ::JAVASCRIPT_PLATFORM == 'browser' && root == 'file:/'
+    #  root = 'file://'
+    #  path_segments = path_segments[2..-1]
     # shift once for any other root
     elsif root
       path_segments.shift
@@ -265,7 +273,7 @@ class PathResolver
     #posix_path = posix_path.chomp '/'
     (web_path ? @_partition_path_web : @_partition_path_sys)[path] = [path_segments, root, posix_path]
   end
-  
+
   # Public: Join the segments using the posix file separator (since Ruby knows
   # how to work with paths specified this way, regardless of OS). Use the root,
   # if specified, to construct an absolute path. Otherwise join the segments as
@@ -283,7 +291,7 @@ class PathResolver
       segments * SLASH
     end
   end
-  
+
   # Public: Resolve a system path from the target and start paths. If a jail
   # path is specified, enforce that the resolved directory is contained within
   # the jail path. If a jail path is not provided, the resolved path may be
@@ -313,7 +321,7 @@ class PathResolver
     if target.nil_or_empty?
       target_segments = []
     else
-      target_segments, target_root, _ = partition_path target 
+      target_segments, target_root, _ = partition_path target
     end
 
     if target_segments.empty?
@@ -327,7 +335,7 @@ class PathResolver
         return system_path start, jail, jail, opts
       end
     end
-  
+
     if target_root && target_root != DOT_SLASH
       resolved_target = join_path target_segments, target_root
       # if target is absolute and a sub-directory of jail, or
@@ -336,7 +344,7 @@ class PathResolver
         return resolved_target
       end
     end
-  
+
     if start.nil_or_empty?
       start = jail ? jail : @working_dir
     elsif is_root? start
@@ -344,7 +352,7 @@ class PathResolver
     else
       start = system_path start, jail, jail, opts
     end
-  
+
     # both jail and start have been posixfied at this point
     if jail == start
       jail_segments, jail_root, _ = partition_path jail
@@ -354,9 +362,9 @@ class PathResolver
         raise ::SecurityError, %(#{opts[:target_name] || 'Start path'} #{start} is outside of jail: #{jail} (disallowed in safe mode))
       end
 
-      start_segments, start_root, _ = partition_path start 
+      start_segments, start_root, _ = partition_path start
       jail_segments, jail_root, _ = partition_path jail
-  
+
       # Already checked for this condition
       #if start_root != jail_root
       #  raise ::SecurityError, %(Jail root #{jail_root} does not match root of #{opts[:target_name] || 'start path'}: #{start_root})
@@ -365,7 +373,7 @@ class PathResolver
       start_segments, start_root, _ = partition_path start
       jail_root = start_root
     end
-  
+
     resolved_segments = start_segments.dup
     warned = false
     target_segments.each do |segment|
@@ -386,7 +394,7 @@ class PathResolver
         resolved_segments.push segment
       end
     end
-  
+
     join_path resolved_segments, jail_root
   end
 

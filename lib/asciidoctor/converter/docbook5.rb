@@ -43,10 +43,13 @@ module Asciidoctor
 
     def section node
       doctype = node.document.doctype
-      tag_name = if node.special
-        node.level <= 1 ? node.sectname : 'section'
+      if node.special
+        if (tag_name = node.sectname).start_with? 'sect'
+          # a normal child section of a special section
+          tag_name = 'section'
+        end
       else
-        doctype == 'book' && node.level <= 1 ? (node.level == 0 ? 'part' : 'chapter') : 'section'
+        tag_name = doctype == 'book' && node.level <= 1 ? (node.level == 0 ? 'part' : 'chapter') : 'section'
       end
       if doctype == 'manpage'
         if tag_name == 'section'
@@ -103,7 +106,12 @@ module Asciidoctor
         :term  => 'glossterm',
         :item  => 'glossdef'
       }
-    }).default = DLIST_TAGS['labeled']
+    }).default = { # default value == DLIST['labeled'], expanded for Opal
+      :list => 'variablelist',
+      :entry => 'varlistentry',
+      :term => 'term',
+      :item => 'listitem'
+    }
 
     def dlist node
       result = []
@@ -252,15 +260,18 @@ module Asciidoctor
       end
       equation = node.content
       node.subs.insert idx, :specialcharacters if idx
-      if node.style == 'latexmath'
-        equation_data = %(<alt><![CDATA[#{equation}]]></alt>
-<mediaobject><textobject><phrase></phrase></textobject></mediaobject>)
-      elsif node.style == 'asciimath' && ((defined? ::AsciiMath) || (!(defined? @asciimath_loaded) ?
-          (@asciimath_loaded = Helpers.require_library 'asciimath', true, :warn) : @asciimath_loaded))
-        equation_data = ::AsciiMath.parse(equation).to_mathml 'mml:', 'xmlns:mml' => 'http://www.w3.org/1998/Math/MathML'
+      if node.style == 'asciimath'
+        if ((defined? ::AsciiMath) || ((defined? @asciimath_available) ? @asciimath_available :
+            (@asciimath_available = Helpers.require_library 'asciimath', true, :warn)))
+          # NOTE fop requires jeuclid to process raw mathml
+          equation_data = (::AsciiMath.parse equation).to_mathml 'mml:', 'xmlns:mml' => 'http://www.w3.org/1998/Math/MathML'
+        else
+          equation_data = %(<mathphrase><![CDATA[#{equation}]]></mathphrase>)
+        end
       else
-        # Unsupported math style, so output raw expression in text object
-        equation_data = %(<mediaobject><textobject><phrase><![CDATA[#{equation}]]></phrase></textobject></mediaobject>)
+        # unhandled math; pass source to alt and required mathphrase element; dblatex will process alt as LaTeX math
+        equation_data = %(<alt><![CDATA[#{equation}]]></alt>
+<mathphrase><![CDATA[#{equation}]]></mathphrase>)
       end
       if node.title?
         %(<equation#{common_attributes node.id, node.role, node.reftext}>
@@ -268,6 +279,7 @@ module Asciidoctor
 #{equation_data}
 </equation>)
       else
+        # WARNING dblatex displays the <informalequation> element inline instead of block as documented (except w/ mathml)
         %(<informalequation#{common_attributes node.id, node.role, node.reftext}>
 #{equation_data}
 </informalequation>)
@@ -383,14 +395,17 @@ module Asciidoctor
         result << '<?dbfo keep-together="auto"?>'
       end
       result << %(<title>#{node.title}</title>) if tag_name == 'table'
-      if (width = (node.attr? 'width') ? (node.attr 'width') : nil)
+      col_width_key = if (width = (node.attr? 'width') ? (node.attr 'width') : nil)
         TABLE_PI_NAMES.each do |pi_name|
           result << %(<?#{pi_name} table-width="#{width}"?>)
         end
+        'colabswidth'
+      else
+        'colpcwidth'
       end
       result << %(<tgroup cols="#{node.attr 'colcount'}">)
       node.columns.each do |col|
-        result << %(<colspec colname="col_#{col.attr 'colnumber'}" colwidth="#{col.attr(width ? 'colabswidth' : 'colpcwidth')}*"/>)
+        result << %(<colspec colname="col_#{col.attr 'colnumber'}" colwidth="#{col.attr col_width_key}*"/>)
       end
       TABLE_SECTIONS.select {|tblsec| !node.rows[tblsec].empty? }.each do |tblsec|
         has_body = true if tblsec == :body
@@ -498,13 +513,13 @@ module Asciidoctor
       when :xref
         if (path = node.attributes['path'])
           # QUESTION should we use refid as fallback text instead? (like the html5 backend?)
-          %(<link xlink:href="#{node.target}">#{node.text || path}</link>)
+          %(<link xl:href="#{node.target}">#{node.text || path}</link>)
         else
           linkend = node.attributes['fragment'] || node.target
           (text = node.text) ? %(<link linkend="#{linkend}">#{text}</link>) : %(<xref linkend="#{linkend}"/>)
         end
       when :link
-        %(<link xlink:href="#{node.target}">#{node.text}</link>)
+        %(<link xl:href="#{node.target}">#{node.text}</link>)
       when :bibref
         target = node.target
         %(<anchor#{common_attributes target, nil, "[#{target}]"}/>[#{target}])
@@ -599,11 +614,17 @@ module Asciidoctor
     }).default = [nil, nil, true]
 
     def inline_quoted node
-      if (type = node.type) == :latexmath
-        %(<inlineequation>
-<alt><![CDATA[#{node.text}]]></alt>
-<inlinemediaobject><textobject><phrase><![CDATA[#{node.text}]]></phrase></textobject></inlinemediaobject>
-</inlineequation>)
+      if (type = node.type) == :asciimath
+        if ((defined? ::AsciiMath) || ((defined? @asciimath_available) ? @asciimath_available :
+            (@asciimath_available = Helpers.require_library 'asciimath', true, :warn)))
+          # NOTE fop requires jeuclid to process raw mathml
+          %(<inlineequation>#{(::AsciiMath.parse node.text).to_mathml 'mml:', 'xmlns:mml' => 'http://www.w3.org/1998/Math/MathML'}</inlineequation>)
+        else
+          %(<inlineequation><mathphrase><![CDATA[#{node.text}]]></mathphrase></inlineequation>)
+        end
+      elsif type == :latexmath
+        # unhandled math; pass source to alt and required mathphrase element; dblatex will process alt as LaTeX math
+        %(<inlineequation><alt><![CDATA[#{equation = node.text}]]></alt><mathphrase><![CDATA[#{equation}]]></mathphrase></inlineequation>)
       else
         open, close, supports_phrase = QUOTE_TAGS[type]
         text = node.text
@@ -656,7 +677,9 @@ module Asciidoctor
       result = []
       result << %(<#{info_tag_prefix}info>)
       result << document_title_tags(doc.doctitle :partition => true, :use_fallback => true) unless doc.notitle
-      result << %(<date>#{(doc.attr? 'revdate') ? (doc.attr 'revdate') : (doc.attr 'docdate')}</date>)
+      if (date = (doc.attr? 'revdate') ? (doc.attr 'revdate') : ((doc.attr? 'reproducible') ? nil : (doc.attr 'docdate')))
+        result << %(<date>#{date}</date>)
+      end
       if doc.has_header?
         if doc.attr? 'author'
           if (authorcount = (doc.attr 'authorcount').to_i) < 2
@@ -702,7 +725,7 @@ module Asciidoctor
     end
 
     def document_ns_attributes doc
-      ' xmlns="http://docbook.org/ns/docbook" xmlns:xlink="http://www.w3.org/1999/xlink" version="5.0"'
+      ' xmlns="http://docbook.org/ns/docbook" xmlns:xl="http://www.w3.org/1999/xlink" version="5.0"'
     end
 
     def lang_attribute_name

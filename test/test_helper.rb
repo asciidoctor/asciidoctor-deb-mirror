@@ -10,12 +10,6 @@ require 'simplecov' if ENV['COVERAGE'] == 'true'
 
 require File.join(ASCIIDOCTOR_PROJECT_DIR, 'lib', 'asciidoctor')
 
-# NOTE we require minitest libraries explicitly to avoid a superfluous warning
-require 'minitest/unit'
-require 'minitest/spec'
-require 'minitest/mock'
-MiniTest::Unit.autorun
-
 require 'socket'
 require 'nokogiri'
 require 'tmpdir'
@@ -26,12 +20,10 @@ autoload :Pathname,  'pathname'
 RE_XMLNS_ATTRIBUTE = / xmlns="[^"]+"/
 RE_DOCTYPE = /\s*<!DOCTYPE (.*)/
 
-if defined? Minitest::Test
-  # We're on Minitest 5+. Nothing to do here.
-else
-  # Minitest 4 doesn't have Minitest::Test yet.
-  Minitest::Test = MiniTest::Unit::TestCase
-end
+require 'minitest/autorun'
+
+# Minitest 4 doesn't have Minitest::Test
+Minitest::Test = MiniTest::Unit::TestCase unless defined? Minitest::Test
 
 class Minitest::Test
   def windows?
@@ -234,7 +226,7 @@ class Minitest::Test
   alias :entity :expand_entity
 
   def invoke_cli_with_filenames(argv = [], filenames = [], &block)
-    
+
     filepaths = Array.new
 
     filenames.each { |filename|
@@ -270,14 +262,10 @@ class Minitest::Test
   end
 
   def redirect_streams
-    old_stdout = $stdout
-    old_stderr = $stderr
-    stdout = StringIO.new
-    stderr = StringIO.new
-    $stdout = stdout
-    $stderr = stderr
+    old_stdout, $stdout = $stdout, (tmp_stdout = ::StringIO.new)
+    old_stderr, $stderr = $stderr, (tmp_stderr = ::StringIO.new)
     begin
-      yield(stdout, stderr)
+      yield tmp_stdout, tmp_stderr
     ensure
       $stdout = old_stdout
       $stderr = old_stderr
@@ -304,7 +292,7 @@ class Minitest::Test
           session.close
           break
         end
-      
+
         if resource == '/name/asciidoctor'
           session.print %(HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n)
           session.print %({"name": "asciidoctor"}\n)
@@ -343,7 +331,7 @@ class Minitest::Test
 end
 
 ###
-# 
+#
 # Context goodness provided by @citrusbyte's contest.
 # See https://github.com/citrusbyte/contest
 #

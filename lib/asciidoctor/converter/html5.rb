@@ -46,14 +46,13 @@ module Asciidoctor
 <!--[if IE]><meta http-equiv="X-UA-Compatible" content="IE=edge"#{slash}><![endif]-->
 <meta name="viewport" content="width=device-width, initial-scale=1.0"#{slash}>
 <meta name="generator" content="Asciidoctor #{node.attr 'asciidoctor-version'}"#{slash}>)
-
       result << %(<meta name="application-name" content="#{node.attr 'app-name'}"#{slash}>) if node.attr? 'app-name'
       result << %(<meta name="description" content="#{node.attr 'description'}"#{slash}>) if node.attr? 'description'
       result << %(<meta name="keywords" content="#{node.attr 'keywords'}"#{slash}>) if node.attr? 'keywords'
       result << %(<meta name="author" content="#{node.attr 'authors'}"#{slash}>) if node.attr? 'authors'
       result << %(<meta name="copyright" content="#{node.attr 'copyright'}"#{slash}>) if node.attr? 'copyright'
-
       result << %(<title>#{node.doctitle :sanitize => true, :use_fallback => true}</title>)
+
       if DEFAULT_STYLESHEET_KEYS.include?(node.attr 'stylesheet')
         if (webfonts = node.attr 'webfonts')
           result << %(<link rel="stylesheet" href="#{asset_uri_scheme}//fonts.googleapis.com/css?family=#{webfonts.empty? ? 'Open+Sans:300,300italic,400,400italic,600,600italic%7CNoto+Serif:400,400italic,700,700italic%7CDroid+Sans+Mono:400,700' : webfonts}"#{slash}>)
@@ -75,7 +74,7 @@ module Asciidoctor
 
       if node.attr? 'icons', 'font'
         if node.attr? 'iconfont-remote'
-          result << %(<link rel="stylesheet" href="#{node.attr 'iconfont-cdn', %[#{cdn_base}/font-awesome/4.4.0/css/font-awesome.min.css]}"#{slash}>)
+          result << %(<link rel="stylesheet" href="#{node.attr 'iconfont-cdn', %[#{cdn_base}/font-awesome/4.5.0/css/font-awesome.min.css]}"#{slash}>)
         else
           iconfont_stylesheet = %(#{node.attr 'iconfont-name', 'font-awesome'}.css)
           result << %(<link rel="stylesheet" href="#{node.normalize_web_path iconfont_stylesheet, (node.attr 'stylesdir', ''), false}"#{slash}>)
@@ -108,24 +107,20 @@ module Asciidoctor
 
       result << '</head>'
       body_attrs = []
-      if node.id
-        body_attrs << %(id="#{node.id}")
-      end
-      if (node.attr? 'toc-class') && (node.attr? 'toc') && (node.attr? 'toc-placement', 'auto')
+      body_attrs << %(id="#{node.id}") if node.id
+      if (sectioned = node.sections?) && (node.attr? 'toc-class') && (node.attr? 'toc') && (node.attr? 'toc-placement', 'auto')
         body_attrs << %(class="#{node.doctype} #{node.attr 'toc-class'} toc-#{node.attr 'toc-position', 'header'}")
       else
         body_attrs << %(class="#{node.doctype}")
       end
-      if node.attr? 'max-width'
-        body_attrs << %(style="max-width: #{node.attr 'max-width'};")
-      end
+      body_attrs << %(style="max-width: #{node.attr 'max-width'};") if node.attr? 'max-width'
       result << %(<body #{body_attrs * ' '}>)
 
       unless node.noheader
         result << '<div id="header">'
         if node.doctype == 'manpage'
           result << %(<h1>#{node.doctitle} Manual Page</h1>)
-          if (node.attr? 'toc') && (node.attr? 'toc-placement', 'auto')
+          if sectioned && (node.attr? 'toc') && (node.attr? 'toc-placement', 'auto')
             result << %(<div id="toc" class="#{node.attr 'toc-class', 'toc'}">
 <div id="toctitle">#{node.attr 'toc-title'}</div>
 #{outline node}
@@ -170,7 +165,7 @@ module Asciidoctor
             end
           end
 
-          if (node.attr? 'toc') && (node.attr? 'toc-placement', 'auto')
+          if sectioned && (node.attr? 'toc') && (node.attr? 'toc-placement', 'auto')
             result << %(<div id="toc" class="#{node.attr 'toc-class', 'toc'}">
 <div id="toctitle">#{node.attr 'toc-title'}</div>
 #{outline node}
@@ -199,7 +194,7 @@ module Asciidoctor
         result << '<div id="footer">'
         result << '<div id="footer-text">'
         result << %(#{node.attr 'version-label'} #{node.attr 'revnumber'}#{br}) if node.attr? 'revnumber'
-        result << %(#{node.attr 'last-update-label'} #{node.attr 'docdatetime'}) if node.attr? 'last-update-label'
+        result << %(#{node.attr 'last-update-label'} #{node.attr 'docdatetime'}) if (node.attr? 'last-update-label') && !(node.attr? 'reproducible')
         result << '</div>'
         result << '</div>'
       end
@@ -207,7 +202,7 @@ module Asciidoctor
       unless (docinfo_content = node.docinfo :footer).empty?
         result << docinfo_content
       end
-      
+
       # Load Javascript at the end of body for performance
       # See http://www.html5rocks.com/en/tutorials/speed/script-loading/
       case highlighter
@@ -224,12 +219,13 @@ module Asciidoctor
       end
 
       if node.attr? 'stem'
-        # IMPORTANT to_s calls on delimiter arrays are intentional for JavaScript compat (emulates JSON.stringify)
         eqnums_val = node.attr 'eqnums', 'none'
         eqnums_val = 'AMS' if eqnums_val == ''
         eqnums_opt = %( equationNumbers: { autoNumber: "#{eqnums_val}" } )
+        # IMPORTANT inspect calls on delimiter arrays are intentional for JavaScript compat (emulates JSON.stringify)
         result << %(<script type="text/x-mathjax-config">
 MathJax.Hub.Config({
+  messageStyle: "none",
   tex2jax: {
     inlineMath: [#{INLINE_MATH_DELIMITERS[:latexmath].inspect}],
     displayMath: [#{BLOCK_MATH_DELIMITERS[:latexmath].inspect}],
@@ -242,7 +238,7 @@ MathJax.Hub.Config({
   TeX: {#{eqnums_opt}}
 });
 </script>
-<script src="#{cdn_base}/mathjax/2.5.3/MathJax.js?config=TeX-MML-AM_HTMLorMML"></script>)
+<script src="#{cdn_base}/mathjax/2.6.0/MathJax.js?config=TeX-MML-AM_HTMLorMML"></script>)
       end
 
       result << '</body>'
@@ -270,7 +266,7 @@ MathJax.Hub.Config({
         end
       end
 
-      if (node.attr? 'toc') && !['macro', 'preamble'].include?(node.attr 'toc-placement')
+      if node.sections? && (node.attr? 'toc') && (toc_p = node.attr 'toc-placement') != 'macro' && toc_p != 'preamble'
         result << %(<div id="toc" class="toc">
 <div id="toctitle">#{node.attr 'toc-title'}</div>
 #{outline node}
@@ -294,10 +290,11 @@ MathJax.Hub.Config({
     end
 
     def outline node, opts = {}
-      return if (sections = node.sections).empty?
+      return unless node.sections?
       sectnumlevels = opts[:sectnumlevels] || (node.document.attr 'sectnumlevels', 3).to_i
       toclevels = opts[:toclevels] || (node.document.attr 'toclevels', 2).to_i
       result = []
+      sections = node.sections
       # FIXME the level for special sections should be set correctly in the model
       # slevel will only be 0 if we have a book doctype with parts
       slevel = (first_section = sections[0]).level
@@ -357,7 +354,7 @@ MathJax.Hub.Config({
       name = node.attr 'name'
       title_element = node.title? ? %(<div class="title">#{node.title}</div>\n) : nil
       caption = if node.document.attr? 'icons'
-        if node.document.attr? 'icons', 'font'
+        if (node.document.attr? 'icons', 'font') && !(node.attr? 'icon')
           %(<i class="fa icon-#{name}" title="#{node.caption}"></i>)
         else
           %(<img src="#{node.icon_uri name}" alt="#{node.caption}"#{@void_element_slash}>)
@@ -711,11 +708,14 @@ Your browser does not support the audio tag.
     end
 
     def preamble node
-      toc = if (node.attr? 'toc') && (node.attr? 'toc-placement', 'preamble')
-        %(\n<div id="toc" class="#{node.attr 'toc-class', 'toc'}">
-<div id="toctitle">#{node.attr 'toc-title'}</div>
-#{outline node.document}
+      if (doc = node.document).attr?('toc-placement', 'preamble') && doc.sections? && (doc.attr? 'toc')
+        toc = %(
+<div id="toc" class="#{doc.attr 'toc-class', 'toc'}">
+<div id="toctitle">#{doc.attr 'toc-title'}</div>
+#{outline doc}
 </div>)
+      else
+        toc = nil
       end
 
       %(<div id="preamble">
@@ -836,7 +836,9 @@ Your browser does not support the audio tag.
     end
 
     def toc node
-      return '<!-- toc disabled -->' unless (doc = node.document).attr?('toc-placement', 'macro') && doc.attr?('toc')
+      unless (doc = node.document).attr?('toc-placement', 'macro') && doc.sections? && (doc.attr? 'toc')
+        return '<!-- toc disabled -->'
+      end
 
       if node.id
         id_attr = %( id="#{node.id}")
@@ -952,6 +954,7 @@ Your browser does not support the audio tag.
           asset_uri_scheme = %(#{asset_uri_scheme}:)
         end
         rel_param_val = (node.option? 'related') ? 1 : 0
+        # NOTE start and end must be seconds (t parameter allows XmYs where X is minutes and Y is seconds)
         start_param = (node.attr? 'start', nil, false) ? %(&amp;start=#{node.attr 'start'}) : nil
         end_param = (node.attr? 'end', nil, false) ? %(&amp;end=#{node.attr 'end'}) : nil
         autoplay_param = (node.option? 'autoplay') ? '&amp;autoplay=1' : nil

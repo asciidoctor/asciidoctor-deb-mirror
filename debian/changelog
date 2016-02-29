@@ -9,6 +9,7 @@ asciidoctor (1.5.4-1) unstable; urgency=medium
     - slim-test.patch
   * Patches added:
     - skip-unreadable-file.patch: skip test that depends on chmod
+  * Use https:// in Vcs-* fields
 
  -- Guillaume Grossetie <ggrossetie@gmail.com>  Mon, 29 Feb 2016 17:18:00 +0200
 

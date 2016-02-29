@@ -6,48 +6,57 @@ module Asciidoctor
   #
   # See http://www.gnu.org/software/groff/manual/html_node/Man-usage.html#Man-usage
   class Converter::ManPageConverter < Converter::BuiltIn
-    LF = "\n"
-    TAB = "\t"
-    ETAB = ' ' * 8
+    LF = %(\n)
+    TAB = %(\t)
+    WHITESPACE = %(#{LF}#{TAB} )
+    ET = ' ' * 8
+    ESC = %(\u001b)      # troff leader marker
+    ESC_BS = %(#{ESC}\\) # escaped backslash (indicates troff formatting sequence)
+    ESC_FS = %(#{ESC}.)  # escaped full stop (indicates troff macro)
 
     # Converts HTML entity references back to their original form, escapes
     # special man characters and strips trailing whitespace.
     #
-    # Optional features:
-    # * fold each endline into a single space
-    # * append a newline
+    # It's crucial that text only ever pass through manify once.
+    #
+    # str  - the String to convert
+    # opts - an Hash of options to control processing (default: {})
+    #        * :preserve_space a Boolean that indicates whether to preserve spaces (only expanding tabs) if true
+    #          or to collapse all adjacent whitespace to a single space if false (default: true)
+    #        * :append_newline a Boolean that indicates whether to append an endline to the result (default: false)
     def manify str, opts = {}
-      append_newline = opts[:append_newline]
-      preserve_space = opts.fetch :preserve_space, true
-      str = preserve_space ? str.gsub(TAB, ETAB) : str.tr_s(%(#{LF}#{TAB} ), ' ')
-      str = str.
-        gsub(/^\.$/, '\\\&.').    # a lone . is also used in troff to indicate paragraph continuation with visual separator
-        gsub(/\\$/, '\\(rs').     # a literal backslash at the end of a line
-        gsub(/^\.((?:URL|MTO) ".*?" ".*?" )( |[^\s]*)(.*?)( *)$/, ".\\1\"\\2\"#{LF}\\3"). # quote last URL argument
-        gsub(/(?:\A\n|\n *(\n))^\.(URL|MTO) /, "\\1\.\\2 "). # strip blank lines in source that precede a URL
-        gsub('-', '\\-').
+      str = ((opts.fetch :preserve_space, true) ? (str.gsub TAB, ET) : (str.tr_s WHITESPACE, ' ')).
+        gsub(/(?:\A|[^#{ESC}])\\/, '\&(rs'). # literal backslash (not a troff escape sequence)
+        gsub(/^\./, '\\\&.').     # leading . is used in troff for macro call or other formatting; replace with \&.
+        # drop orphaned \c escape lines, unescape troff macro, quote adjacent character, isolate macro line
+        gsub(/^(?:#{ESC}\\c\n)?#{ESC}\.((?:URL|MTO) ".*?" ".*?" )( |[^\s]*)(.*?)(?: *#{ESC}\\c)?$/) {
+          (rest = $3.lstrip).empty? ? %(.#$1"#$2") : %(.#$1"#$2"#{LF}#{rest})
+        }.
+        gsub('-', '\-').
         gsub('&lt;', '<').
         gsub('&gt;', '>').
-        gsub('&#169;', '\\(co').  # copyright sign
-        gsub('&#174;', '\\(rg').  # registered sign
-        gsub('&#8482;', '\\(tm'). # trademark sign
+        gsub('&#160;', '\~').     # non-breaking space
+        gsub('&#169;', '\(co').   # copyright sign
+        gsub('&#174;', '\(rg').   # registered sign
+        gsub('&#8482;', '\(tm').  # trademark sign
         gsub('&#8201;', ' ').     # thin space
-        gsub('&#8211;', '\\(en'). # en-dash
-        gsub(/&#8212(?:;&#8203;)?/, '\\(em'). # em-dash
-        gsub('&#8216;', '\\(oq'). # left single quotation mark
-        gsub('&#8217;', '\\(cq'). # right single quotation mark
-        gsub('&#8220;', '\\(lq'). # left double quotation mark
-        gsub('&#8221;', '\\(rq'). # right double quotation mark
-        gsub(/&#8230;(?:&#8203;)?/, '...').   # horizontal ellipsis
-        gsub('&#8592;', '\\(<-'). # leftwards arrow
-        gsub('&#8594;', '\\(->'). # rightwards arrow
-        gsub('&#8656;', '\\(lA'). # leftwards double arrow
-        gsub('&#8658;', '\\(rA'). # rightwards double arrow
+        gsub('&#8211;', '\(en').  # en dash
+        gsub(/&#8212(?:;&#8203;)?/, '\(em'). # em dash
+        gsub('&#8216;', '\(oq').  # left single quotation mark
+        gsub('&#8217;', '\(cq').  # right single quotation mark
+        gsub('&#8220;', '\(lq').  # left double quotation mark
+        gsub('&#8221;', '\(rq').  # right double quotation mark
+        gsub(/&#8230;(?:&#8203;)?/, '...'). # horizontal ellipsis
+        gsub('&#8592;', '\(<-').  # leftwards arrow
+        gsub('&#8594;', '\(->').  # rightwards arrow
+        gsub('&#8656;', '\(lA').  # leftwards double arrow
+        gsub('&#8658;', '\(rA').  # rightwards double arrow
         gsub('&#8203;', '\:').    # zero width space
-        gsub('\'', '\\(aq').      # apostrophe-quote
+        gsub('\'', '\(aq').       # apostrophe-quote
         gsub(/<\/?BOUNDARY>/, '').# artificial boundary
+        gsub(ESC_BS, '\\').       # unescape troff backslash (NOTE update if more escaped are added)
         rstrip                    # strip trailing space
-      append_newline ? %(#{str}#{LF}) : str
+      opts[:append_newline] ? %(#{str}#{LF}) : str
     end
 
     def skip_with_warning node, name = nil
@@ -62,17 +71,19 @@ module Asciidoctor
       mantitle = node.attr 'mantitle'
       manvolnum = node.attr 'manvolnum', '1'
       manname = node.attr 'manname', mantitle
+      docdate = (node.attr? 'reproducible') ? nil : (node.attr 'docdate')
+      # NOTE the first line enables the table (tbl) preprocessor, necessary for non-Linux systems
       result = [%('\\" t
 .\\"     Title: #{mantitle}
 .\\"    Author: #{(node.attr? 'authors') ? (node.attr 'authors') : '[see the "AUTHORS" section]'}
-.\\" Generator: Asciidoctor #{node.attr 'asciidoctor-version'}
-.\\"      Date: #{docdate = node.attr 'docdate'}
-.\\"    Manual: #{manual = (node.attr? 'manmanual') ? (node.attr 'manmanual') : '\ \&'}
-.\\"    Source: #{source = (node.attr? 'mansource') ? (node.attr 'mansource') : '\ \&'}
+.\\" Generator: Asciidoctor #{node.attr 'asciidoctor-version'})]
+      result << %(.\\"      Date: #{docdate}) if docdate
+      result << %(.\\"    Manual: #{(manual = node.attr 'manmanual') || '\ \&'}
+.\\"    Source: #{(source = node.attr 'mansource') || '\ \&'}
 .\\"  Language: English
-.\\")]
+.\\")
       # TODO add document-level setting to disable capitalization of manname
-      result << %(.TH "#{manify manname.upcase}" "#{manvolnum}" "#{docdate}" "#{manify source}" "#{manify manual}")
+      result << %(.TH "#{manify manname.upcase}" "#{manvolnum}" "#{docdate}" "#{source ? (manify source) : '\ \&'}" "#{manual ? (manify manual) : '\ \&'}")
       # define portability settings
       # see http://bugs.debian.org/507673
       # see http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
@@ -95,10 +106,10 @@ module Asciidoctor
       # * Third (optional) argument: text that needs to immediately trail
       #   the hyperlink without intervening whitespace
       result << '.de URL
-\\\\$2 \\(laURL: \\\\$1 \\(ra\\\\$3
+\\\\$2 \(laURL: \\\\$1 \(ra\\\\$3
 ..
-.if \n[.g] .mso www.tmac
-.LINKSTYLE blue R < >'
+.if \n[.g] .mso www.tmac'
+      result << %(.LINKSTYLE #{node.attr 'man-linkstyle', 'blue R < >'})
 
       unless node.noheader
         if node.attr? 'manpurpose'
@@ -187,9 +198,9 @@ Author(s).
       result << %(.sp
 .B #{manify node.title}
 .br) if node.title?
-      result << %(.TS
-tab\(:\);
-r lw\(\\n\(.lu*75u/100u\).)
+      result << '.TS
+tab(:);
+r lw(\n(.lu*75u/100u).'
 
       node.items.each_with_index do |item, index|
         result << %(\\fB(#{index + 1})\\fP\\h'-2n':T{
@@ -338,7 +349,7 @@ T})
 .in)
       end
       attribution_line = (node.attr? 'citetitle') ? %(#{node.attr 'citetitle'} ) : nil
-      attribution_line = (node.attr? 'attribution') ? %(#{attribution_line}\\\(em #{node.attr 'attribution'}) : nil
+      attribution_line = (node.attr? 'attribution') ? %[#{attribution_line}\\(em #{node.attr 'attribution'}] : nil
       result << %(.in +.3i
 .ll -.3i
 .nf
@@ -543,7 +554,7 @@ allbox tab(:);'
 .br)
       end
       attribution_line = (node.attr? 'citetitle') ? %(#{node.attr 'citetitle'} ) : nil
-      attribution_line = (node.attr? 'attribution') ? %(#{attribution_line}\\\(em #{node.attr 'attribution'}) : nil
+      attribution_line = (node.attr? 'attribution') ? %[#{attribution_line}\\(em #{node.attr 'attribution'}] : nil
       result << %(.sp
 .nf
 #{manify node.content}
@@ -573,15 +584,15 @@ allbox tab(:);'
         if (text = node.text) == target
           text = nil
         else
-          text = text.gsub '"', '\\(dq'
+          text = text.gsub '"', %[#{ESC_BS}(dq]
         end
         if target.start_with? 'mailto:'
           macro = 'MTO'
-          target = target[7..-1].sub('@', '\\(at')
+          target = target[7..-1].sub '@', %[#{ESC_BS}(at]
         else
           macro = 'URL'
         end
-        %(#{LF}.#{macro} "#{target}" "#{text}" )
+        %(#{ESC_BS}c#{LF}#{ESC_FS}#{macro} "#{target}" "#{text}" )
       when :xref
         refid = (node.attr 'refid') || target
         node.text || (node.document.references[:ids][refid] || %([#{refid}]))
@@ -599,11 +610,11 @@ allbox tab(:);'
     end
 
     def inline_button node
-      %(\\fB[\\ #{node.text}\\ ]\\fP)
+      %(#{ESC_BS}fB[#{ESC_BS}0#{node.text}#{ESC_BS}0]#{ESC_BS}fP)
     end
 
     def inline_callout node
-      %[\\fB(#{node.text})\\fP]
+      %(#{ESC_BS}fB(#{node.text})#{ESC_BS}fP)
     end
 
     # TODO supposedly groff has footnotes, but we're in search of an example
@@ -629,20 +640,20 @@ allbox tab(:);'
       if (keys = node.attr 'keys').size == 1
         keys[0]
       else
-        keys.join '\ +\ '
+        keys.join %(#{ESC_BS}0+#{ESC_BS}0)
       end
     end
 
     def inline_menu node
-      caret = '\ \(fc\ '
+      caret = %[#{ESC_BS}0#{ESC_BS}(fc#{ESC_BS}0]
       menu = node.attr 'menu'
       if !(submenus = node.attr 'submenus').empty?
-        submenu_path = submenus.map {|item| %(\\fI#{item}\\fP) }.join caret
-        %(\\fI#{menu}\\fP#{caret}#{submenu_path}#{caret}\\fI#{node.attr 'menuitem'}\\fP)
+        submenu_path = submenus.map {|item| %(#{ESC_BS}fI#{item}#{ESC_BS}fP) }.join caret
+        %(#{ESC_BS}fI#{menu}#{ESC_BS}fP#{caret}#{submenu_path}#{caret}#{ESC_BS}fI#{node.attr 'menuitem'}#{ESC_BS}fP)
       elsif (menuitem = node.attr 'menuitem')
-        %(\\fI#{menu}#{caret}#{menuitem}\\fP)
+        %(#{ESC_BS}fI#{menu}#{caret}#{menuitem}#{ESC_BS}fP)
       else
-        %(\\fI#{menu}\\fP)
+        %(#{ESC_BS}fI#{menu}#{ESC_BS}fP)
       end
     end
 
@@ -650,15 +661,15 @@ allbox tab(:);'
     def inline_quoted node
       case node.type
       when :emphasis
-        %[\\fI<BOUNDARY>#{node.text}</BOUNDARY>\\fP]
+        %(#{ESC_BS}fI<BOUNDARY>#{node.text}</BOUNDARY>#{ESC_BS}fP)
       when :strong
-        %[\\fB<BOUNDARY>#{node.text}</BOUNDARY>\\fP]
+        %(#{ESC_BS}fB<BOUNDARY>#{node.text}</BOUNDARY>#{ESC_BS}fP)
       when :monospaced
-        %[\\f[CR]<BOUNDARY>#{node.text}</BOUNDARY>\\fP]
+        %(#{ESC_BS}f[CR]<BOUNDARY>#{node.text}</BOUNDARY>#{ESC_BS}fP)
       when :single
-        %[\\(oq<BOUNDARY>#{node.text}</BOUNDARY>\\(cq]
+        %[#{ESC_BS}(oq<BOUNDARY>#{node.text}</BOUNDARY>#{ESC_BS}(cq]
       when :double
-        %[\\(lq<BOUNDARY>#{node.text}</BOUNDARY>\\(rq]
+        %[#{ESC_BS}(lq<BOUNDARY>#{node.text}</BOUNDARY>#{ESC_BS}(rq]
       else
         node.text
       end

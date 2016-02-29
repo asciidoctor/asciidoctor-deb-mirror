@@ -264,11 +264,16 @@ class AbstractNode
   # name - The String name of the icon
   #
   # Returns A String reference or data URI for an icon image
-  def icon_uri(name)
+  def icon_uri name
     if attr? 'icon'
-      image_uri(attr('icon'), nil)
+      # QUESTION should we add extension if resolved value is an absolute URI?
+      if ::File.extname(uri = (image_uri attr('icon'), 'iconsdir')).empty?
+        %(#{uri}.#{@document.attr 'icontype', 'png'})
+      else
+        uri
+      end
     else
-      image_uri(%(#{name}.#{@document.attr('icontype', 'png')}), 'iconsdir')
+      image_uri %(#{name}.#{@document.attr 'icontype', 'png'}), 'iconsdir'
     end
   end
 
@@ -366,7 +371,7 @@ class AbstractNode
     # NOTE base64 is autoloaded by reference to ::Base64
     %(data:#{mimetype};base64,#{::Base64.encode64(bindata).delete EOL})
   end
- 
+
   # Public: Read the image data from the specified URI and generate a data URI
   #
   # The image data is read from the URI and converted to Base64. A data URI is
@@ -392,7 +397,7 @@ class AbstractNode
     begin
       mimetype = nil
       bindata = open(image_uri, 'rb') {|file|
-        mimetype = file.content_type 
+        mimetype = file.content_type
         file.read
       }
       # NOTE base64 is autoloaded by reference to ::Base64
@@ -484,7 +489,7 @@ class AbstractNode
   # start               - the String start (i.e, parent) path (optional, default: nil)
   # preserve_uri_target - a Boolean indicating whether target should be preserved if contains a URI (default: true)
   #
-  # Returns the resolved [String] path 
+  # Returns the resolved [String] path
   def normalize_web_path(target, start = nil, preserve_uri_target = true)
     if preserve_uri_target && (Helpers.uriish? target)
       target

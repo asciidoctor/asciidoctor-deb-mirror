@@ -95,9 +95,9 @@ class Section < AbstractBlock
       gen_id = base_id
       cnt = Compliance.unique_id_start_index
       while @document.references[:ids].has_key? gen_id
-        gen_id = "#{base_id}#{sep}#{cnt}"
+        gen_id = %(#{base_id}#{sep}#{cnt})
         cnt += 1
-      end 
+      end
       gen_id
     else
       nil
@@ -150,9 +150,9 @@ class Section < AbstractBlock
   def sectnum(delimiter = '.', append = nil)
     append ||= (append == false ? '' : delimiter)
     if @level && @level > 1 && @parent && @parent.context == :section
-      "#{@parent.sectnum(delimiter)}#{@number}#{append}"
+      %(#{@parent.sectnum(delimiter)}#{@number}#{append})
     else
-      "#{@number}#{append}"
+      %(#{@number}#{append})
     end
   end
 
@@ -162,12 +162,10 @@ class Section < AbstractBlock
   #
   # block - The child Block to append to this parent Block
   #
-  # Returns nothing.
+  # Returns The parent Block
   def << block
+    assign_index block if block.context == :section
     super
-    if block.context == :section
-      assign_index block
-    end
   end
 
   def to_s

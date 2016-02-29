@@ -85,13 +85,13 @@ class Parser
   #
   # returns the Hash of orphan block attributes captured above the header
   def self.parse_document_header(reader, document)
-    # capture any lines of block-level metadata and plow away any comment lines
-    # that precede first block
+    # capture lines of block-level metadata and plow away comment lines that precede first block
     block_attributes = parse_block_metadata_lines(reader, document)
 
     # special case, block title is not allowed above document title,
     # carry attributes over to the document body
-    if block_attributes.has_key?('title')
+    if (has_doctitle_line = is_next_line_document_title?(reader, block_attributes)) &&
+        block_attributes.has_key?('title')
       return document.finalize_header block_attributes, false
     end
 
@@ -99,48 +99,49 @@ class Parser
     # definitely an area for spec refinement
     assigned_doctitle = nil
     unless (val = document.attributes['doctitle']).nil_or_empty?
-      document.title = val
-      assigned_doctitle = val
+      document.title = assigned_doctitle = val
     end
 
     section_title = nil
-    # check if the first line is the document title
-    # if so, add a header to the document and parse the header metadata
-    if is_next_line_document_title?(reader, block_attributes)
+    # if the first line is the document title, add a header to the document and parse the header metadata
+    if has_doctitle_line
       source_location = reader.cursor if document.sourcemap
-      document.id, _, doctitle, _, single_line = parse_section_title(reader, document)
+      document.id, _, doctitle, _, single_line = parse_section_title reader, document
       unless assigned_doctitle
-        document.title = doctitle
-        assigned_doctitle = doctitle
+        document.title = assigned_doctitle = doctitle
       end
       # default to compat-mode if document uses atx-style doctitle
       document.set_attribute 'compat-mode', '' unless single_line
-      if (separator = block_attributes.delete('separator'))
-        document.set_attribute('title-separator', separator)
+      if (separator = block_attributes.delete 'separator')
+        document.set_attribute 'title-separator', separator
       end
       document.header.source_location = source_location if source_location
       document.attributes['doctitle'] = section_title = doctitle
       # QUESTION: should the id assignment on Document be encapsulated in the Document class?
-      unless document.id
-        document.id = block_attributes.delete('id')
+      if document.id
+        block_attributes.delete 1
+        block_attributes.delete 'id'
+      else
+        if (style = block_attributes.delete 1)
+          style_attrs = { 1 => style }
+          parse_style_attribute style_attrs, reader
+          block_attributes['id'] = style_attrs['id'] if style_attrs.key? 'id'
+        end
+        document.id = block_attributes.delete 'id'
       end
-      parse_header_metadata(reader, document)
+      parse_header_metadata reader, document
     end
 
-    if !(val = document.attributes['doctitle']).nil_or_empty? &&
-        val != section_title
-      document.title = val
-      assigned_doctitle = val
+    unless (val = document.attributes['doctitle']).nil_or_empty? || val == section_title
+      document.title = assigned_doctitle = val
     end
 
     # restore doctitle attribute to original assignment
-    if assigned_doctitle
-      document.attributes['doctitle'] = assigned_doctitle
-    end
+    document.attributes['doctitle'] = assigned_doctitle if assigned_doctitle
 
     # parse title and consume name section of manpage document
     parse_manpage_header(reader, document) if document.doctype == 'manpage'
- 
+
     # NOTE block_attributes are the block-level attributes (not document attributes) that
     # precede the first line of content (document title, first section or first block)
     document.finalize_header block_attributes
@@ -168,7 +169,7 @@ class Parser
         name_section_buffer = reader.read_lines_until(:break_on_blank_lines => true).join(' ').tr_s(' ', ' ')
         if (m = ManpageNamePurposeRx.match(name_section_buffer))
           document.attributes['manname'] = document.sub_attributes m[1]
-          document.attributes['manpurpose'] = m[2] 
+          document.attributes['manpurpose'] = m[2]
           # TODO parse multiple man names
 
           if document.backend == 'manpage'
@@ -339,7 +340,7 @@ class Parser
               elsif first_block.content_model != :compound
                 intro = Block.new section, :open, :content_model => :compound
                 intro.style = 'partintro'
-                section.blocks.shift 
+                section.blocks.shift
                 if first_block.style == 'partintro'
                   first_block.context = :paragraph
                   first_block.style = nil
@@ -406,7 +407,7 @@ class Parser
   #
   # reader - The Reader from which to retrieve the next block
   # parent - The Document, Section or Block to which the next block belongs
-  # 
+  #
   # Returns a Section or Block object holding the parsed content of the processed lines
   #--
   # QUESTION should next_block have an option for whether it should keep looking until
@@ -425,7 +426,7 @@ class Parser
       options.delete(:text)
       text_only = false
     end
-    
+
     parse_metadata = options.fetch(:parse_metadata, true)
     #parse_sections = options.fetch(:parse_sections, false)
 
@@ -834,7 +835,7 @@ class Parser
 
         when :literal
           block = build_block(block_context, :verbatim, terminator, parent, reader, attributes)
-        
+
         when :pass
           block = build_block(block_context, :raw, terminator, parent, reader, attributes)
 
@@ -1078,7 +1079,7 @@ class Parser
         adjust_indentation! lines, indent, (attributes['tabsize'] || parent.document.attributes['tabsize'])
       elsif (tab_size = (attributes['tabsize'] || parent.document.attributes['tabsize']).to_i) > 0
         adjust_indentation! lines, nil, tab_size
-      end 
+      end
     end
 
     if (extension = options[:extension])
@@ -1325,7 +1326,7 @@ class Parser
     if list_item_reader.has_more_lines?
       comment_lines = list_item_reader.skip_line_comments
       subsequent_line = list_item_reader.peek_line
-      list_item_reader.unshift_lines comment_lines unless comment_lines.empty? 
+      list_item_reader.unshift_lines comment_lines unless comment_lines.empty?
 
       if !subsequent_line.nil?
         continuation_connects_first_block = subsequent_line.empty?
@@ -1374,7 +1375,7 @@ class Parser
   #
   # reader          - The Reader from which to retrieve the lines.
   # list_type       - The Symbol context of the list (:ulist, :olist, :colist or :dlist)
-  # sibling_trait   - A Regexp that matches a sibling of this list item or String list marker 
+  # sibling_trait   - A Regexp that matches a sibling of this list item or String list marker
   #                   of the items in this list (default: nil)
   # has_text        - Whether the list item has text defined inline (always true except for labeled lists)
   #
@@ -1384,7 +1385,7 @@ class Parser
 
     # three states for continuation: :inactive, :active & :frozen
     # :frozen signifies we've detected sequential continuation lines &
-    # continuation is not permitted until reset 
+    # continuation is not permitted until reset
     continuation = :inactive
 
     # if we are within a nested list, we don't throw away the list
@@ -1444,7 +1445,7 @@ class Parser
         break
       else
         if continuation == :active && !this_line.empty?
-          # literal paragraphs have special considerations (and this is one of 
+          # literal paragraphs have special considerations (and this is one of
           # two entry points into one)
           # if we don't process it as a whole, then a line in it that looks like a
           # list item will throw off the exit from it
@@ -1477,7 +1478,7 @@ class Parser
           # advance to the next line of content
           if this_line.empty?
             reader.skip_blank_lines
-            this_line = reader.read_line 
+            this_line = reader.read_line
             # if we hit eof or a sibling, stop reading
             break if this_line.nil? || is_sibling_list_item?(this_line, list_type, sibling_trait)
           end
@@ -1834,7 +1835,7 @@ class Parser
       rev_metadata = {}
 
       if reader.has_more_lines? && !reader.next_line_empty?
-        rev_line = reader.read_line 
+        rev_line = reader.read_line
         if (match = RevisionInfoLineRx.match(rev_line))
           rev_metadata['revnumber'] = match[1].rstrip if match[1]
           unless (component = match[2].strip) == ''
@@ -1939,8 +1940,11 @@ class Parser
 
       segments = nil
       if names_only
-        # splitting on ' ' with limit will collapse repeating spaces
-        segments = author_entry.split(' ', 3)
+        # splitting on ' ' collapses repeating spaces uniformly
+        # `split ' ', 3` causes odd behavior in Opal; see https://github.com/asciidoctor/asciidoctor.js/issues/159
+        if (segments = author_entry.split ' ').size > 3
+          segments = segments[0..1].push(segments[2..-1].join ' ')
+        end
       elsif (match = AuthorInfoLineRx.match(author_entry))
         segments = match.to_a
         segments.shift
@@ -2187,7 +2191,7 @@ class Parser
   #  Parser.resolve_ordered_list_marker(marker, 1, true)
   #  # => 'A.'
   #
-  # Returns the String of the first marker in this number series 
+  # Returns the String of the first marker in this number series
   def self.resolve_ordered_list_marker(marker, ordinal = 0, validate = false, reader = nil)
     number_style = ORDERED_LIST_STYLES.detect {|s| OrderedListMarkerRxMap[s] =~ marker }
     expected = actual = nil
@@ -2238,7 +2242,7 @@ class Parser
   #
   # line          - The String line to check
   # list_type     - The context of the list (:olist, :ulist, :colist, :dlist)
-  # sibling_trait - The String marker for the list or the Regexp to match a sibling 
+  # sibling_trait - The String marker for the list or the Regexp to match a sibling
   #
   # Returns a Boolean indicating whether this line is a sibling list item given
   # the criteria provided
@@ -2276,11 +2280,11 @@ class Parser
       table.assign_caption attributes.delete('caption')
     end
 
-    if attributes['cols'].nil_or_empty?
-      explicit_col_specs = false
-    else
-      table.create_columns(parse_col_specs(attributes['cols']))
+    if (attributes.key? 'cols') && !(col_specs = parse_col_specs attributes['cols']).empty?
+      table.create_columns col_specs
       explicit_col_specs = true
+    else
+      explicit_col_specs = false
     end
 
     skipped = table_reader.skip_blank_lines
@@ -2376,12 +2380,8 @@ class Parser
       end
     end
 
-    table.attributes['colcount'] ||= parser_ctx.col_count
-
-    if !explicit_col_specs
-      # TODO further encapsulate this logic (into table perhaps?)
-      even_width = (100.0 / parser_ctx.col_count).floor
-      table.columns.each {|c| c.assign_width(0, even_width) }
+    unless (table.attributes['colcount'] ||= table.columns.size) == 0 || explicit_col_specs
+      table.assign_col_widths
     end
 
     table.partition_header_footer attributes
@@ -2393,17 +2393,17 @@ class Parser
   #
   # The column specs dictate the number of columns, relative
   # width of columns, default alignments for cells in each
-  # column, and/or default styles or filters applied to the cells in 
+  # column, and/or default styles or filters applied to the cells in
   # the column.
   #
   # Every column spec is guaranteed to have a width
   #
   # returns a Hash of attributes that specify how to format
   # and layout the cells in the table.
-  def self.parse_col_specs(records)
+  def self.parse_col_specs records
+    records = records.tr ' ', '' if records.include? ' '
     # check for deprecated syntax: single number, equal column spread
-    # REVIEW could use records == records.to_i.to_s instead of regexp
-    if DigitsRx =~ records
+    if records == records.to_i.to_s
       return ::Array.new(records.to_i) { { 'width' => 1 } }
     end
 
@@ -2455,7 +2455,7 @@ class Parser
   # The default spec when pos == :end is {} since we already know we're at a
   # delimiter. When pos == :start, we *may* be at a delimiter, nil indicates
   # we're not.
-  # 
+  #
   # returns the Hash of attributes that indicate how to layout
   # and style this cell in the table.
   def self.parse_cell_spec(line, pos = :start, delimiter = nil)
@@ -2496,7 +2496,7 @@ class Parser
         spec['repeatcol'] = colspec unless colspec == 1
       end
     end
-    
+
     if m[3]
       colspec, rowspec = m[3].split '.'
       if !colspec.nil_or_empty? && Table::ALIGNMENTS[:h].has_key?(colspec)
@@ -2584,7 +2584,7 @@ class Parser
           collector.push c
         end
       end
-      
+
       # small optimization if no shorthand is found
       if type == :style
         parsed_style = attributes['style'] = raw_style
@@ -2610,7 +2610,7 @@ class Parser
             attributes[%(#{option}-option)] = ''
           end
           if (existing_opts = attributes['options'])
-            attributes['options'] = (options + existing_opts.split(',')) * ',' 
+            attributes['options'] = (options + existing_opts.split(',')) * ','
           else
             attributes['options'] = options * ','
           end
@@ -2755,7 +2755,7 @@ class Parser
     value = value.downcase
     digits = { 'i' => 1, 'v' => 5, 'x' => 10 }
     result = 0
-    
+
     (0..value.length - 1).each {|i|
       digit = digits[value[i..i]]
       if i + 1 < value.length && digits[value[i+1..i+1]] > digit

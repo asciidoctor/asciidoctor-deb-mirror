@@ -17,7 +17,7 @@ Build-Depends: debhelper (>= 9~),
                ruby-slim,
                ruby-haml,
 Standards-Version: 3.9.7
-Vcs-Git: https://anonscm.debian.org/pkg-ruby-extras/asciidoctor.git
+Vcs-Git: https://anonscm.debian.org/git/pkg-ruby-extras/asciidoctor.git
 Vcs-Browser: https://anonscm.debian.org/cgit/pkg-ruby-extras/asciidoctor.git
 Homepage: http://asciidoctor.org
 Testsuite: autopkgtest-pkg-ruby

@@ -1,3 +1,10 @@
+Description: Skip test that depends on chmod
+ This fixes running tests under autopkgtest
+Author: Guillaume Grossetie <ggrossetie@gmail.com>
+Origin: vendor
+Forwarded: no
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 Index: asciidoctor/test/reader_test.rb
 ===================================================================
 --- asciidoctor.orig/test/reader_test.rb	2016-02-29 17:15:14.900028599 +0100

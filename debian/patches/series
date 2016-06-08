@@ -3,3 +3,4 @@ lib_directory_in_tests.patch
 skip-asciimath-test.patch
 package-version.patch
 skip-unreadable-file.patch
+honour_SOURCE_DATE_EPOCH.patch

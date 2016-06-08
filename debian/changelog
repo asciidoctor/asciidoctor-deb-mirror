@@ -1,10 +1,13 @@
 asciidoctor (1.5.4-2) unstable; urgency=medium
 
+  * Team upload
+
   [ Cédric Boutillier ]
   * Fix Vcs-* URL
   * Run wrap-and-sort on packaging files
   * Honour SOURCE_DATE_EPOCH to make build of packages using ronn
     reproducible. Thanks Alexis Bienvenüe for the patch (Closes: #820435)
+  * Bump Standards-Version to 3.9.8 (no changes needed)
 
   [ Guillaume Grossetie ]
   * Adds DEP3 header to skip-unreadable-file.patch

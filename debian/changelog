@@ -1,9 +1,15 @@
-asciidoctor (1.5.4-1.0~reproducible1) unstable; urgency=medium
+asciidoctor (1.5.4-2) unstable; urgency=medium
 
+  [ Cédric Boutillier ]
+  * Fix Vcs-* URL
+  * Run wrap-and-sort on packaging files
   * Honour SOURCE_DATE_EPOCH to make build of packages using ronn
-    reproducible.
+    reproducible. Thanks Alexis Bienvenüe for the patch (Closes: #820435)
 
- -- Alexis Bienvenüe <pado@passoire.fr>  Fri, 08 Apr 2016 11:20:04 +0200
+  [ Guillaume Grossetie ]
+  * Adds DEP3 header to skip-unreadable-file.patch
+
+ -- Cédric Boutillier <boutil@moszumanska.debian.org>  Wed, 08 Jun 2016 21:46:41 +0200
 
 asciidoctor (1.5.4-1) unstable; urgency=medium
 

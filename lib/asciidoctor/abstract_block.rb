@@ -244,11 +244,10 @@ class AbstractBlock < AbstractNode
   end
 =end
 
-  # Public: Query for all descendant block nodes in the document tree that
-  # match the specified Symbol filter_context and, optionally, the style and/or
-  # role specified in the options Hash. If a block is provided, it's used as an
-  # additional filter. If no filters are specified, all block nodes in the tree
-  # are returned.
+  # Public: Query for all descendant block-level nodes in the document tree
+  # that match the specified selector (context, style, id, and/or role). If a
+  # Ruby block is given, it's used as an additional filter. If no selector or
+  # Ruby block is supplied, all block-level nodes in the tree are returned.
   #
   # Examples
   #
@@ -262,7 +261,7 @@ class AbstractBlock < AbstractNode
   #   doc.find_by context: :listing, style: 'source'
   #   #=> Asciidoctor::Block@13136720 { context: :listing, content_model: :verbatim, style: "source", lines: 1 }
   #
-  # Returns An Array of block nodes that match the given selector or an empty Array if no matches are found
+  # Returns An Array of block-level nodes that match the filter or an empty Array if no matches are found
   #--
   # TODO support jQuery-style selector (e.g., image.thumb)
   def find_by selector = {}, &block
@@ -290,8 +289,8 @@ class AbstractBlock < AbstractNode
       result.concat(@header.find_by selector, &block)
     end
 
-    # yuck, dlist is a special case
     unless context_selector == :document # optimization
+      # yuck, dlist is a special case
       if @context == :dlist
         if any_context || context_selector != :section # optimization
           @blocks.flatten.each do |li|
@@ -356,6 +355,17 @@ class AbstractBlock < AbstractNode
     nil
   end
 
+  # Public: Retrieve the list marker keyword for the specified list type.
+  #
+  # For use in the HTML type attribute.
+  #
+  # list_type - the type of list; default to the @style if not specified
+  #
+  # Returns the single-character [String] keyword that represents the marker for the specified list type
+  def list_marker_keyword list_type = nil
+    ORDERED_LIST_KEYWORDS[list_type || @style]
+  end
+
   # Internal: Assign the next index (0-based) to this section
   #
   # Assign the next index of this section within the parent
@@ -369,10 +379,10 @@ class AbstractBlock < AbstractNode
     if section.sectname == 'appendix'
       appendix_number = @document.counter 'appendix-number', 'A'
       section.number = appendix_number if section.numbered
-      if (caption = @document.attr 'appendix-caption', '') != ''
-        section.caption = %(#{caption} #{appendix_number}: )
-      else
+      if (caption = @document.attr 'appendix-caption', '').empty?
         section.caption = %(#{appendix_number}. )
+      else
+        section.caption = %(#{caption} #{appendix_number}: )
       end
     elsif section.numbered
       # chapters in a book doctype should be sequential even when divided into parts

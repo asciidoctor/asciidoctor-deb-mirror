@@ -191,6 +191,22 @@ A | here| a | there
       assert_css 'table colgroup col[width]', output, 0
     end
 
+    test 'explicit table width is used even when autowidth option is specified' do
+      input = <<-EOS
+[%autowidth,width=75%]
+|=======
+|A |B |C
+|a |b |c
+|1 |2 |3
+|=======
+      EOS
+      output = render_embedded_string input
+      assert_css 'table', output, 1
+      assert_css 'table[style*="width"]', output, 1
+      assert_css 'table colgroup col', output, 3
+      assert_css 'table colgroup col[width]', output, 0
+    end
+
     test 'first row sets number of columns when not specified' do
       input = <<-EOS
 |====
@@ -362,6 +378,21 @@ A | here| a | there
       assert_css 'table > tgroup > tbody > row', output, 3
     end
 
+    test 'table with landscape orientation in DocBook' do
+      ['orientation=landscape', '%rotate'].each do |attrs|
+        input = <<-EOS
+[#{attrs}]
+|===
+|Column A | Column B | Column C
+|===
+        EOS
+
+        output = render_embedded_string input, :backend => 'docbook'
+        assert_css 'informaltable', output, 1
+        assert_css 'informaltable[orient="land"]', output, 1
+      end
+    end
+
     test 'table with implicit header row' do
       input = <<-EOS
 |===
@@ -382,6 +413,27 @@ A | here| a | there
       assert_css 'table > thead > tr > th', output, 2
       assert_css 'table > tbody', output, 1
       assert_css 'table > tbody > tr', output, 2
+    end
+
+    test 'table with implicit header row when other options set' do
+      input = <<-EOS
+[%autowidth]
+|===
+|Column 1 |Column 2
+
+|Data A1
+|Data B1
+|===
+      EOS
+      output = render_embedded_string input
+      assert_css 'table', output, 1
+      assert_css 'table[style*="width"]', output, 0
+      assert_css 'table > colgroup > col', output, 2
+      assert_css 'table > thead', output, 1
+      assert_css 'table > thead > tr', output, 1
+      assert_css 'table > thead > tr > th', output, 2
+      assert_css 'table > tbody', output, 1
+      assert_css 'table > tbody > tr', output, 1
     end
 
     test 'no implicit header row if second line not blank' do
@@ -425,9 +477,9 @@ A | here| a | there
       assert_css 'table > tbody > tr', output, 3
     end
 
-    test 'no implicit header row if options is specified' do
+    test 'no implicit header row if noheader option is specified' do
       input = <<-EOS
-[options=""]
+[%noheader]
 |===
 |Column 1 |Column 2
 
@@ -669,6 +721,28 @@ d|9 2+>|10
       assert_xpath '(//row)[1]/entry[@namest="col_1"][@nameend="col_2"]', output, 1
       assert_xpath '(//row)[2]/entry[@namest]', output, 0
       assert_xpath '(//row)[2]/entry[@nameend]', output, 0
+    end
+
+    test 'assigns unique column names for table with implicit column count and colspans in first row' do
+      input = <<-EOS
+|====
+|                 2+| Node 0          2+| Node 1
+
+| Host processes    | Core 0 | Core 1   | Core 4 | Core 5
+| Guest processes   | Core 2 | Core 3   | Core 6 | Core 7
+|====
+      EOS
+
+      output = render_embedded_string input, :backend => 'docbook'
+      assert_xpath '//colspec', output, 5
+      (1..5).each do |n|
+        assert_xpath %((//colspec)[#{n}][@colname="col_#{n}"]), output, 1
+      end
+      assert_xpath '(//row)[1]/entry', output, 3
+      assert_xpath '((//row)[1]/entry)[1][@namest]', output, 0
+      assert_xpath '((//row)[1]/entry)[1][@namend]', output, 0
+      assert_xpath '((//row)[1]/entry)[2][@namest="col_2"][@nameend="col_3"]', output, 1
+      assert_xpath '((//row)[1]/entry)[3][@namest="col_4"][@nameend="col_5"]', output, 1
     end
 
     test 'ignores cell with colspan that exceeds colspec' do

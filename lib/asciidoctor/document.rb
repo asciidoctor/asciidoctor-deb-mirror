@@ -225,7 +225,7 @@ class Document < AbstractBlock
       # safely resolve the safe mode from const, int or string
       if !(safe_mode = options[:safe])
         @safe = SafeMode::SECURE
-      elsif ::Fixnum === safe_mode
+      elsif ::Integer === safe_mode
         # be permissive in case API user wants to define new levels
         @safe = safe_mode
       else
@@ -236,8 +236,8 @@ class Document < AbstractBlock
           @safe = SafeMode::SECURE
         end
       end
+      @compat_mode = attr_overrides.key? 'compat-mode'
       @sourcemap = options[:sourcemap]
-      @compat_mode = false
       @converter = nil
       initialize_extensions = defined? ::Asciidoctor::Extensions
       @extensions = nil # initialize furthur down
@@ -287,7 +287,7 @@ class Document < AbstractBlock
     attr_overrides['asciidoctor'] = ''
     attr_overrides['asciidoctor-version'] = VERSION
 
-    safe_mode_name = SafeMode.constants.detect {|l| SafeMode.const_get(l) == @safe }.to_s.downcase
+    safe_mode_name = SafeMode.constants.find {|l| SafeMode.const_get(l) == @safe }.to_s.downcase
     attr_overrides['safe-mode-name'] = safe_mode_name
     attr_overrides["safe-mode-#{safe_mode_name}"] = ''
     attr_overrides['safe-mode-level'] = @safe
@@ -295,14 +295,11 @@ class Document < AbstractBlock
     # sync the embedded attribute w/ the value of options...do not allow override
     attr_overrides['embedded'] = header_footer ? nil : ''
 
-    # the only way to set the max-include-depth attribute is via the document options
-    # 64 is the AsciiDoc default
+    # the only way to set the max-include-depth attribute is via the API; default to 64 like AsciiDoc Python
     attr_overrides['max-include-depth'] ||= 64
 
-    # the only way to enable uri reads is via the document options, disabled by default
-    unless !attr_overrides['allow-uri-read'].nil?
-      attr_overrides['allow-uri-read'] = nil
-    end
+    # the only way to set the allow-uri-read attribute is via the API; disabled by default
+    attr_overrides['allow-uri-read'] ||= nil
 
     attr_overrides['user-home'] = USER_HOME
 
@@ -344,6 +341,7 @@ class Document < AbstractBlock
       attr_overrides['docdir'] = ''
       attr_overrides['user-home'] = '.'
       if @safe >= SafeMode::SECURE
+        attr_overrides['max-attribute-value-size'] = 4096 unless attr_overrides.key? 'max-attribute-value-size'
         # assign linkcss (preventing css embedding) unless explicitly disabled from the commandline or API
         # effectively the same has "has key 'linkcss' and value == nil"
         unless attr_overrides.fetch('linkcss', '').nil?
@@ -353,6 +351,9 @@ class Document < AbstractBlock
         attr_overrides['icons'] ||= nil
       end
     end
+
+    # the only way to set the max-attribute-value-size attribute is via the API; disabled by default
+    @max_attribute_value_size = (val = (attr_overrides['max-attribute-value-size'] ||= nil)) ? val.to_i.abs : nil
 
     attr_overrides.delete_if do |key, val|
       verdict = false
@@ -370,8 +371,6 @@ class Document < AbstractBlock
       end
       verdict
     end
-
-    @compat_mode = true if attrs.key? 'compat-mode'
 
     if parent_doc
       # setup default doctype (backend is fixed)
@@ -401,13 +400,15 @@ class Document < AbstractBlock
       #attrs['infile'] = attrs['docfile']
 
       # dynamic intrinstic attribute values
-      now = ::Time.now
+
+      # See https://reproducible-builds.org/specs/source-date-epoch/
+      now = ::ENV['SOURCE_DATE_EPOCH'] ? (::Time.at ::ENV['SOURCE_DATE_EPOCH'].to_i).utc : ::Time.now
       localdate = (attrs['localdate'] ||= now.strftime('%Y-%m-%d'))
       unless (localtime = attrs['localtime'])
         begin
           localtime = attrs['localtime'] = now.strftime('%H:%M:%S %Z')
-        rescue
-          localtime = attrs['localtime'] = now.strftime('%H:%M:%S')
+        rescue # Asciidoctor.js fails if timezone string has characters outside basic Latin (see asciidoctor.js#23)
+          localtime = attrs['localtime'] = now.strftime('%H:%M:%S %z')
         end
       end
       attrs['localdatetime'] ||= %(#{localdate} #{localtime})
@@ -679,7 +680,7 @@ class Document < AbstractBlock
 
   # QUESTION move to AbstractBlock?
   def first_section
-    has_header? ? @header : (@blocks || []).detect{|e| e.context == :section }
+    has_header? ? @header : (@blocks || []).find {|e| e.context == :section }
   end
 
   def has_header?
@@ -835,13 +836,18 @@ class Document < AbstractBlock
     if attribute_locked?(name)
       false
     else
+      if @max_attribute_value_size
+        resolved_value = (apply_attribute_value_subs value).limit @max_attribute_value_size
+      else
+        resolved_value = apply_attribute_value_subs value
+      end
       case name
       when 'backend'
-        update_backend_attributes apply_attribute_value_subs(value), !!@attributes_modified.delete?('htmlsyntax')
+        update_backend_attributes resolved_value, !!@attributes_modified.delete?('htmlsyntax')
       when 'doctype'
-        update_doctype_attributes apply_attribute_value_subs(value)
+        update_doctype_attributes resolved_value
       else
-        @attributes[name] = apply_attribute_value_subs(value)
+        @attributes[name] = resolved_value
       end
       @attributes_modified << name
       true
@@ -1110,17 +1116,18 @@ class Document < AbstractBlock
   # attribute is set, read the doc-name.docinfo.ext file. If the docinfo2
   # attribute is set, read both files in that order.
   #
-  # location - The Symbol location of the docinfo, either :header or :footer. (default: :header)
-  # ext      - The extension of the docinfo file(s). If not set, the extension
-  #            will be determined based on the basebackend. (default: nil)
+  # location - The Symbol location of the docinfo (e.g., :head, :footer, etc). (default: :head)
+  # suffix   - The suffix of the docinfo file(s). If not set, the extension
+  #            will be set to the outfilesuffix. (default: nil)
   #
-  # returns The contents of the docinfo file(s)
-  def docinfo(location = :head, ext = nil)
+  # returns The contents of the docinfo file(s) or empty string if no files are
+  # found or the safe mode is secure or greater.
+  def docinfo location = :head, suffix = nil
     if safe >= SafeMode::SECURE
       ''
     else
-      qualifier = (location == :footer ? '-footer' : nil)
-      ext = @outfilesuffix unless ext
+      qualifier = location == :head ? nil : %(-#{location})
+      suffix = @outfilesuffix unless suffix
       docinfodir = @attributes['docinfodir']
 
       content = nil
@@ -1138,7 +1145,7 @@ class Document < AbstractBlock
       end
 
       if docinfo
-        docinfo_filename = %(docinfo#{qualifier}#{ext})
+        docinfo_filename = %(docinfo#{qualifier}#{suffix})
         unless (docinfo & ['shared', %(shared-#{location})]).empty?
           docinfo_path = normalize_system_path(docinfo_filename, docinfodir)
           # NOTE normalizing the lines is essential if we're performing substitutions

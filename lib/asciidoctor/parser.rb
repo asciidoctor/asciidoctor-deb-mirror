@@ -437,7 +437,7 @@ class Parser
     else
       block_extensions = block_macro_extensions = false
     end
-    #parent_context = parent.is_a?(Block) ? parent.context : nil
+    #parent_context = Block === parent ? parent.context : nil
     in_list = ListItem === parent
     block = nil
     style = nil
@@ -523,9 +523,11 @@ class Parser
                 posattrs = []
               end
 
-              unless !style || explicit_style
+              # QUESTION why did we make exception for explicit style?
+              #if style && !explicit_style
+              if style
                 attributes['alt'] = style if blk_ctx == :image
-                attributes.delete('style')
+                attributes.delete 'style'
                 style = nil
               end
 
@@ -633,7 +635,7 @@ class Parser
           elsif (match = OrderedListRx.match(this_line))
             reader.unshift_line this_line
             block = next_outline_list(reader, :olist, parent)
-            # QUESTION move this logic to next_outline_list?
+            # TODO move this logic into next_outline_list
             if !attributes['style'] && !block.attributes['style']
               marker = block.items[0].marker
               if marker.start_with? '.'
@@ -641,13 +643,13 @@ class Parser
                 #attributes['style'] = (ORDERED_LIST_STYLES[block.level - 1] || ORDERED_LIST_STYLES[0]).to_s
                 attributes['style'] = (ORDERED_LIST_STYLES[marker.length - 1] || ORDERED_LIST_STYLES[0]).to_s
               else
-                style = ORDERED_LIST_STYLES.detect{|s| OrderedListMarkerRxMap[s] =~ marker }
+                style = ORDERED_LIST_STYLES.find {|s| OrderedListMarkerRxMap[s] =~ marker }
                 attributes['style'] = (style || ORDERED_LIST_STYLES[0]).to_s
               end
             end
             break
 
-          elsif (match = DefinitionListRx.match(this_line))
+          elsif (match = DescriptionListRx.match(this_line))
             reader.unshift_line this_line
             block = next_labeled_list(reader, match, parent)
             break
@@ -710,7 +712,7 @@ class Parser
             adjust_indentation! lines
 
             block = Block.new(parent, :literal, :content_model => :verbatim, :source => lines, :attributes => attributes)
-            # a literal gets special meaning inside of a definition list
+            # a literal gets special meaning inside of a description list
             # TODO this feels hacky, better way to distinguish from explicit literal block?
             block.set_option('listparagraph') if in_list
 
@@ -901,7 +903,7 @@ class Parser
     if block
       block.source_location = source_location if source_location
       # REVIEW seems like there is a better way to organize this wrap-up
-      block.title     = attributes['title'] unless block.title?
+      block.title = attributes['title'] unless block.title?
       # FIXME HACK don't hardcode logic for alt, caption and scaledwidth on images down here
       if block.context == :image
         resolved_target = attributes['target']
@@ -1034,7 +1036,7 @@ class Parser
     end
   end
 
-  # whether a block supports complex content should be a config setting
+  # whether a block supports compound content should be a config setting
   # if terminator is false, that means the all the lines in the reader should be parsed
   # NOTE could invoke filter in here, before and after parsing
   def self.build_block(block_context, content_model, terminator, parent, reader, attributes, options = {})
@@ -1237,7 +1239,7 @@ class Parser
     nil
   end
 
-  # Internal: Parse and construct a labeled (e.g., definition) list Block from the current position of the Reader
+  # Internal: Parse and construct a description list Block from the current position of the Reader
   #
   # reader    - The Reader from which to retrieve the labeled list
   # match     - The Regexp match for the head of the list
@@ -1249,7 +1251,7 @@ class Parser
     previous_pair = nil
     # allows us to capture until we find a labeled item
     # that uses the same delimiter (::, :::, :::: or ;;)
-    sibling_pattern = DefinitionListSiblingRx[match[2]]
+    sibling_pattern = DescriptionListSiblingRx[match[2]]
 
     # NOTE skip the match on the first time through as we've already done it (emulates begin...while)
     while match || (reader.has_more_lines? && (match = sibling_pattern.match(reader.peek_line)))
@@ -1270,12 +1272,12 @@ class Parser
 
   # Internal: Parse and construct the next ListItem for the current bulleted
   # (unordered or ordered) list Block, callout lists included, or the next
-  # term ListItem and definition ListItem pair for the labeled list Block.
+  # term ListItem and description ListItem pair for the labeled list Block.
   #
   # First collect and process all the lines that constitute the next list
   # item for the parent list (according to its type). Next, parse those lines
   # into blocks and associate them with the ListItem (in the case of a
-  # labeled list, the definition ListItem). Finally, fold the first block
+  # labeled list, the description ListItem). Finally, fold the first block
   # into the item's text attribute according to rules described in ListItem.
   #
   # reader        - The Reader from which to retrieve the next list item
@@ -1370,7 +1372,7 @@ class Parser
   # through all the rules that determine what comprises a list item.
   #
   # Grab lines until a sibling list item is found, or the block is broken by a
-  # terminator (such as a line comment). Definition lists are more greedy if
+  # terminator (such as a line comment). Description lists are more greedy if
   # they don't have optional inline item text...they want that text
   #
   # reader          - The Reader from which to retrieve the lines.
@@ -1464,7 +1466,7 @@ class Parser
           elsif BlockTitleRx =~ this_line || BlockAttributeLineRx =~ this_line || AttributeEntryRx =~ this_line
             buffer << this_line
           else
-            if nested_list_type = (within_nested_list ? [:dlist] : NESTABLE_LIST_CONTEXTS).detect {|ctx| ListRxMap[ctx] =~ this_line }
+            if nested_list_type = (within_nested_list ? [:dlist] : NESTABLE_LIST_CONTEXTS).find {|ctx| ListRxMap[ctx] =~ this_line }
               within_nested_list = true
               if nested_list_type == :dlist && $~[3].nil_or_empty?
                 # get greedy again
@@ -1494,7 +1496,7 @@ class Parser
               # TODO any way to combine this with the check after skipping blank lines?
               if is_sibling_list_item?(this_line, list_type, sibling_trait)
                 break
-              elsif nested_list_type = NESTABLE_LIST_CONTEXTS.detect {|ctx| ListRxMap[ctx] =~ this_line }
+              elsif nested_list_type = NESTABLE_LIST_CONTEXTS.find {|ctx| ListRxMap[ctx] =~ this_line }
                 buffer << this_line
                 within_nested_list = true
                 if nested_list_type == :dlist && $~[3].nil_or_empty?
@@ -1525,7 +1527,7 @@ class Parser
           end
         else
           has_text = true if !this_line.empty?
-          if nested_list_type = (within_nested_list ? [:dlist] : NESTABLE_LIST_CONTEXTS).detect {|ctx| ListRxMap[ctx] =~ this_line }
+          if nested_list_type = (within_nested_list ? [:dlist] : NESTABLE_LIST_CONTEXTS).find {|ctx| ListRxMap[ctx] =~ this_line }
             within_nested_list = true
             if nested_list_type == :dlist && $~[3].nil_or_empty?
               # get greedy again
@@ -1818,7 +1820,7 @@ class Parser
           # apply header subs and assign to document
           author_metadata.each do |key, val|
             unless document.attributes.has_key? key
-              document.attributes[key] = ((val.is_a? ::String) ? document.apply_header_subs(val) : val)
+              document.attributes[key] = ::String === val ? (document.apply_header_subs val) : val
             end
           end
 
@@ -1838,7 +1840,7 @@ class Parser
         rev_line = reader.read_line
         if (match = RevisionInfoLineRx.match(rev_line))
           rev_metadata['revnumber'] = match[1].rstrip if match[1]
-          unless (component = match[2].strip) == ''
+          unless (component = match[2].strip).empty?
             # version must begin with 'v' if date is absent
             if !match[1] && (component.start_with? 'v')
               rev_metadata['revnumber'] = component[1..-1]
@@ -1928,7 +1930,7 @@ class Parser
     author_entries.each_with_index do |author_entry, idx|
       next if author_entry.empty?
       key_map = {}
-      if idx.zero?
+      if idx == 0
         keys.each do |key|
           key_map[key.to_sym] = key
         end
@@ -1977,7 +1979,7 @@ class Parser
           author_metadata[%(#{key}_1)] = author_metadata[key] if author_metadata.has_key? key
         end
       end
-      if idx.zero?
+      if idx == 0
         author_metadata['authors'] = author_metadata[key_map[:author]]
       else
         author_metadata['authors'] = %(#{author_metadata['authors']}, #{author_metadata[key_map[:author]]})
@@ -2193,7 +2195,7 @@ class Parser
   #
   # Returns the String of the first marker in this number series
   def self.resolve_ordered_list_marker(marker, ordinal = 0, validate = false, reader = nil)
-    number_style = ORDERED_LIST_STYLES.detect {|s| OrderedListMarkerRxMap[s] =~ marker }
+    number_style = ORDERED_LIST_STYLES.find {|s| OrderedListMarkerRxMap[s] =~ marker }
     expected = actual = nil
     case number_style
       when :arabic
@@ -2247,7 +2249,7 @@ class Parser
   # Returns a Boolean indicating whether this line is a sibling list item given
   # the criteria provided
   def self.is_sibling_list_item?(line, list_type, sibling_trait)
-    if sibling_trait.is_a? ::Regexp
+    if ::Regexp === sibling_trait
       matcher = sibling_trait
       expected_marker = false
     else
@@ -2280,25 +2282,27 @@ class Parser
       table.assign_caption attributes.delete('caption')
     end
 
-    if (attributes.key? 'cols') && !(col_specs = parse_col_specs attributes['cols']).empty?
-      table.create_columns col_specs
-      explicit_col_specs = true
+    if (attributes.key? 'cols') && !(colspecs = parse_colspecs attributes['cols']).empty?
+      table.create_columns colspecs
+      explicit_colspecs = true
     else
-      explicit_col_specs = false
+      explicit_colspecs = false
     end
 
     skipped = table_reader.skip_blank_lines
 
     parser_ctx = Table::ParserContext.new(table_reader, table, attributes)
+    skip_implicit_header = (attributes.key? 'header-option') || (attributes.key? 'noheader-option')
     loop_idx = -1
     while table_reader.has_more_lines?
       loop_idx += 1
       line = table_reader.read_line
 
-      if skipped == 0 && loop_idx.zero? && !attributes.has_key?('options') &&
+      if !skip_implicit_header && skipped == 0 && loop_idx == 0 &&
           !(next_line = table_reader.peek_line).nil? && next_line.empty?
         table.has_header_option = true
-        table.set_option 'header'
+        attributes['header-option'] = ''
+        attributes['options'] = (attributes.key? 'options') ? %(#{attributes['options']},header) : 'header'
       end
 
       if parser_ctx.format == 'psv'
@@ -2307,10 +2311,10 @@ class Parser
           # push an empty cell spec if boundary at start of line
           parser_ctx.close_open_cell
         else
-          next_cell_spec, line = parse_cell_spec(line, :start, parser_ctx.delimiter)
+          next_cellspec, line = parse_cellspec(line, :start, parser_ctx.delimiter)
           # if the cell spec is not null, then we're at a cell boundary
-          if !next_cell_spec.nil?
-            parser_ctx.close_open_cell next_cell_spec
+          if !next_cellspec.nil?
+            parser_ctx.close_open_cell next_cellspec
           else
             # QUESTION do we not advance to next line? if so, when will we if we came into this block?
           end
@@ -2341,14 +2345,14 @@ class Parser
           end
 
           if parser_ctx.format == 'psv'
-            next_cell_spec, cell_text = parse_cell_spec(m.pre_match, :end)
-            parser_ctx.push_cell_spec next_cell_spec
+            next_cellspec, cell_text = parse_cellspec(m.pre_match, :end)
+            parser_ctx.push_cellspec next_cellspec
             parser_ctx.buffer = %(#{parser_ctx.buffer}#{cell_text})
           else
             parser_ctx.buffer = %(#{parser_ctx.buffer}#{m.pre_match})
           end
 
-          if (line = m.post_match) == ''
+          if (line = m.post_match).empty?
             # hack to prevent dropping empty cell found at end of line (see issue #1106)
             seen = false
           end
@@ -2380,8 +2384,8 @@ class Parser
       end
     end
 
-    unless (table.attributes['colcount'] ||= table.columns.size) == 0 || explicit_col_specs
-      table.assign_col_widths
+    unless (table.attributes['colcount'] ||= table.columns.size) == 0 || explicit_colspecs
+      table.assign_column_widths
     end
 
     table.partition_header_footer attributes
@@ -2400,7 +2404,7 @@ class Parser
   #
   # returns a Hash of attributes that specify how to format
   # and layout the cells in the table.
-  def self.parse_col_specs records
+  def self.parse_colspecs records
     records = records.tr ' ', '' if records.include? ' '
     # check for deprecated syntax: single number, equal column spread
     if records == records.to_i.to_s
@@ -2410,7 +2414,7 @@ class Parser
     specs = []
     # NOTE -1 argument ensures we don't drop empty records
     records.split(',', -1).each {|record|
-      if record == ''
+      if record.empty?
         specs << { 'width' => 1 }
       # TODO might want to use scan rather than this mega-regexp
       elsif (m = ColumnSpecRx.match(record))
@@ -2458,7 +2462,7 @@ class Parser
   #
   # returns the Hash of attributes that indicate how to layout
   # and style this cell in the table.
-  def self.parse_cell_spec(line, pos = :start, delimiter = nil)
+  def self.parse_cellspec(line, pos = :start, delimiter = nil)
     m = nil
     rest = ''
 
@@ -2665,13 +2669,13 @@ class Parser
       lines.map! do |line|
         next line if line.empty?
 
-        if line.start_with? TAB
-          line.sub!(TabIndentRx) {|tabs| full_tab_space * tabs.length }
-        end
+        # NOTE Opal has to patch this use of sub!
+        line.sub!(TabIndentRx) {|tabs| full_tab_space * tabs.length } if line.start_with? TAB
 
         if line.include? TAB
           # keeps track of how many spaces were added to adjust offset in match data
           spaces_added = 0
+          # NOTE Opal has to patch this use of gsub!
           line.gsub!(TabRx) {
             # calculate how many spaces this tab represents, then replace tab with spaces
             if (offset = ($~.begin 0) + spaces_added) % tab_size == 0

@@ -655,15 +655,15 @@ context 'Substitutions' do
     test 'an image macro with an inline SVG image should be converted to an svg element' do
       para = block_from_string('image:circle.svg[Tiger,100,opts=inline]', :safe => Asciidoctor::SafeMode::SERVER, :attributes => { 'imagesdir' => 'fixtures', 'docdir' => ::File.dirname(__FILE__) })
       result = para.sub_macros(para.source).gsub(/>\s+</, '><')
-      assert_match(/<svg [^>]*width="100px"[^>]*>/, result)
-      refute_match(/<svg [^>]*width="500px"[^>]*>/, result)
-      refute_match(/<svg [^>]*height="500px"[^>]*>/, result)
-      refute_match(/<svg [^>]*style="width:500px;height:500px"[^>]*>/, result)
+      assert_match(/<svg\s[^>]*width="100px"[^>]*>/, result)
+      refute_match(/<svg\s[^>]*width="500px"[^>]*>/, result)
+      refute_match(/<svg\s[^>]*height="500px"[^>]*>/, result)
+      refute_match(/<svg\s[^>]*style="width:500px;height:500px"[^>]*>/, result)
     end
 
     test 'an image macro with an inline SVG image should be converted to an svg element even when data-uri is set' do
       para = block_from_string('image:circle.svg[Tiger,100,opts=inline]', :safe => Asciidoctor::SafeMode::SERVER, :attributes => { 'data-uri' => '', 'imagesdir' => 'fixtures', 'docdir' => ::File.dirname(__FILE__) })
-      assert_match(/<svg [^>]*width="100px">/, para.sub_macros(para.source).gsub(/>\s+</, '><'))
+      assert_match(/<svg\s[^>]*width="100px">/, para.sub_macros(para.source).gsub(/>\s+</, '><'))
     end
 
     test 'an image macro with an SVG image should not use an object element when safe mode is secure' do
@@ -1500,9 +1500,15 @@ foo&#8201;&#8212;&#8201;'
     end
 
     test 'preserves entity references' do
-      input = '&amp; &#169; &#10004; &#x2022;'
+      input = '&amp; &#169; &#10004; &#128512; &#x2022; &#x1f600;'
       result = render_embedded_string input, :doctype => :inline
       assert_equal input, result
+    end
+
+    test 'only preserves named entities with two or more letters' do
+      input = '&amp; &a; &gt;'
+      result = render_embedded_string input, :doctype => :inline
+      assert_equal '&amp; &amp;a; &gt;', result
     end
 
     test 'replaces punctuation' do

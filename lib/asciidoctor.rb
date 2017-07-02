@@ -13,7 +13,6 @@ if RUBY_ENGINE == 'opal'
   require 'asciidoctor/opal_ext'
 else
   autoload :Base64, 'base64'
-  autoload :FileUtils, 'fileutils'
   autoload :OpenURI, 'open-uri'
   autoload :StringScanner, 'strscan'
 end
@@ -632,7 +631,7 @@ module Asciidoctor
     InlineSectionAnchorRx = /^(.*?)#{CG_BLANK}+(\\)?\[\[([#{CC_ALPHA}:_][#{CC_WORD}:.-]*)(?:,#{CG_BLANK}*(\S.*?))?\]\]$/
 
     # Matches invalid characters in a section id.
-    InvalidSectionIdCharsRx = /&(?:[a-zA-Z]{2,}|#\d{2,5}|#x[a-fA-F0-9]{2,4});|[^#{CC_WORD}]+?/
+    InvalidSectionIdCharsRx = /&(?:[a-zA-Z]{2,}|#\d{2,6}|#x[a-fA-F0-9]{2,5});|[^#{CC_WORD}]+?/
 
     # Matches the block style used to designate a section title as a floating title.
     #
@@ -646,7 +645,9 @@ module Asciidoctor
     ## Lists
 
     # Detects the start of any list item.
-    AnyListRx = /^(?:<?\d+>#{CG_BLANK}+#{CG_GRAPH}|#{CG_BLANK}*(?:-|(?:\*|\.|\u2022){1,5}|\d+\.|[a-zA-Z]\.|[IVXivx]+\))#{CG_BLANK}+#{CG_GRAPH}|#{CG_BLANK}*.*?(?::{2,4}|;;)(?:#{CG_BLANK}+#{CG_GRAPH}|$))/
+    #
+    # NOTE we only have to check as far as the blank character because we know it means non-whitespace follows.
+    AnyListRx = /^(?:#{CG_BLANK}*(?:-|([*.\u2022])\1{0,4}|\d+\.|[a-zA-Z]\.|[IVXivx]+\))#{CG_BLANK}|#{CG_BLANK}*.*?(?::{2,4}|;;)(?:$|#{CG_BLANK})|<?\d+>#{CG_BLANK})/
 
     # Matches an unordered list item (one level for hyphens, up to 5 levels for asterisks).
     #
@@ -656,6 +657,7 @@ module Asciidoctor
     #   - Foo
     #
     # NOTE we know trailing (.*) will match at least one character because we strip trailing spaces
+    # NOTE I want to use (-|([*\u2022])\2{0,4}) but breaks the parser since it relies on fixed match positions
     UnorderedListRx = /^#{CG_BLANK}*(-|\*{1,5}|\u2022{1,5})#{CG_BLANK}+(.*)$/
 
     # Matches an ordered list item (explicit numbering or up to 5 consecutive dots).
@@ -684,7 +686,7 @@ module Asciidoctor
       #:lowergreek => /[a-z]\]/
     }
 
-    # Matches a definition list item.
+    # Matches a description list entry.
     #
     # Examples
     #
@@ -693,26 +695,26 @@ module Asciidoctor
     #   foo::::
     #   foo;;
     #
-    #   # should be followed by a definition, on the same line...
+    #   # the term can be followed by a description on the same line...
     #
     #   foo:: That which precedes 'bar' (see also, <<bar>>)
     #
-    #   # ...or on a separate line
+    #   # ...or on a separate line (optionally indented)
     #
     #   foo::
     #     That which precedes 'bar' (see also, <<bar>>)
     #
-    #   # the term may be an attribute reference
+    #   # the term or description may be an attribute reference
     #
     #   {foo_term}:: {foo_def}
     #
     # NOTE negative match for comment line is intentional since that isn't handled when looking for next list item
-    # QUESTION should we check for line comment in regex or when scanning the lines?
+    # TODO check for line comment when scanning lines instead of in regex
     #
-    DefinitionListRx = /^(?!\/\/)#{CG_BLANK}*(.*?)(:{2,4}|;;)(?:#{CG_BLANK}+(.*))?$/
+    DescriptionListRx = /^(?!\/\/)#{CG_BLANK}*(.*?)(:{2,4}|;;)(?:#{CG_BLANK}+(.*))?$/
 
-    # Matches a sibling definition list item (which does not include the keyed type).
-    DefinitionListSiblingRx = {
+    # Matches a sibling description list item (which does not include the type in the key).
+    DescriptionListSiblingRx = {
       # (?:.*?[^:])? - a non-capturing group which grabs longest sequence of characters that doesn't end w/ colon
       '::' => /^(?!\/\/)#{CG_BLANK}*((?:.*[^:])?)(::)(?:#{CG_BLANK}+(.*))?$/,
       ':::' => /^(?!\/\/)#{CG_BLANK}*((?:.*[^:])?)(:::)(?:#{CG_BLANK}+(.*))?$/,
@@ -727,7 +729,7 @@ module Asciidoctor
     #   <1> Foo
     #
     # NOTE we know trailing (.*) will match at least one character because we strip trailing spaces
-    CalloutListRx = /^<?(\d+)>#{CG_BLANK}+(.*)/
+    CalloutListRx = /^<?(\d+)>#{CG_BLANK}+(.*)$/
 
     # Matches a callout reference inside literal text.
     #
@@ -749,7 +751,7 @@ module Asciidoctor
     ListRxMap = {
       :ulist => UnorderedListRx,
       :olist => OrderedListRx,
-      :dlist => DefinitionListRx,
+      :dlist => DescriptionListRx,
       :colist => CalloutListRx
     }
 
@@ -965,12 +967,12 @@ module Asciidoctor
     ## Layout
 
     # Matches a trailing + preceded by at least one space character,
-    # which forces a hard line break (<br> tag in HTML outputs).
+    # which forces a hard line break (<br> tag in HTML output).
     #
     # Examples
     #
-    #    +
-    #   Foo +
+    #   Humpty Dumpty sat on a wall, +
+    #   Humpty Dumpty had a great fall.
     #
     if RUBY_ENGINE == 'opal'
       # NOTE JavaScript only treats ^ and $ as line boundaries in multiline regexp; . won't match newlines
@@ -1249,7 +1251,7 @@ module Asciidoctor
     # left double arrow <=
     [/\\?&lt;=/, '&#8656;', :none],
     # restore entities
-    [/\\?(&)amp;((?:[a-zA-Z]+|#\d{2,5}|#x[a-fA-F0-9]{2,4});)/, '', :bounding]
+    [/\\?(&)amp;((?:[a-zA-Z]{2,}|#\d{2,6}|#x[a-fA-F0-9]{2,5});)/, '', :bounding]
   ]
 
   class << self
@@ -1308,7 +1310,8 @@ module Asciidoctor
     if ::File === input
       # TODO cli checks if input path can be read and is file, but might want to add check to API
       input_path = ::File.expand_path input.path
-      input_mtime = input.mtime
+      # See https://reproducible-builds.org/specs/source-date-epoch/
+      input_mtime = ::ENV['SOURCE_DATE_EPOCH'] ? (::Time.at ::ENV['SOURCE_DATE_EPOCH'].to_i).utc : input.mtime
       lines = input.readlines
       # hold off on setting infile and indir until we get a better sense of their purpose
       attributes['docfile'] = input_path
@@ -1487,7 +1490,7 @@ module Asciidoctor
 
       unless ::File.directory? outdir
         if mkdirs
-          ::FileUtils.mkdir_p outdir
+          Helpers.mkdir_p outdir
         else
           # NOTE we intentionally refer to the directory as it was passed to the API
           raise ::IOError, %(target directory does not exist: #{to_dir})

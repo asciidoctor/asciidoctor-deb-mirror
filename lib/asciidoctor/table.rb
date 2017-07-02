@@ -77,9 +77,11 @@ class Table < AbstractBlock
 
     # smell like we need a utility method here
     # to resolve an integer width from potential bogus input
-    pcwidth = attributes['width']
-    pcwidth_intval = pcwidth.to_i.abs
-    if pcwidth_intval == 0 && pcwidth != '0' || pcwidth_intval > 100
+    if (pcwidth = attributes['width'])
+      if (pcwidth_intval = pcwidth.to_i) > 100 || pcwidth_intval < 1
+        pcwidth_intval = 100 unless pcwidth_intval == 0 && (pcwidth == '0' || pcwidth == '0%')
+      end
+    else
       pcwidth_intval = 100
     end
     @attributes['tablepcwidth'] = pcwidth_intval
@@ -88,6 +90,8 @@ class Table < AbstractBlock
       @attributes['tableabswidth'] ||=
           ((@attributes['tablepcwidth'].to_f / 100) * @document.attributes['pagewidth']).round
     end
+
+    attributes['orientation'] = 'landscape' if attributes.key? 'rotate-option'
   end
 
   # Internal: Returns whether the current row being processed is
@@ -99,16 +103,16 @@ class Table < AbstractBlock
   # Internal: Creates the Column objects from the column spec
   #
   # returns nothing
-  def create_columns col_specs
+  def create_columns colspecs
     cols = []
     width_base = 0
-    col_specs.each do |col_spec|
-      width_base += col_spec['width']
-      cols << (Column.new self, cols.size, col_spec)
+    colspecs.each do |colspec|
+      width_base += colspec['width']
+      cols << (Column.new self, cols.size, colspec)
     end
     unless (@columns = cols).empty?
       @attributes['colcount'] = cols.size
-      assign_col_widths(width_base == 0 ? nil : width_base)
+      assign_column_widths(width_base == 0 ? nil : width_base)
     end
     nil
   end
@@ -123,7 +127,7 @@ class Table < AbstractBlock
   # width_base - the total of the relative column values used for calculating percentage widths (default: nil)
   #
   # returns nothing
-  def assign_col_widths width_base = nil
+  def assign_column_widths width_base = nil
     pf = 10.0 ** 4 # precision factor (multipler / divisor) for managing precision of calculated result
     total_width = col_pcwidth = 0
 
@@ -301,10 +305,10 @@ class Table::ParserContext
 
   # Public: Get the expected column count for a row
   #
-  # col_count is the number of columns to pull into a row
+  # colcount is the number of columns to pull into a row
   # A value of -1 means we use the number of columns found
-  # in the first line as the col_count
-  attr_reader :col_count
+  # in the first line as the colcount
+  attr_reader :colcount
 
   # Public: The String buffer of the currently open cell
   attr_accessor :buffer
@@ -334,12 +338,12 @@ class Table::ParserContext
       attributes['separator'] || Table::DEFAULT_DELIMITERS[@format]
     end
     @delimiter_re = /#{Regexp.escape @delimiter}/
-    @col_count = table.columns.empty? ? -1 : table.columns.size
+    @colcount = table.columns.empty? ? -1 : table.columns.size
     @buffer = ''
-    @cell_specs = []
+    @cellspecs = []
     @cell_open = false
     @active_rowspans = [0]
-    @col_visits = 0
+    @column_visits = 0
     @current_row = []
     @linenum = -1
   end
@@ -392,17 +396,17 @@ class Table::ParserContext
   # when the cell is being closed.
   #
   # returns The cell spec Hash captured from parsing the previous cell
-  def take_cell_spec()
-    @cell_specs.shift
+  def take_cellspec
+    @cellspecs.shift
   end
 
   # Public: Puts a cell spec onto the stack. Cell specs precede the delimiter, so a
   # stack is used to carry over the spec to the next cell.
   #
   # returns nothing
-  def push_cell_spec(cell_spec = {})
+  def push_cellspec(cellspec = {})
     # this shouldn't be nil, but we check anyway
-    @cell_specs << (cell_spec || {})
+    @cellspecs << (cellspec || {})
     nil
   end
 
@@ -443,8 +447,8 @@ class Table::ParserContext
   # by the next cell.
   #
   # returns nothing
-  def close_open_cell(next_cell_spec = {})
-    push_cell_spec next_cell_spec
+  def close_open_cell(next_cellspec = {})
+    push_cellspec next_cellspec
     close_cell(true) if cell_open?
     advance
     nil
@@ -459,17 +463,16 @@ class Table::ParserContext
     cell_text = @buffer.strip
     @buffer = ''
     if @format == 'psv'
-      cell_spec = take_cell_spec
-      if cell_spec
-        repeat = cell_spec.fetch('repeatcol', 1)
-        cell_spec.delete('repeatcol')
+      cellspec = take_cellspec
+      if cellspec
+        repeat = cellspec.delete('repeatcol') || 1
       else
         warn %(asciidoctor: ERROR: #{@last_cursor.line_info}: table missing leading separator, recovering automatically)
-        cell_spec = {}
+        cellspec = {}
         repeat = 1
       end
     else
-      cell_spec = nil
+      cellspec = nil
       repeat = 1
       if @format == 'csv'
         if !cell_text.empty? && cell_text.include?('"')
@@ -487,9 +490,9 @@ class Table::ParserContext
 
     1.upto(repeat) do |i|
       # TODO make column resolving an operation
-      if @col_count == -1
+      if @colcount == -1
         @table.columns << (column = Table::Column.new(@table, @table.columns.size + i - 1))
-        if cell_spec && (cell_spec.key? 'colspan') && (extra_cols = cell_spec['colspan'].to_i - 1) > 0
+        if cellspec && (cellspec.key? 'colspan') && (extra_cols = cellspec['colspan'].to_i - 1) > 0
           offset = @table.columns.size
           extra_cols.times do |j|
             @table.columns << Table::Column.new(@table, offset + j)
@@ -503,16 +506,16 @@ class Table::ParserContext
         end
       end
 
-      cell = Table::Cell.new(column, cell_text, cell_spec, @last_cursor)
+      cell = Table::Cell.new(column, cell_text, cellspec, @last_cursor)
       @last_cursor = @reader.cursor
       unless !cell.rowspan || cell.rowspan == 1
         activate_rowspan(cell.rowspan, (cell.colspan || 1))
       end
-      @col_visits += (cell.colspan || 1)
+      @column_visits += (cell.colspan || 1)
       @current_row << cell
       # don't close the row if we're on the first line and the column count has not been set explicitly
-      # TODO perhaps the col_count/linenum logic should be in end_of_row? (or a should_end_row? method)
-      close_row if end_of_row? && (@col_count != -1 || @linenum > 0 || (eol && i == repeat))
+      # TODO perhaps the colcount/linenum logic should be in end_of_row? (or a should_end_row? method)
+      close_row if end_of_row? && (@colcount != -1 || @linenum > 0 || (eol && i == repeat))
     end
     @cell_open = false
     nil
@@ -526,8 +529,8 @@ class Table::ParserContext
     @table.rows.body << @current_row
     # don't have to account for active rowspans here
     # since we know this is first row
-    @col_count = @col_visits if @col_count == -1
-    @col_visits = 0
+    @colcount = @column_visits if @colcount == -1
+    @column_visits = 0
     @current_row = []
     @active_rowspans.shift
     @active_rowspans[0] ||= 0
@@ -548,13 +551,13 @@ class Table::ParserContext
 
   # Public: Check whether we've met the number of effective columns for the current row.
   def end_of_row?
-    @col_count == -1 || effective_col_visits == @col_count
+    @colcount == -1 || effective_column_visits == @colcount
   end
 
   # Public: Calculate the effective column visits, which consists of the number of
   # cells plus any active rowspans.
-  def effective_col_visits
-    @col_visits + @active_rowspans[0]
+  def effective_column_visits
+    @column_visits + @active_rowspans[0]
   end
 
   # Internal: Advance to the next line (which may come after the parser begins processing

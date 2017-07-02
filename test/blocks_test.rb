@@ -1523,10 +1523,10 @@ image::circle.svg[Tiger,100]
       EOS
 
       output = render_embedded_string input, :safe => Asciidoctor::SafeMode::SERVER, :attributes => { 'docdir' => ::File.dirname(__FILE__) }
-      assert_match(/<svg [^>]*width="100px"[^>]*>/, output, 1)
-      refute_match(/<svg [^>]*width="500px"[^>]*>/, output)
-      refute_match(/<svg [^>]*height="500px"[^>]*>/, output)
-      refute_match(/<svg [^>]*style="width:500px;height:500px"[^>]*>/, output)
+      assert_match(/<svg\s[^>]*width="100px"[^>]*>/, output, 1)
+      refute_match(/<svg\s[^>]*width="500px"[^>]*>/, output)
+      refute_match(/<svg\s[^>]*height="500px"[^>]*>/, output)
+      refute_match(/<svg\s[^>]*style="width:500px;height:500px"[^>]*>/, output)
     end
 
     test 'renders inline SVG image using svg element even when data-uri is set' do
@@ -1539,7 +1539,7 @@ image::circle.svg[Tiger,100]
       EOS
 
       output = render_embedded_string input, :safe => Asciidoctor::SafeMode::SERVER, :attributes => { 'docdir' => ::File.dirname(__FILE__) }
-      assert_match(/<svg [^>]*width="100px">/, output, 1)
+      assert_match(/<svg\s[^>]*width="100px">/, output, 1)
     end
 
     test 'renders alt text for inline svg element if svg cannot be read' do
@@ -2162,7 +2162,7 @@ You can use icons for admonitions by setting the 'icons' attribute.
       EOS
 
       output = render_string input, :safe => Asciidoctor::SafeMode::SERVER
-      assert_css 'html > head > link[rel="stylesheet"][href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.5.0/css/font-awesome.min.css"]', output, 1
+      assert_css 'html > head > link[rel="stylesheet"][href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css"]', output, 1
       assert_xpath '//*[@class="admonitionblock tip"]//*[@class="icon"]/i[@class="fa icon-tip"]', output, 1
     end
 
@@ -2193,7 +2193,7 @@ puts "AsciiDoc, FTW!"
       EOS
 
       output = render_string input, :safe => Asciidoctor::SafeMode::SAFE
-      assert_css 'html > head > link[rel="stylesheet"][href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.5.0/css/font-awesome.min.css"]', output, 1
+      assert_css 'html > head > link[rel="stylesheet"][href="http://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css"]', output, 1
       assert_css 'html > body > script[src="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.9.1/highlight.min.js"]', output, 1
     end
 
@@ -2210,7 +2210,7 @@ puts "AsciiDoc, FTW!"
       EOS
 
       output = render_string input, :safe => Asciidoctor::SafeMode::SAFE
-      assert_css 'html > head > link[rel="stylesheet"][href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.5.0/css/font-awesome.min.css"]', output, 1
+      assert_css 'html > head > link[rel="stylesheet"][href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css"]', output, 1
       assert_css 'html > body > script[src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/8.9.1/highlight.min.js"]', output, 1
     end
   end

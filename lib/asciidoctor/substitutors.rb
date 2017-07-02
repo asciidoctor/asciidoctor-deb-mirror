@@ -363,54 +363,50 @@ module Substitutors
   end
   alias :sub_specialcharacters :sub_specialchars
 
-  # Public: Substitute quoted text (includes emphasis, strong, monospaced, etc)
-  #
-  # text - The String text to process
-  #
-  # returns The converted String text
-  def sub_quotes(text)
-    if ::RUBY_ENGINE_OPAL
-      result = text
-      QUOTE_SUBS[@document.compat_mode].each {|type, scope, pattern|
-        result = result.gsub(pattern) { convert_quoted_text $~, type, scope }
-      }
-    else
+  if RUBY_ENGINE == 'opal'
+    def sub_quotes text
+      QUOTE_SUBS[@document.compat_mode].each do |type, scope, pattern|
+        text = text.gsub(pattern) { convert_quoted_text $~, type, scope }
+      end
+      text
+    end
+
+    def sub_replacements text
+      REPLACEMENTS.each do |pattern, replacement, restore|
+        text = text.gsub(pattern) { do_replacement $~, replacement, restore }
+      end
+      text
+    end
+  else
+    # Public: Substitute quoted text (includes emphasis, strong, monospaced, etc)
+    #
+    # text - The String text to process
+    #
+    # returns The converted String text
+    def sub_quotes text
       # NOTE interpolation is faster than String#dup
-      result = %(#{text})
+      text = %(#{text})
       # NOTE using gsub! here as an MRI Ruby optimization
-      QUOTE_SUBS[@document.compat_mode].each {|type, scope, pattern|
-        result.gsub!(pattern) { convert_quoted_text $~, type, scope }
-      }
+      QUOTE_SUBS[@document.compat_mode].each do |type, scope, pattern|
+        text.gsub!(pattern) { convert_quoted_text $~, type, scope }
+      end
+      text
     end
 
-    result
-  end
-
-  # Public: Substitute replacement characters (e.g., copyright, trademark, etc)
-  #
-  # text - The String text to process
-  #
-  # returns The String text with the replacement characters substituted
-  def sub_replacements(text)
-    if ::RUBY_ENGINE_OPAL
-      result = text
-      REPLACEMENTS.each {|pattern, replacement, restore|
-        result = result.gsub(pattern) {
-          do_replacement $~, replacement, restore
-        }
-      }
-    else
+    # Public: Substitute replacement characters (e.g., copyright, trademark, etc)
+    #
+    # text - The String text to process
+    #
+    # returns The String text with the replacement characters substituted
+    def sub_replacements text
       # NOTE interpolation is faster than String#dup
-      result = %(#{text})
+      text = %(#{text})
       # NOTE Using gsub! as optimization
-      REPLACEMENTS.each {|pattern, replacement, restore|
-        result.gsub!(pattern) {
-          do_replacement $~, replacement, restore
-        }
-      }
+      REPLACEMENTS.each do |pattern, replacement, restore|
+        text.gsub!(pattern) { do_replacement $~, replacement, restore }
+      end
+      text
     end
-
-    result
   end
 
   # Internal: Substitute replacement text for matched location
@@ -642,6 +638,8 @@ module Substitutors
 
           target = m[1]
           attributes = if extension.config[:format] == :short
+            # TODO if content_model is :attributes, set target to nil and parse attributes
+            # maybe if content_model is :text, we should put content into text attribute
             {}
           else
             if extension.config[:content_model] == :attributes
@@ -1403,7 +1401,7 @@ module Substitutors
       unless (highlighter_loaded = defined? ::CodeRay) || @document.attributes['coderay-unavailable']
         if (Helpers.require_library 'coderay', true, :warn).nil?
           # prevent further attempts to load CodeRay
-          @document.set_attr 'coderay-unavailable', true
+          @document.set_attr 'coderay-unavailable', ''
         else
           highlighter_loaded = true
         end
@@ -1412,7 +1410,7 @@ module Substitutors
       unless (highlighter_loaded = defined? ::Pygments) || @document.attributes['pygments-unavailable']
         if (Helpers.require_library 'pygments', 'pygments.rb', :warn).nil?
           # prevent further attempts to load Pygments
-          @document.set_attr 'pygments-unavailable', true
+          @document.set_attr 'pygments-unavailable', ''
         else
           highlighter_loaded = true
         end
@@ -1460,7 +1458,7 @@ module Substitutors
     when 'coderay'
       if (linenums_mode = (attr? 'linenums') ? (@document.attributes['coderay-linenums-mode'] || :table).to_sym : nil)
         if attr? 'highlight', nil, false
-          highlight_lines = resolve_lines_to_highlight(attr 'highlight', nil, false)
+          highlight_lines = resolve_highlight_lines(attr 'highlight', nil, false)
         end
       end
       result = ::CodeRay::Duo[attr('language', :text, false).to_sym, :html, {
@@ -1477,7 +1475,7 @@ module Substitutors
         opts[:style] = (@document.attributes['pygments-style'] || Stylesheets::DEFAULT_PYGMENTS_STYLE)
       end
       if attr? 'highlight', nil, false
-        unless (highlight_lines = resolve_lines_to_highlight(attr 'highlight', nil, false)).empty?
+        unless (highlight_lines = resolve_highlight_lines(attr 'highlight', nil, false)).empty?
           opts[:hl_lines] = highlight_lines * ' '
         end
       end
@@ -1545,7 +1543,7 @@ module Substitutors
   end
 
   # e.g., highlight="1-5, !2, 10" or highlight=1-5;!2,10
-  def resolve_lines_to_highlight spec
+  def resolve_highlight_lines spec
     lines = []
     spec.delete(' ').split(DataDelimiterRx).map do |entry|
       negate = false

@@ -41,7 +41,7 @@ class Reader
       @file = @dir = nil
       @path = '<stdin>'
       @lineno = 1 # IMPORTANT lineno assignment must proceed prepare_lines call!
-    elsif cursor.is_a? ::String
+    elsif ::String === cursor
       @file = cursor
       @dir, @path = ::File.split @file
       @lineno = 1 # IMPORTANT lineno assignment must proceed prepare_lines call!
@@ -84,7 +84,7 @@ class Reader
   #
   # Returns The String lines extracted from the data
   def prepare_lines data, opts = {}
-    if data.is_a? ::String
+    if ::String === data
       if opts[:normalize]
         Helpers.normalize_lines_from_string data
       else
@@ -732,10 +732,10 @@ class PreprocessorReader < Reader
           skip = !@document.attributes.has_key?(target)
         when ','
           # if any attribute is defined, then don't skip
-          skip = !target.split(',').detect {|name| @document.attributes.has_key? name }
+          skip = target.split(',').none? {|name| @document.attributes.has_key? name }
         when '+'
           # if any attribute is undefined, then skip
-          skip = target.split('+').detect {|name| !@document.attributes.has_key? name }
+          skip = target.split('+').any? {|name| !@document.attributes.has_key? name }
         end
       when 'ifndef'
         case delimiter
@@ -744,10 +744,10 @@ class PreprocessorReader < Reader
           skip = @document.attributes.has_key?(target)
         when ','
           # if any attribute is undefined, then don't skip
-          skip = !target.split(',').detect {|name| !@document.attributes.has_key? name }
+          skip = target.split(',').none? {|name| !@document.attributes.has_key? name }
         when '+'
           # if any attribute is defined, then skip
-          skip = target.split('+').detect {|name| @document.attributes.has_key? name }
+          skip = target.split('+').any? {|name| @document.attributes.has_key? name }
         end
       when 'ifeval'
         # the text in brackets must match an expression
@@ -830,10 +830,11 @@ class PreprocessorReader < Reader
       # FIXME we don't want to use a link macro if we are in a verbatim context
       replace_next_line %(link:#{target}[])
       true
-    elsif (abs_maxdepth = @maxdepth[:abs]) > 0 && @include_stack.size >= abs_maxdepth
-      warn %(asciidoctor: ERROR: #{line_info}: maximum include depth of #{@maxdepth[:rel]} exceeded)
-      false
-    elsif abs_maxdepth > 0
+    elsif (abs_maxdepth = @maxdepth[:abs]) > 0
+      if @include_stack.size >= abs_maxdepth
+        warn %(asciidoctor: ERROR: #{line_info}: maximum include depth of #{@maxdepth[:rel]} exceeded)
+        return false
+      end
       if ::RUBY_ENGINE_OPAL
         # NOTE resolves uri relative to currently loaded document
         # NOTE we defer checking if file exists and catch the 404 error if it does not
@@ -883,7 +884,7 @@ class PreprocessorReader < Reader
           inc_lines = []
           attributes['lines'].split(DataDelimiterRx).each do |linedef|
             if linedef.include?('..')
-              from, to = linedef.split('..').map(&:to_i)
+              from, to = linedef.split('..', 2).map(&:to_i)
               if to == -1
                 inc_lines << from
                 inc_lines << 1.0/0.0
@@ -911,7 +912,7 @@ class PreprocessorReader < Reader
               f.each_line do |l|
                 inc_lineno += 1
                 take = inc_lines[0]
-                if take.is_a?(::Float) && take.infinite?
+                if ::Float === take && take.infinite?
                   selected.push l
                   inc_line_offset = inc_lineno if inc_line_offset == 0
                 else
@@ -1010,7 +1011,7 @@ class PreprocessorReader < Reader
   #    data = IO.read file
   #    reader.push_include data, file, path
   #
-  # Returns nothing.
+  # Returns this Reader object.
   def push_include data, file = nil, path = nil, lineno = 1, attributes = {}
     @include_stack << [@lines, @file, @dir, @path, @lineno, @maxdepth, @process_lines]
     if file
@@ -1064,7 +1065,7 @@ class PreprocessorReader < Reader
       @eof = false
       @look_ahead = 0
     end
-    nil
+    self
   end
 
   def pop_include

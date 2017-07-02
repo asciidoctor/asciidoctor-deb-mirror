@@ -19,7 +19,7 @@ module Asciidoctor
       #:latexmath   => INLINE_MATH_DELIMITERS[:latexmath] + [false]
     }).default = [nil, nil, nil]
 
-    SvgPreambleRx = /\A.*?(?=<svg[ >])/m
+    SvgPreambleRx = /\A.*?(?=<svg\b)/m
     SvgStartTagRx = /\A<svg[^>]*>/
     DimensionAttributeRx = /\s(?:width|height|style)=(["']).*?\1/
 
@@ -74,7 +74,7 @@ module Asciidoctor
 
       if node.attr? 'icons', 'font'
         if node.attr? 'iconfont-remote'
-          result << %(<link rel="stylesheet" href="#{node.attr 'iconfont-cdn', %[#{cdn_base}/font-awesome/4.5.0/css/font-awesome.min.css]}"#{slash}>)
+          result << %(<link rel="stylesheet" href="#{node.attr 'iconfont-cdn', %[#{cdn_base}/font-awesome/4.6.3/css/font-awesome.min.css]}"#{slash}>)
         else
           iconfont_stylesheet = %(#{node.attr 'iconfont-name', 'font-awesome'}.css)
           result << %(<link rel="stylesheet" href="#{node.normalize_web_path iconfont_stylesheet, (node.attr 'stylesdir', ''), false}"#{slash}>)
@@ -220,7 +220,7 @@ module Asciidoctor
 
       if node.attr? 'stem'
         eqnums_val = node.attr 'eqnums', 'none'
-        eqnums_val = 'AMS' if eqnums_val == ''
+        eqnums_val = 'AMS' if eqnums_val.empty?
         eqnums_opt = %( equationNumbers: { autoNumber: "#{eqnums_val}" } )
         # IMPORTANT inspect calls on delimiter arrays are intentional for JavaScript compat (emulates JSON.stringify)
         result << %(<script type="text/x-mathjax-config">
@@ -321,15 +321,18 @@ MathJax.Hub.Config({
       htag = %(h#{slevel + 1})
       id_attr = anchor = link_start = link_end = nil
       if node.id
-        id_attr = %( id="#{node.id}")
-        if node.document.attr? 'sectanchors'
-          anchor = %(<a class="anchor" href="##{node.id}"></a>)
+        id_attr = %( id="#{id = node.id}")
+        if (doc = node.document).attr? 'sectanchors'
+          anchor = %(<a class="anchor" href="##{id}"></a>)
           # possible idea - anchor icons GitHub-style
-          #if node.document.attr? 'icons', 'font'
-          #  anchor = %(<a class="anchor" href="##{node.id}"><i class="fa fa-anchor"></i></a>)
+          #if doc.attr? 'icons', 'font'
+          #  anchor = %(<a class="anchor" href="##{id}"><i class="fa fa-anchor"></i></a>)
           #else
-        elsif node.document.attr? 'sectlinks'
-          link_start = %(<a class="link" href="##{node.id}">)
+          #  anchor = %(<a class="anchor" href="##{id}"></a>)
+          #end
+        end
+        if doc.attr? 'sectlinks'
+          link_start = %(<a class="link" href="##{id}">)
           link_end = '</a>'
         end
       end
@@ -377,9 +380,9 @@ MathJax.Hub.Config({
     end
 
     def audio node
-      xml = node.document.attr? 'htmlsyntax', 'xml'
+      xml = @xml_mode
       id_attribute = node.id ? %( id="#{node.id}") : nil
-      classes = ['audioblock', node.style, node.role].compact
+      classes = ['audioblock', node.role].compact
       class_attribute = %( class="#{classes * ' '}")
       title_element = node.title? ? %(<div class="title">#{node.captioned_title}</div>\n) : nil
       %(<div#{id_attribute}#{class_attribute}>
@@ -537,7 +540,7 @@ Your browser does not support the audio tag.
       target = node.attr 'target'
       width_attr = (node.attr? 'width') ? %( width="#{node.attr 'width'}") : nil
       height_attr = (node.attr? 'height') ? %( height="#{node.attr 'height'}") : nil
-      if ((node.attr? 'format', 'svg', false) || (target.include? '.svg')) && node.document.safe < SafeMode::SECURE
+      if ((node.attr? 'format', 'svg', false) || (target.include? '.svg')) && node.document.safe < SafeMode::SECURE &&
           ((svg = (node.option? 'inline')) || (obj = (node.option? 'interactive')))
         if svg
           img = (read_svg_contents node, target) || %(<span class="alt">#{node.attr 'alt'}</span>)
@@ -551,7 +554,7 @@ Your browser does not support the audio tag.
         img = %(<a class="image" href="#{link}">#{img}</a>)
       end
       id_attr = node.id ? %( id="#{node.id}") : nil
-      classes = ['imageblock', node.style, node.role].compact
+      classes = ['imageblock', node.role].compact
       class_attr = %( class="#{classes * ' '}")
       styles = []
       styles << %(text-align: #{node.attr 'align'}) if node.attr? 'align'
@@ -645,7 +648,8 @@ Your browser does not support the audio tag.
 
       type_attribute = (keyword = node.list_marker_keyword) ? %( type="#{keyword}") : nil
       start_attribute = (node.attr? 'start') ? %( start="#{node.attr 'start'}") : nil
-      result << %(<ol class="#{node.style}"#{type_attribute}#{start_attribute}>)
+      reversed_attribute = (node.option? 'reversed') ? (append_boolean_attribute 'reversed', @xml_mode) : nil
+      result << %(<ol class="#{node.style}"#{type_attribute}#{start_attribute}#{reversed_attribute}>)
 
       node.items.each do |item|
         result << '<li>'
@@ -666,19 +670,19 @@ Your browser does not support the audio tag.
           ''
         else
           id_attr = node.id ? %( id="#{node.id}") : nil
-          title_el = node.title? ? %(<div class="title">#{node.title}</div>) : nil
+          title_el = node.title? ? %(<div class="title">#{node.title}</div>\n) : nil
           %(<div#{id_attr} class="quoteblock abstract#{(role = node.role) && " #{role}"}">
 #{title_el}<blockquote>
 #{node.content}
 </blockquote>
 </div>)
         end
-      elsif style == 'partintro' && (node.level != 0 || node.parent.context != :section || node.document.doctype != 'book')
+      elsif style == 'partintro' && (node.level > 0 || node.parent.context != :section || node.document.doctype != 'book')
         warn 'asciidoctor: ERROR: partintro block can only be used when doctype is book and it\'s a child of a book part. Excluding block content.'
         ''
       else
           id_attr = node.id ? %( id="#{node.id}") : nil
-          title_el = node.title? ? %(<div class="title">#{node.title}</div>) : nil
+          title_el = node.title? ? %(<div class="title">#{node.title}</div>\n) : nil
         %(<div#{id_attr} class="openblock#{style && style != 'open' ? " #{style}" : ''}#{(role = node.role) && " #{role}"}">
 #{title_el}<div class="content">
 #{node.content}
@@ -766,11 +770,11 @@ Your browser does not support the audio tag.
       id_attribute = node.id ? %( id="#{node.id}") : nil
       classes = ['tableblock', %(frame-#{node.attr 'frame', 'all'}), %(grid-#{node.attr 'grid', 'all'})]
       styles = []
-      unless node.option? 'autowidth'
-        if (tablepcwidth = node.attr 'tablepcwidth') == 100
+      unless (node.option? 'autowidth') && !(node.attr? 'width', nil, false)
+        if node.attr? 'tablepcwidth', 100
           classes << 'spread'
         else
-          styles << %(width: #{tablepcwidth}%;)
+          styles << %(width: #{node.attr 'tablepcwidth'}%;)
         end
       end
       if (role = node.role)
@@ -867,7 +871,7 @@ Your browser does not support the audio tag.
         div_classes.insert 1, 'checklist'
         ul_class_attribute = ' class="checklist"'
         if node.option? 'interactive'
-          if node.document.attr? 'htmlsyntax', 'xml'
+          if @xml_mode
             marker_checked = '<input type="checkbox" data-item-complete="1" checked="checked"/> '
             marker_unchecked = '<input type="checkbox" data-item-complete="0"/> '
           else
@@ -927,9 +931,9 @@ Your browser does not support the audio tag.
     end
 
     def video node
-      xml = node.document.attr? 'htmlsyntax', 'xml'
+      xml = @xml_mode
       id_attribute = node.id ? %( id="#{node.id}") : nil
-      classes = ['videoblock', node.style, node.role].compact
+      classes = ['videoblock', node.role].compact
       class_attribute = %( class="#{classes * ' '}")
       title_element = node.title? ? %(\n<div class="title">#{node.captioned_title}</div>) : nil
       width_attribute = (node.attr? 'width') ? %( width="#{node.attr 'width'}") : nil
@@ -1070,7 +1074,7 @@ Your browser does not support the video tag.
     def inline_image node
       if (type = node.type) == 'icon' && (node.document.attr? 'icons', 'font')
         class_attr_val = %(fa fa-#{node.target})
-        {'size' => 'fa-', 'rotate' => 'fa-rotate-', 'flip' => 'fa-flip-'}.each do |(key, prefix)|
+        {'size' => 'fa-', 'rotate' => 'fa-rotate-', 'flip' => 'fa-flip-'}.each do |key, prefix|
           class_attr_val = %(#{class_attr_val} #{prefix}#{node.attr key}) if node.attr? key
         end
         title_attr = (node.attr? 'title') ? %( title="#{node.attr 'title'}") : nil
@@ -1146,16 +1150,17 @@ Your browser does not support the video tag.
 
     def read_svg_contents node, target
       if (svg = node.read_contents target, :start => (node.document.attr 'imagesdir'), :normalize => true, :label => 'SVG')
-        svg = svg.sub SvgPreambleRx, ''
-        start_tag = nil
+        svg = svg.sub SvgPreambleRx, '' unless svg.start_with? '<svg'
+        old_start_tag = new_start_tag = nil
+        # NOTE width, height and style attributes are removed if either width or height is specified
         ['width', 'height'].each do |dim|
           if node.attr? dim
-            # NOTE width, height and style attributes are removed if either width or height is specified
-            start_tag ||= (svg.match SvgStartTagRx)[0].gsub DimensionAttributeRx, ''
-            start_tag = %(#{start_tag.chop} #{dim}="#{node.attr dim}px">)
+            new_start_tag = (old_start_tag = (svg.match SvgStartTagRx)[0]).gsub DimensionAttributeRx, '' unless new_start_tag
+            # QUESTION should we add px since it's already the default?
+            new_start_tag = %(#{new_start_tag.chop} #{dim}="#{node.attr dim}px">)
           end
         end
-        svg = svg.sub SvgStartTagRx, start_tag if start_tag
+        svg = %(#{new_start_tag}#{svg[old_start_tag.length..-1]}) if new_start_tag
       end
       svg
     end

@@ -19,6 +19,6 @@ Subject: Exclude lib/ directory from tests
  
 -require File.join(ASCIIDOCTOR_PROJECT_DIR, 'lib', 'asciidoctor')
 +require 'asciidoctor'
-
+ 
  require 'socket'
  require 'nokogiri'

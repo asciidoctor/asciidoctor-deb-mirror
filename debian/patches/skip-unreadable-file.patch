@@ -5,11 +5,9 @@ Origin: vendor
 Forwarded: no
 ---
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
-Index: asciidoctor/test/reader_test.rb
-===================================================================
---- asciidoctor.orig/test/reader_test.rb	2016-02-29 17:15:14.900028599 +0100
-+++ asciidoctor/test/reader_test.rb	2016-02-29 18:16:05.506299075 +0100
-@@ -618,6 +618,7 @@
+--- a/test/reader_test.rb
++++ b/test/reader_test.rb
+@@ -618,6 +618,7 @@ trailing content
        end
  
        test 'unreadable file referenced by include directive is replaced by warning' do

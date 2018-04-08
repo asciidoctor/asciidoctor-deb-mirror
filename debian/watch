@@ -1,2 +1,2 @@
 version=3
-http://pkg-ruby-extras.alioth.debian.org/cgi-bin/gemwatch/asciidoctor .*/asciidoctor-(.*).tar.gz
+https://pkg-ruby-extras.alioth.debian.org/cgi-bin/gemwatch/asciidoctor .*/asciidoctor-(.*).tar.gz

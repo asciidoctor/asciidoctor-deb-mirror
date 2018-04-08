@@ -7,7 +7,7 @@ Last-Update: 2015-11-17
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/test/blocks_test.rb
 +++ b/test/blocks_test.rb
-@@ -1278,6 +1278,7 @@ sqrt(3x-1)+(1+x)^2 < y
+@@ -1322,6 +1322,7 @@
      end
  
      test 'should render asciimath block in textobject of equation in DocBook backend' do
@@ -17,7 +17,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  ++++
 --- a/test/substitutions_test.rb
 +++ b/test/substitutions_test.rb
-@@ -1374,6 +1374,7 @@ EOS
+@@ -1594,6 +1594,7 @@
        #end
  
        test 'should convert asciimath macro content to MathML when asciimath gem is available' do

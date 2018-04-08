@@ -2,18 +2,18 @@ From: Guillaume Grossetie <ggrossetie@gmail.com>
 Subject: Exclude lib/ directory from tests
 --- a/Rakefile
 +++ b/Rakefile
-@@ -20,7 +20,7 @@ begin
-   Rake::TestTask.new(:test) do |test|
+@@ -20,7 +20,7 @@
+   Rake::TestTask.new(:test) do |t|
      prepare_test_env
      puts %(LANG: #{ENV['LANG']}) if ENV.key? 'TRAVIS_BUILD_ID'
--    test.libs << 'test'
-+    test.libs = ['test']
-     test.pattern = 'test/**/*_test.rb'
-     test.verbose = true
-     test.warning = true
+-    t.libs << 'test'
++    t.libs = ['test']
+     t.pattern = 'test/**/*_test.rb'
+     t.verbose = true
+     t.warning = true
 --- a/test/test_helper.rb
 +++ b/test/test_helper.rb
-@@ -8,7 +8,7 @@ end
+@@ -8,7 +8,7 @@
  
  require 'simplecov' if ENV['COVERAGE'] == 'true'
  

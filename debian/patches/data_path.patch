@@ -3,8 +3,8 @@ Subject: Load data from /usr/share/asciidoctor path
 Bug-Debian: https://bugs.debian.org/788052
 --- a/lib/asciidoctor.rb
 +++ b/lib/asciidoctor.rb
-@@ -175,7 +175,7 @@ module Asciidoctor
-   LIB_PATH = ::File.join ROOT_PATH, 'lib'
+@@ -189,7 +189,7 @@
+   #LIB_PATH = ::File.join ROOT_PATH, 'lib'
  
    # The absolute data path of the Asciidoctor RubyGem
 -  DATA_PATH = ::File.join ROOT_PATH, 'data'

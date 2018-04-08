@@ -3,7 +3,8 @@ Section: ruby
 Priority: optional
 Maintainer: Debian Ruby Extras Maintainers <pkg-ruby-extras-maintainers@lists.alioth.debian.org>
 Uploaders: Per Andersson <avtobiff@gmail.com>,
-           Guillaume Grossetie <ggrossetie@gmail.com>
+           Guillaume Grossetie <ggrossetie@gmail.com>,
+           Joseph Herlant <herlantj@gmail.com>
 Build-Depends: coderay,
                debhelper (>= 9~),
                erubis,

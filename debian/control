@@ -6,7 +6,7 @@ Uploaders: Per Andersson <avtobiff@gmail.com>,
            Guillaume Grossetie <ggrossetie@gmail.com>,
            Joseph Herlant <herlantj@gmail.com>
 Build-Depends: coderay,
-               debhelper (>= 9~),
+               debhelper (>= 11),
                erubis,
                gem2deb,
                locales,
@@ -18,7 +18,7 @@ Build-Depends: coderay,
                ruby-slim,
                ruby-thread-safe,
                ruby-tilt
-Standards-Version: 3.9.8
+Standards-Version: 4.1.4
 Vcs-Git: https://anonscm.debian.org/git/pkg-ruby-extras/asciidoctor.git
 Vcs-Browser: https://anonscm.debian.org/cgit/pkg-ruby-extras/asciidoctor.git
 Homepage: http://asciidoctor.org

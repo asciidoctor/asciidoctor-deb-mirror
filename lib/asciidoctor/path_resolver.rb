@@ -124,33 +124,49 @@ class PathResolver
   def initialize file_separator = nil, working_dir = nil
     @file_separator = file_separator ? file_separator : (::File::ALT_SEPARATOR || ::File::SEPARATOR)
     if working_dir
-      @working_dir = (is_root? working_dir) ? working_dir : (::File.expand_path working_dir)
+      @working_dir = (root? working_dir) ? working_dir : (::File.expand_path working_dir)
     else
       @working_dir = ::File.expand_path ::Dir.pwd
     end
-    @_partition_path_sys = {}
-    @_partition_path_web = {}
+    @_partition_path_sys, @_partition_path_web = {}, {}
   end
 
-  # Public: Check if the specified path is an absolute root path
-  # This operation correctly handles both posix and windows paths.
+  # Public: Check whether the specified path is an absolute path.
+  #
+  # This operation considers both posix paths and Windows paths. It does not
+  # consider URIs.
+  #
+  # Unix absolute paths and UNC paths both start with slash. Windows roots can
+  # start with a drive letter.
   #
   # path - the String path to check
   #
   # returns a Boolean indicating whether the path is an absolute root path
-  def is_root? path
-    # Unix absolute paths and UNC paths start with slash
-    if path.start_with? SLASH
-      true
-    # Windows roots can begin with drive letter
-    elsif @file_separator == BACKSLASH && WindowsRootRx =~ path
-      true
-    # Absolute paths in the browser start with file:///
-    elsif ::RUBY_ENGINE_OPAL && ::JAVASCRIPT_PLATFORM == 'browser' && (path.start_with? 'file:///')
-      true
-    else
-      false
+  def absolute_path? path
+    (path.start_with? SLASH) || (@file_separator == BACKSLASH && (WindowsRootRx.match? path))
+  end
+
+  # Public: Check if the specified path is an absolute root path (or, in the
+  # browser environment, an absolute URI as well)
+  #
+  # This operation considers both posix paths and Windows paths. If the JavaScript IO
+  # module is xmlhttprequest, this operation also considers absolute URIs.
+  #
+  # Unix absolute paths and UNC paths start with slash. Windows roots can
+  # start with a drive letter. When the IO module is xmlhttprequest (Opal
+  # runtime only), an absolute (qualified) URI (starts with file://, http://,
+  # or https://) is also considered to be an absolute path.
+  #
+  # path - the String path to check
+  #
+  # returns a Boolean indicating whether the path is an absolute root path (or
+  # an absolute URI when the JavaScript IO module is xmlhttprequest)
+  if RUBY_ENGINE == 'opal' && ::JAVASCRIPT_IO_MODULE == 'xmlhttprequest'
+    def root? path
+      (absolute_path? path) || (path.start_with? 'file://', 'http://', 'https://')
     end
+  else
+    alias root? absolute_path?
   end
 
   # Public: Determine if the path is a UNC (root) path
@@ -158,7 +174,7 @@ class PathResolver
   # path - the String path to check
   #
   # returns a Boolean indicating whether the path is a UNC path
-  def is_unc? path
+  def unc? path
     path.start_with? DOUBLE_SLASH
   end
 
@@ -167,8 +183,20 @@ class PathResolver
   # path - the String path to check
   #
   # returns a Boolean indicating whether the path is an absolute (root) web path
-  def is_web_root? path
+  def web_root? path
     path.start_with? SLASH
+  end
+
+  # Public: Determine whether path descends from base.
+  #
+  # If path equals base, or base is a parent of path, return true.
+  #
+  # path - The String path to check. Can be relative.
+  # base - The String base path to check against. Can be relative.
+  #
+  # returns If path descends from base, return the offset, otherwise false.
+  def descends_from? path, base
+    base == path ? 0 : ((path.start_with? base + '/') ? base.length + 1 : false)
   end
 
   # Public: Normalize path by converting any backslashes to forward slashes
@@ -176,7 +204,7 @@ class PathResolver
   # path - the String path to normalize
   #
   # returns a String path with any backslashes replaced with forward slashes
-  def posixfy path
+  def posixify path
     if path.nil_or_empty?
       ''
     elsif path.include? BACKSLASH
@@ -185,6 +213,7 @@ class PathResolver
       path
     end
   end
+  alias posixfy posixify
 
   # Public: Expand the path by resolving any parent references (..)
   # and cleaning self references (.).
@@ -206,25 +235,25 @@ class PathResolver
   # or segments that are self references (.). The path is converted to a posix
   # path before being partitioned.
   #
-  # path     - the String path to partition
-  # web_path - a Boolean indicating whether the path should be handled
-  #            as a web path (optional, default: false)
+  # path - the String path to partition
+  # web  - a Boolean indicating whether the path should be handled
+  #        as a web path (optional, default: false)
   #
   # Returns a 3-item Array containing the Array of String path segments, the
   # path root (e.g., '/', './', 'c:/') if the path is absolute and the posix
   # version of the path.
   #--
   # QUESTION is it worth it to normalize slashes? it doubles the time elapsed
-  def partition_path path, web_path = false
-    if (result = web_path ? @_partition_path_web[path] : @_partition_path_sys[path])
+  def partition_path path, web = nil
+    if (result = (cache = web ? @_partition_path_web : @_partition_path_sys)[path])
       return result
     end
 
-    posix_path = posixfy path
+    posix_path = posixify path
 
-    root = if web_path
+    root = if web
       # ex. /sample/path
-      if is_web_root? posix_path
+      if web_root? posix_path
         SLASH
       # ex. ./sample/path
       elsif posix_path.start_with? DOT_SLASH
@@ -234,16 +263,16 @@ class PathResolver
         nil
       end
     else
-      if is_root? posix_path
+      if root? posix_path
         # ex. //sample/path
-        if is_unc? posix_path
+        if unc? posix_path
           DOUBLE_SLASH
         # ex. /sample/path
         elsif posix_path.start_with? SLASH
           SLASH
-        # ex. c:/sample/path (or file:///sample/path in browser environment)
+        # ex. C:/sample/path (or file:///sample/path in browser environment)
         else
-          posix_path[0..(posix_path.index SLASH)]
+          posix_path.slice 0, (posix_path.index SLASH) + 1
         end
       # ex. ./sample/path
       elsif posix_path.start_with? DOT_SLASH
@@ -260,7 +289,7 @@ class PathResolver
       path_segments = path_segments[2..-1]
     # shift twice for a file:/// path and adjust root
     # NOTE technically file:/// paths work without this adjustment
-    #elsif ::RUBY_ENGINE_OPAL && ::JAVASCRIPT_PLATFORM == 'browser' && root == 'file:/'
+    #elsif ::RUBY_ENGINE_OPAL && ::JAVASCRIPT_IO_MODULE == 'xmlhttprequest' && root == 'file:/'
     #  root = 'file://'
     #  path_segments = path_segments[2..-1]
     # shift once for any other root
@@ -269,9 +298,9 @@ class PathResolver
     end
     # strip out all dot entries
     path_segments.delete DOT
-    # QUESTION should we chomp trailing /? (we pay a small fraction)
-    #posix_path = posix_path.chomp '/'
-    (web_path ? @_partition_path_web : @_partition_path_sys)[path] = [path_segments, root, posix_path]
+    # QUESTION should we chop trailing /? (we pay a small fraction)
+    #posix_path = posix_path.chop if posix_path.end_with? SLASH
+    cache[path] = [path_segments, root, posix_path]
   end
 
   # Public: Join the segments using the posix file separator (since Ruby knows
@@ -285,11 +314,7 @@ class PathResolver
   # returns a String path formed by joining the segments using the posix file
   # separator and prepending the root, if specified
   def join_path segments, root = nil
-    if root
-      %(#{root}#{segments * SLASH})
-    else
-      segments * SLASH
-    end
+    root ? %(#{root}#{segments * SLASH}) : segments * SLASH
   end
 
   # Public: Resolve a system path from the target and start paths. If a jail
@@ -300,8 +325,8 @@ class PathResolver
   # specified in the constructor.
   #
   # target - the String target path
-  # start  - the String start (i.e., parent) path
-  # jail   - the String jail path to confine the resolved path
+  # start  - the String start (i.e., parent) path (default: nil)
+  # jail   - the String jail path to confine the resolved path (default: nil)
   # opts   - an optional Hash of options to control processing (default: {}):
   #          * :recover is used to control whether the processor should auto-recover
   #              when an illegal path is encountered
@@ -310,12 +335,12 @@ class PathResolver
   # returns a String path that joins the target path with the start path with
   # any parent references resolved and self references removed and enforces
   # that the resolved path be contained within the jail, if provided
-  def system_path target, start, jail = nil, opts = {}
+  def system_path target, start = nil, jail = nil, opts = {}
     if jail
-      unless is_root? jail
+      unless root? jail
         raise ::SecurityError, %(Jail is not an absolute path: #{jail})
       end
-      jail = posixfy jail
+      jail = posixify jail
     end
 
     if target.nil_or_empty?
@@ -327,7 +352,7 @@ class PathResolver
     if target_segments.empty?
       if start.nil_or_empty?
         return jail ? jail : @working_dir
-      elsif is_root? start
+      elsif root? start
         unless jail
           return expand_path start
         end
@@ -347,8 +372,8 @@ class PathResolver
 
     if start.nil_or_empty?
       start = jail ? jail : @working_dir
-    elsif is_root? start
-      start = posixfy start
+    elsif root? start
+      start = posixify start
     else
       start = system_path start, jail, jail, opts
     end
@@ -379,7 +404,7 @@ class PathResolver
     target_segments.each do |segment|
       if segment == DOT_DOT
         if jail
-          if resolved_segments.length > jail_segments.length
+          if resolved_segments.size > jail_segments.size
             resolved_segments.pop
           elsif !(recover ||= (opts.fetch :recover, true))
             raise ::SecurityError, %(#{opts[:target_name] || 'path'} #{target} refers to location outside jail: #{jail} (disallowed in safe mode))
@@ -391,7 +416,7 @@ class PathResolver
           resolved_segments.pop
         end
       else
-        resolved_segments.push segment
+        resolved_segments << segment
       end
     end
 
@@ -412,19 +437,19 @@ class PathResolver
   # start path with any parent references resolved and self
   # references removed
   def web_path target, start = nil
-    target = posixfy target
-    start = posixfy start
+    target = posixify target
+    start = posixify start
     uri_prefix = nil
 
-    unless start.nil_or_empty? || (is_web_root? target)
-      target = %(#{start.chomp '/'}#{SLASH}#{target})
+    unless start.nil_or_empty? || (web_root? target)
+      target = (start.end_with? SLASH) ? %(#{start}#{target}) : %(#{start}#{SLASH}#{target})
       if (uri_prefix = Helpers.uri_prefix target)
         target = target[uri_prefix.length..-1]
       end
     end
 
     # use this logic instead if we want to normalize target if it contains a URI
-    #unless is_web_root? target
+    #unless web_root? target
     #  if preserve_uri_target && (uri_prefix = Helpers.uri_prefix target)
     #    target = target[uri_prefix.length..-1]
     #  elsif !start.nil_or_empty?
@@ -453,25 +478,25 @@ class PathResolver
       end
     end
 
-    if uri_prefix
-      %(#{uri_prefix}#{join_path resolved_segments, target_root})
-    else
-      join_path resolved_segments, target_root
+    if (resolved_path = join_path resolved_segments, target_root).include? ' '
+      resolved_path = resolved_path.gsub ' ', '%20'
     end
+
+    uri_prefix ? %(#{uri_prefix}#{resolved_path}) : resolved_path
   end
 
   # Public: Calculate the relative path to this absolute filename from the specified base directory
   #
-  # If either the filename or the base_directory are not absolute paths, no work is done.
+  # If either the filename or the base_directory are not absolute paths, or the
+  # filename is not contained within the base directory, no work is done.
   #
-  # filename       - An absolute file name as a String
-  # base_directory - An absolute base directory as a String
+  # filename       - [String] an absolute filename.
+  # base_directory - [String] an absolute base directory.
   #
-  # Return the relative path String of the filename calculated from the base directory
+  # Return the [String] relative path of the filename calculated from the base directory.
   def relative_path filename, base_directory
-    if (is_root? filename) && (is_root? base_directory)
-      offset = base_directory.chomp(@file_separator).length + 1
-      filename[offset..-1]
+    if (root? filename) && (filename.start_with? base_directory)
+      filename.slice base_directory.length + 1, filename.length
     else
       filename
     end

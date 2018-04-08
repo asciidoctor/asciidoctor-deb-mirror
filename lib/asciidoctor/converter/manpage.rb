@@ -10,7 +10,7 @@ module Asciidoctor
     TAB = %(\t)
     WHITESPACE = %(#{LF}#{TAB} )
     ET = ' ' * 8
-    ESC = %(\u001b)      # troff leader marker
+    ESC = %(\u001b) # troff leader marker
     ESC_BS = %(#{ESC}\\) # escaped backslash (indicates troff formatting sequence)
     ESC_FS = %(#{ESC}.)  # escaped full stop (indicates troff macro)
 
@@ -60,6 +60,7 @@ module Asciidoctor
         gsub('\'', '\(aq').       # apostrophe-quote
         gsub(MockBoundaryRx, ''). # mock boundary
         gsub(ESC_BS, '\\').       # unescape troff backslash (NOTE update if more escapes are added)
+        gsub(ESC_FS, '.').        # unescape full stop in troff commands (NOTE must take place after gsub(LeadingPeriodRx))
         rstrip                    # strip trailing space
       opts[:append_newline] ? %(#{str}#{LF}) : str
     end
@@ -159,13 +160,10 @@ Author(s).
     end
 
     def section node
-      slevel = node.level
-      # QUESTION should the check for slevel be done in section?
-      slevel = 1 if slevel == 0 && node.special
       result = []
-      if slevel > 1
+      if node.level > 1
         macro = 'SS'
-        # QUESTION why captioned title? why not for slevel == 1?
+        # QUESTION why captioned title? why not when level == 1?
         stitle = node.captioned_title
       else
         macro = 'SH'
@@ -187,7 +185,7 @@ Author(s).
 .nr an-break-flag 1
 .br
 .ps +1
-.B #{node.caption}#{node.title? ? "\\fP #{manify node.title}" : nil}
+.B #{node.attr 'textlabel'}#{node.title? ? "\\fP: #{manify node.title}" : nil}
 .ps -1
 .br
 #{resolve_content node}
@@ -196,7 +194,7 @@ Author(s).
       result * LF
     end
 
-    alias :audio :skip_with_warning
+    alias audio skip_with_warning
 
     def colist node
       result = []
@@ -207,10 +205,12 @@ Author(s).
 tab(:);
 r lw(\n(.lu*75u/100u).'
 
-      node.items.each_with_index do |item, index|
-        result << %(\\fB(#{index + 1})\\fP\\h'-2n':T{
-#{manify item.text}
-T})
+      num = 0
+      node.items.each do |item|
+        result << %(\\fB(#{num += 1})\\fP\\h'-2n':T{)
+        result << (manify item.text)
+        result << item.content if item.blocks?
+        result << 'T}'
       end
       result << '.TE'
       result * LF
@@ -226,11 +226,11 @@ T})
         case node.style
         when 'qanda'
           result << %(.sp
-#{counter}. #{manify([*terms].map {|dt| dt.text }.join ' ')}
+#{counter}. #{manify([*terms].map {|dt| dt.text } * ' ')}
 .RS 4)
         else
           result << %(.sp
-#{manify([*terms].map {|dt| dt.text }.join ', ')}
+#{manify([*terms].map {|dt| dt.text } * ', ')}
 .RS 4)
         end
         if dd
@@ -257,7 +257,7 @@ T})
       %(.SS "#{manify node.title}")
     end
 
-    alias :image :skip_with_warning
+    alias image skip_with_warning
 
     def listing node
       result = []
@@ -328,7 +328,7 @@ T})
     end
 
     # TODO use Page Control https://www.gnu.org/software/groff/manual/html_node/Page-Control.html#Page-Control
-    alias :page_break :skip
+    alias page_break skip
 
     def paragraph node
       if node.title?
@@ -342,7 +342,7 @@ T})
       end
     end
 
-    alias :preamble :content
+    alias preamble content
 
     def quote node
       result = []
@@ -373,7 +373,7 @@ T})
       result * LF
     end
 
-    alias :sidebar :skip_with_warning
+    alias sidebar skip_with_warning
 
     def stem node
       title_element = node.title? ? %(.sp
@@ -402,15 +402,16 @@ T})
 .nr an-no-space-flag 1
 .nr an-break-flag 1
 .br
-.B #{manify node.captioned_title})
+.B #{manify node.captioned_title}
+)
       end
       result << '.TS
 allbox tab(:);'
       row_header = []
       row_text = []
       row_index = 0
-      [:head, :body, :foot].each do |tsec|
-        node.rows[tsec].each do |row|
+      node.rows.by_section.each do |tsec, rows|
+        rows.each do |row|
           row_header[row_index] ||= []
           row_text[row_index] ||= []
           # result << LF
@@ -430,19 +431,17 @@ allbox tab(:);'
               row_text[row_index] << %(T{#{LF}.sp#{LF}T}:)
             end
             row_text[row_index] << %(T{#{LF}.sp#{LF})
-            cell_halign = (cell.attr 'halign', 'left')[0..0]
+            cell_halign = (cell.attr 'halign', 'left').chr
             if tsec == :head
-              if row_header[row_index].empty? ||
-                 row_header[row_index][cell_index].empty?
+              if row_header[row_index].empty? || row_header[row_index][cell_index].empty?
                 row_header[row_index][cell_index] << %(#{cell_halign}tB)
               else
                 row_header[row_index][cell_index + 1] ||= []
                 row_header[row_index][cell_index + 1] << %(#{cell_halign}tB)
               end
-              row_text[row_index] << %(#{cell.text}#{LF})
+              row_text[row_index] << %(#{manify cell.text}#{LF})
             elsif tsec == :body
-              if row_header[row_index].empty? ||
-                 row_header[row_index][cell_index].empty?
+              if row_header[row_index].empty? || row_header[row_index][cell_index].empty?
                 row_header[row_index][cell_index] << %(#{cell_halign}t)
               else
                 row_header[row_index][cell_index + 1] ||= []
@@ -451,26 +450,26 @@ allbox tab(:);'
               case cell.style
               when :asciidoc
                 cell_content = cell.content
-              when :verse, :literal
-                cell_content = cell.text
+              when :literal
+                cell_content = %(.nf#{LF}#{manify cell.text}#{LF}.fi)
+              when :verse
+                cell_content = %(.nf#{LF}#{manify cell.text}#{LF}.fi)
               else
-                cell_content = cell.content.join
+                cell_content = manify cell.content.join
               end
               row_text[row_index] << %(#{cell_content}#{LF})
             elsif tsec == :foot
-              if row_header[row_index].empty? ||
-                 row_header[row_index][cell_index].empty?
+              if row_header[row_index].empty? || row_header[row_index][cell_index].empty?
                 row_header[row_index][cell_index] << %(#{cell_halign}tB)
               else
                 row_header[row_index][cell_index + 1] ||= []
                 row_header[row_index][cell_index + 1] << %(#{cell_halign}tB)
               end
-              row_text[row_index] << %(#{cell.text}#{LF})
+              row_text[row_index] << %(#{manify cell.text}#{LF})
             end
             if cell.colspan && cell.colspan > 1
               (cell.colspan - 1).times do |i|
-                if row_header[row_index].empty? ||
-                   row_header[row_index][cell_index].empty?
+                if row_header[row_index].empty? || row_header[row_index][cell_index].empty?
                   row_header[row_index][cell_index + i] << 'st'
                 else
                   row_header[row_index][cell_index + 1 + i] ||= []
@@ -481,8 +480,7 @@ allbox tab(:);'
             if cell.rowspan && cell.rowspan > 1
               (cell.rowspan - 1).times do |i|
                 row_header[row_index + 1 + i] ||= []
-                if row_header[row_index + 1 + i].empty? ||
-                   row_header[row_index + 1 + i][cell_index].empty?
+                if row_header[row_index + 1 + i].empty? || row_header[row_index + 1 + i][cell_index].empty?
                   row_header[row_index + 1 + i][cell_index] ||= []
                   row_header[row_index + 1 + i][cell_index] << '^t'
                 else
@@ -498,19 +496,19 @@ allbox tab(:);'
             end
           end
           row_index += 1
-        end
+        end unless rows.empty?
       end
 
       #row_header.each do |row|
       #  result << LF
       #  row.each_with_index do |cell, i|
-      #    result << (cell.join ' ')
+      #    result << (cell * ' ')
       #    result << ' ' if row.size > i + 1
       #  end
       #end
       # FIXME temporary fix to get basic table to display
       result << LF
-      result << row_header.first.map {|r| 'lt'}.join(' ')
+      result << row_header[0].map { 'lt' } * ' '
 
       result << %(.#{LF})
       row_text.each do |row|
@@ -526,7 +524,7 @@ allbox tab(:);'
 \l\'\n(.lu*25u/100u\(ap\''
     end
 
-    alias :toc :skip
+    alias toc skip
 
     def ulist node
       result = []
@@ -578,8 +576,12 @@ allbox tab(:);'
     def video node
       start_param = (node.attr? 'start', nil, false) ? %(&start=#{node.attr 'start'}) : nil
       end_param = (node.attr? 'end', nil, false) ? %(&end=#{node.attr 'end'}) : nil
-      %(.sp
-#{manify node.captioned_title} (video) <#{node.media_uri(node.attr 'target')}#{start_param}#{end_param}>)
+      result = []
+      result << %(.sp
+.B #{manify node.title}
+.br) if node.title?
+      result << %(<#{node.media_uri(node.attr 'target')}#{start_param}#{end_param}> (video))
+      result * LF
     end
 
     def inline_anchor node
@@ -600,9 +602,9 @@ allbox tab(:);'
         %(#{ESC_BS}c#{LF}#{ESC_FS}#{macro} "#{target}" "#{text}" )
       when :xref
         refid = (node.attr 'refid') || target
-        node.text || (node.document.references[:ids][refid] || %([#{refid}]))
+        node.text || (node.document.catalog[:ids][refid] || %([#{refid}]))
       when :ref, :bibref
-        # These are anchor points, which shouldn't be visual
+        # These are anchor points, which shouldn't be visible
         ''
       else
         warn %(asciidoctor: WARNING: unknown anchor type: #{node.type.inspect})
@@ -610,8 +612,7 @@ allbox tab(:);'
     end
 
     def inline_break node
-      %(#{node.text}
-.br)
+      %(#{node.text}#{LF}#{ESC_FS}br)
     end
 
     def inline_button node
@@ -632,9 +633,7 @@ allbox tab(:);'
     end
 
     def inline_image node
-      # NOTE alt should always be set
-      alt_text = (node.attr? 'alt') ? (node.attr 'alt') : node.target
-      (node.attr? 'link') ? %([#{alt_text}] <#{node.attr 'link'}>) : %([#{alt_text}])
+      (node.attr? 'link') ? %([#{node.alt}] <#{node.attr 'link'}>) : %([#{node.alt}])
     end
 
     def inline_indexterm node
@@ -645,7 +644,7 @@ allbox tab(:);'
       if (keys = node.attr 'keys').size == 1
         keys[0]
       else
-        keys.join %(#{ESC_BS}0+#{ESC_BS}0)
+        keys * %(#{ESC_BS}0+#{ESC_BS}0)
       end
     end
 
@@ -653,7 +652,7 @@ allbox tab(:);'
       caret = %[#{ESC_BS}0#{ESC_BS}(fc#{ESC_BS}0]
       menu = node.attr 'menu'
       if !(submenus = node.attr 'submenus').empty?
-        submenu_path = submenus.map {|item| %(#{ESC_BS}fI#{item}#{ESC_BS}fP) }.join caret
+        submenu_path = submenus.map {|item| %(#{ESC_BS}fI#{item}#{ESC_BS}fP) } * caret
         %(#{ESC_BS}fI#{menu}#{ESC_BS}fP#{caret}#{submenu_path}#{caret}#{ESC_BS}fI#{node.attr 'menuitem'}#{ESC_BS}fP)
       elsif (menuitem = node.attr 'menuitem')
         %(#{ESC_BS}fI#{menu}#{caret}#{menuitem}#{ESC_BS}fP)

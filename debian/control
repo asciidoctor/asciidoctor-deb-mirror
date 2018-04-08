@@ -19,8 +19,8 @@ Build-Depends: coderay,
                ruby-thread-safe,
                ruby-tilt
 Standards-Version: 4.1.4
-Vcs-Git: https://anonscm.debian.org/git/pkg-ruby-extras/asciidoctor.git
-Vcs-Browser: https://anonscm.debian.org/cgit/pkg-ruby-extras/asciidoctor.git
+Vcs-Git: https://salsa.debian.org/ruby-team/asciidoctor.git
+Vcs-Browser: https://salsa.debian.org/ruby-team/asciidoctor
 Homepage: http://asciidoctor.org
 Testsuite: autopkgtest-pkg-ruby
 XS-Ruby-Versions: all

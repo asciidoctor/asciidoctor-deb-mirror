@@ -14,49 +14,19 @@ class Table < AbstractBlock
       @body = body
     end
 
-    alias :[] :send
+    alias [] send
+
+    # Public: Returns the rows grouped by section.
+    #
+    # Creates a 2-dimensional array of two element entries. The first element
+    # is the section name as a symbol. The second element is the Array of rows
+    # in that section. The entries are in document order (head, foot, body).
+    #
+    # Returns a 2-dimentional Array of rows grouped by section.
+    def by_section
+      [[:head, @head], [:foot, @foot], [:body, @body]]
+    end
   end
-
-  # Public: A String key that specifies the default table format in AsciiDoc (psv)
-  DEFAULT_DATA_FORMAT = 'psv'
-
-  # Public: An Array of String keys that represent the table formats in AsciiDoc
-  DATA_FORMATS = ['psv', 'dsv', 'csv']
-
-  # Public: A Hash mapping the AsciiDoc table formats to their default delimiters
-  DEFAULT_DELIMITERS = {
-    'psv' => '|',
-    'dsv' => ':',
-    'csv' => ','
-  }
-
-  # Public: A Hash mapping styles abbreviations to styles that can be applied
-  # to a table column or cell
-  TEXT_STYLES = {
-    'd' => :none,
-    's' => :strong,
-    'e' => :emphasis,
-    'm' => :monospaced,
-    'h' => :header,
-    'l' => :literal,
-    'v' => :verse,
-    'a' => :asciidoc
-  }
-
-  # Public: A Hash mapping alignment abbreviations to alignments (horizontal
-  # and vertial) that can be applies to a table column or cell
-  ALIGNMENTS = {
-    :h => {
-      '<' => 'left',
-      '>' => 'right',
-      '^' => 'center'
-    },
-    :v => {
-      '<' => 'top',
-      '>' => 'bottom',
-      '^' => 'middle'
-    }
-  }
 
   # Public: Get/Set the columns for this table
   attr_accessor :columns
@@ -67,6 +37,9 @@ class Table < AbstractBlock
 
   # Public: Boolean specifies whether this table has a header row
   attr_accessor :has_header_option
+
+  # Public: Get the caption for this table
+  attr_reader :caption
 
   def initialize parent, attributes
     super parent, :table
@@ -87,6 +60,7 @@ class Table < AbstractBlock
     @attributes['tablepcwidth'] = pcwidth_intval
 
     if @document.attributes.key? 'pagewidth'
+      # FIXME calculate more accurately (only used in DocBook output)
       @attributes['tableabswidth'] ||=
           ((@attributes['tablepcwidth'].to_f / 100) * @document.attributes['pagewidth']).round
     end
@@ -135,12 +109,22 @@ class Table < AbstractBlock
       @columns.each {|col| total_width += (col_pcwidth = col.assign_width nil, width_base, pf) }
     else
       col_pcwidth = ((100 * pf / @columns.size).to_i) / pf
+      # or...
+      #col_pcwidth = (100.0 / @columns.size).truncate 4
       col_pcwidth = col_pcwidth.to_i if col_pcwidth.to_i == col_pcwidth
       @columns.each {|col| total_width += col.assign_width col_pcwidth }
     end
 
-    # donate balance, if any, to final column
-    @columns[-1].assign_width(((100 - total_width + col_pcwidth) * pf).round / pf) unless total_width == 100
+    # donate balance, if any, to final column (using half up rounding)
+    unless total_width == 100
+      @columns[-1].assign_width(((100 - total_width + col_pcwidth) * pf).round / pf)
+      # or (manual half up rounding)...
+      #numerator = (raw_numerator = (100 - total_width + col_pcwidth) * pf).to_i
+      #numerator += 1 if raw_numerator >= numerator + 0.5
+      #@columns[-1].assign_width numerator / pf
+      # or...
+      #@columns[-1].assign_width((100 - total_width + col_pcwidth).round 4)
+    end
 
     nil
   end
@@ -149,7 +133,7 @@ class Table < AbstractBlock
   # by the options on the table
   #
   # returns nothing
-  def partition_header_footer(attributes)
+  def partition_header_footer(attrs)
     # set rowcount before splitting up body rows
     @attributes['rowcount'] = @rows.body.size
 
@@ -164,7 +148,7 @@ class Table < AbstractBlock
       @rows.head = [head]
     end
 
-    if num_body_rows > 0 && attributes.key?('footer-option')
+    if num_body_rows > 0 && attrs.key?('footer-option')
       @rows.foot = [@rows.body.pop]
     end
 
@@ -189,7 +173,7 @@ class Table::Column < AbstractNode
   end
 
   # Public: An alias to the parent block (which is always a Table)
-  alias :table :parent
+  alias table parent
 
   # Internal: Calculate and assign the widths (percentage and absolute) for this column
   #
@@ -199,6 +183,8 @@ class Table::Column < AbstractNode
   def assign_width col_pcwidth, width_base = nil, pf = 10000.0
     if width_base
       col_pcwidth = ((@attributes['width'].to_f / width_base) * 100 * pf).to_i / pf
+      # or...
+      #col_pcwidth = (@attributes['width'].to_f * 100.0 / width_base).truncate 4
       col_pcwidth = col_pcwidth.to_i if col_pcwidth.to_i == col_pcwidth
     end
     @attributes['colpcwidth'] = col_pcwidth
@@ -222,58 +208,90 @@ class Table::Cell < AbstractNode
   attr_accessor :rowspan
 
   # Public: An alias to the parent block (which is always a Column)
-  alias :column :parent
+  alias column parent
 
   # Public: The internal Asciidoctor::Document for a cell that has the asciidoc style
   attr_reader :inner_document
 
-  def initialize column, text, attributes = {}, cursor = nil
+  def initialize column, cell_text, attributes = {}, opts = {}
     super column, :cell
-    @text = text
-    @style = nil
-    @colspan = nil
-    @rowspan = nil
-    # TODO feels hacky
     if column
-      @style = column.attributes['style']
-      update_attributes(column.attributes)
+      cell_style = (in_header_row = column.table.header_row?) ? nil : column.attributes['style']
+      # REVIEW feels hacky to inherit all attributes from column
+      update_attributes column.attributes
+    else
+      in_header_row = cell_style = nil
     end
     if attributes
-      @colspan = attributes.delete('colspan')
-      @rowspan = attributes.delete('rowspan')
-      # TODO eventualy remove the style attribute from the attributes hash
-      #@style = attributes.delete('style') if attributes.key? 'style'
-      @style = attributes['style'] if attributes.key? 'style'
-      update_attributes(attributes)
+      @colspan = attributes.delete 'colspan'
+      @rowspan = attributes.delete 'rowspan'
+      # TODO eventually remove the style attribute from the attributes hash
+      #cell_style = attributes.delete 'style' unless in_header_row || !(attributes.key? 'style')
+      cell_style = attributes['style'] unless in_header_row || !(attributes.key? 'style')
+      if opts[:strip_text]
+        if cell_style == :literal || cell_style == :verse
+          cell_text = cell_text.rstrip
+          cell_text = cell_text.slice 1, cell_text.length - 1 while cell_text.start_with? LF
+        else
+          cell_text = cell_text.strip
+        end
+      end
+      update_attributes attributes
+    else
+      @colspan = nil
+      @rowspan = nil
     end
-    # only allow AsciiDoc cells in non-header rows
-    if @style == :asciidoc && !column.table.header_row?
+    # NOTE only true for non-header rows
+    if cell_style == :asciidoc
       # FIXME hide doctitle from nested document; temporary workaround to fix
       # nested document seeing doctitle and assuming it has its own document title
       parent_doctitle = @document.attributes.delete('doctitle')
       # NOTE we need to process the first line of content as it may not have been processed
       # the included content cannot expect to match conditional terminators in the remaining
       # lines of table cell content, it must be self-contained logic
-      inner_document_lines = @text.split(EOL)
-      unless inner_document_lines.empty? || !inner_document_lines[0].include?('::')
-        unprocessed_lines = inner_document_lines[0]
-        processed_lines = PreprocessorReader.new(@document, unprocessed_lines).readlines
-        if processed_lines != unprocessed_lines
+      # QUESTION should we reset cell_text to nil?
+      # QUESTION is is faster to check for :: before splitting?
+      inner_document_lines = cell_text.split LF, -1
+      if (unprocessed_line1 = inner_document_lines[0]).include? '::'
+        preprocessed_lines = (PreprocessorReader.new @document, [unprocessed_line1]).readlines
+        unless unprocessed_line1 == preprocessed_lines[0] && preprocessed_lines.size < 2
           inner_document_lines.shift
-          inner_document_lines.unshift(*processed_lines)
+          inner_document_lines.unshift(*preprocessed_lines) unless preprocessed_lines.empty?
         end
-      end
-      @inner_document = Document.new(inner_document_lines, :header_footer => false, :parent => @document, :cursor => cursor)
+      end unless inner_document_lines.empty?
+      @inner_document = Document.new(inner_document_lines, :header_footer => false, :parent => @document, :cursor => opts[:cursor])
       @document.attributes['doctitle'] = parent_doctitle unless parent_doctitle.nil?
     end
+    @text = cell_text
+    @style = cell_style
   end
 
-  # Public: Get the text with normal substitutions applied for this cell. Used for cells in the head rows
+  # Public: Get the String text of this cell with substitutions applied.
+  #
+  # Used for cells in the head row as well as text-only (non-AsciiDoc) cells in
+  # the foot row and body.
+  #
+  # This method shouldn't be used for cells that have the AsciiDoc style.
+  #
+  # Returns the converted String text for this Cell
   def text
-    apply_normal_subs(@text).strip
+    apply_subs @text, (@style == :literal ? BASIC_SUBS : NORMAL_SUBS)
+  end
+
+  # Public: Set the String text.
+  #
+  # This method shouldn't be used for cells that have the AsciiDoc style.
+  #
+  # Returns the new String text assigned to this Cell
+  def text= val
+    @text = val
   end
 
   # Public: Handles the body data (tbody, tfoot), applying styles and partitioning into paragraphs
+  #
+  # This method should not be used for cells in the head row or that have the literal or verse style.
+  #
+  # Returns the converted String for this Cell
   def content
     if @style == :asciidoc
       @inner_document.convert
@@ -296,11 +314,24 @@ end
 # instantiated, the row is closed if the cell satisifies the column count and,
 # finally, a new buffer is allocated to track the next cell.
 class Table::ParserContext
+  # Public: An Array of String keys that represent the table formats in AsciiDoc
+  #--
+  # QUESTION should we recognize !sv as a valid format value?
+  FORMATS = ['psv', 'csv', 'dsv', 'tsv'].to_set
+
+  # Public: A Hash mapping the AsciiDoc table formats to default delimiters
+  DELIMITERS = {
+    'psv' => ['|', /\|/],
+    'csv' => [',', /,/],
+    'dsv' => [':', /:/],
+    'tsv' => [%(\t), /\t/],
+    '!sv' => ['!', /!/]
+  }
 
   # Public: The Table currently being parsed
   attr_accessor :table
 
-  # Public: The AsciiDoc table format (psv, dsv or csv)
+  # Public: The AsciiDoc table format (psv, dsv, or csv)
   attr_accessor :format
 
   # Public: Get the expected column count for a row
@@ -319,25 +350,41 @@ class Table::ParserContext
   # Public: The cell delimiter compiled Regexp for this table.
   attr_reader :delimiter_re
 
-  def initialize(reader, table, attributes = {})
+  def initialize reader, table, attributes = {}
     @reader = reader
     @table = table
-    # TODO if reader.cursor becomes a reference, this would require .dup
+    # IMPORTANT if reader.cursor becomes a reference, this assignment would require .dup
     @last_cursor = reader.cursor
-    if (@format = attributes['format'])
-      unless Table::DATA_FORMATS.include? @format
-        raise %(Illegal table format: #{@format})
+
+    if attributes.key? 'format'
+      if FORMATS.include?(xsv = attributes['format'])
+        if xsv == 'tsv'
+          # NOTE tsv is just an alias for csv with a tab separator
+          @format = 'csv'
+        elsif (@format = xsv) == 'psv' && table.document.nested?
+          xsv = '!sv'
+        end
+      else
+        warn %(asciidoctor: ERROR: #{reader.prev_line_info}: illegal table format: #{xsv})
+        @format, xsv = 'psv', (table.document.nested? ? '!sv' : 'psv')
       end
     else
-      @format = Table::DEFAULT_DATA_FORMAT
+      @format, xsv = 'psv', (table.document.nested? ? '!sv' : 'psv')
     end
 
-    @delimiter = if @format == 'psv' && !(attributes.key? 'separator') && table.document.nested?
-      '!'
+    if attributes.key? 'separator'
+      if (sep = attributes['separator']).nil_or_empty?
+        @delimiter, @delimiter_re = DELIMITERS[xsv]
+      # QUESTION should we support any other escape codes or multiple tabs?
+      elsif sep == '\t'
+        @delimiter, @delimiter_re = DELIMITERS['tsv']
+      else
+        @delimiter, @delimiter_re = sep, /#{::Regexp.escape sep}/
+      end
     else
-      attributes['separator'] || Table::DEFAULT_DELIMITERS[@format]
+      @delimiter, @delimiter_re = DELIMITERS[xsv]
     end
-    @delimiter_re = /#{Regexp.escape @delimiter}/
+
     @colcount = table.columns.empty? ? -1 : table.columns.size
     @buffer = ''
     @cellspecs = []
@@ -364,12 +411,19 @@ class Table::ParserContext
     @delimiter_re.match(line)
   end
 
-  # Public: Skip beyond the matched delimiter because it was a false positive
-  # (either because it was escaped or in a quoted context)
+  # Public: Skip past the matched delimiter because it's inside quoted text.
   #
   # returns the String after the match
-  def skip_matched_delimiter(match, escaped = false)
-    @buffer = %(#{@buffer}#{escaped ? match.pre_match.chop : match.pre_match}#{@delimiter})
+  def skip_past_delimiter(match)
+    @buffer = %(#{@buffer}#{match.pre_match}#{@delimiter})
+    match.post_match
+  end
+
+  # Public: Skip past the matched delimiter because it's escaped.
+  #
+  # returns the String after the match
+  def skip_past_escaped_delimiter(match)
+    @buffer = %(#{@buffer}#{match.pre_match.chop}#{@delimiter})
     match.post_match
   end
 
@@ -377,18 +431,16 @@ class Table::ParserContext
   #
   # returns true if the buffer has unclosed quotes, false if it doesn't or it
   # isn't quoted data
-  def buffer_has_unclosed_quotes?(append = nil)
-    record = %(#{@buffer}#{append}).strip
-    record.start_with?('"') && !record.start_with?('""') && !record.end_with?('"')
-  end
-
-  # Public: Determines whether the buffer contains quoted data. Used for CSV data.
-  #
-  # returns true if the buffer starts with a double quote (and not an escaped double quote),
-  # false otherwise
-  def buffer_quoted?
-    @buffer = @buffer.lstrip
-    @buffer.start_with?('"') && !@buffer.start_with?('""')
+  def buffer_has_unclosed_quotes? append = nil
+    if (record = append ? (buffer + append).strip : buffer.strip).start_with? '"'
+      if ((trailing_quote = record.end_with? '"') && (record.end_with? '""')) || (record.start_with? '""')
+        ((record = record.gsub '""', '').start_with? '"') && !(record.end_with? '"')
+      else
+        !trailing_quote
+      end
+    else
+      false
+    end
   end
 
   # Public: Takes a cell spec from the stack. Cell specs precede the delimiter, so a
@@ -460,11 +512,11 @@ class Table::ParserContext
   #
   # returns nothing
   def close_cell(eol = false)
-    cell_text = @buffer.strip
-    @buffer = ''
     if @format == 'psv'
-      cellspec = take_cellspec
-      if cellspec
+      strip_text = true
+      cell_text = @buffer
+      @buffer = ''
+      if (cellspec = take_cellspec)
         repeat = cellspec.delete('repeatcol') || 1
       else
         warn %(asciidoctor: ERROR: #{@last_cursor.line_info}: table missing leading separator, recovering automatically)
@@ -472,6 +524,9 @@ class Table::ParserContext
         repeat = 1
       end
     else
+      strip_text = false
+      cell_text = @buffer.strip
+      @buffer = ''
       cellspec = nil
       repeat = 1
       if @format == 'csv'
@@ -482,8 +537,8 @@ class Table::ParserContext
             cell_text = cell_text[1...-1].strip
           end
 
-          # collapses escaped quotes
-          cell_text = cell_text.tr_s('"', '"')
+          # collapse escaped quotes
+          cell_text = cell_text.squeeze('"')
         end
       end
     end
@@ -506,7 +561,7 @@ class Table::ParserContext
         end
       end
 
-      cell = Table::Cell.new(column, cell_text, cellspec, @last_cursor)
+      cell = Table::Cell.new(column, cell_text, cellspec, :cursor => @last_cursor, :strip_text => strip_text)
       @last_cursor = @reader.cursor
       unless !cell.rowspan || cell.rowspan == 1
         activate_rowspan(cell.rowspan, (cell.colspan || 1))

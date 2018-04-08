@@ -13,10 +13,12 @@ ifdef::env-github,env-browser[:outfilesuffix: .adoc]
 :uri-branch-help: {uri-fork-help}#create-branches
 :uri-pr-help: {uri-help-base}/using-pull-requests
 :uri-gist: https://gist.github.com
+:uri-yard: https://yardoc.org
+:uri-tomdoc: http://tomdoc.org
 
 == License Agreement
 
-By contributing changes to this repository, you agree to license your contributions under the <<LICENSE#,MIT license>>.
+By contributing changes to this repository, you agree to license your contributions under the MIT license.
 This ensures your contributions have the same license as the project and that the community is free to use your contributions.
 You also assert that you are the original author of the work that you are contributing unless otherwise stated.
 
@@ -33,8 +35,8 @@ An ideal bug report would include a pull request with failing specs.
 == Submitting a Pull Request
 
 . {uri-fork-help}[Fork the repository].
-. Run `bundle` to install development dependencies.
-  * If the `bundle` command is not available, run `gem install bundler` to install it.
+. Run `NOKOGIRI_USE_SYSTEM_LIBRARIES=1 bundle` to install development dependencies.
+  - If the `bundle` command is not available, run `gem install bundler` to install it.
 . {uri-branch-help}[Create a topic branch] (preferably using the pattern `issue-XYZ`, where `XYZ` is the issue number).
 . Add tests for your unimplemented feature or bug fix. (See <<writing-and-executing-tests>>)
 . Run `bundle exec rake` to run the tests.
@@ -162,6 +164,18 @@ If you want to be able to execute the `asciidoctor` command from any directory w
 Now you can execute the `asciidoctor` command from any folder as follows:
 
  $ asciidoctor-dev README.adoc
+
+== Building the API Documentation
+
+The API documentation is written in the {uri-tomdoc}[TomDoc] dialect and built using {uri-yard}[Yard].
+
+The options for Yard are configured in the [.path]_.yardopts_ file at the root of the project.
+
+To build the API documentation locally, run the following command:
+
+ $ bundle exec yard
+
+The documentation will be built into the [.path]_rdoc_ folder.
 
 == Supporting Additional Ruby Versions
 

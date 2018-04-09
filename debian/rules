@@ -17,12 +17,17 @@ override_dh_auto_build:
 override_dh_auto_install:
 	dh_install
 	# man pages are needed during the tests
-	dh_installman
+	install -d debian/ruby-asciidoctor/usr/share/man/man1/
+	install -p -m0644 ./man/asciidoctor.1 debian/ruby-asciidoctor/usr/share/man/man1/asciidoctor.1
 	dh_auto_install
+	rm -rf debian/ruby-asciidoctor/usr/share/man/
 	# remove asciidoctor-safe
-	rm -f debian/asciidoctor/usr/bin/asciidoctor-safe
+	rm -f debian/ruby-asciidoctor/usr/bin/asciidoctor-safe
 	# remove bundled jquery.js
 	rm -f debian/asciidoctor-doc/usr/share/doc/asciidoctor-doc/html/js/jquery.js
+	mkdir -p debian/asciidoctor/usr/bin
+	mv debian/ruby-asciidoctor/usr/bin/* debian/asciidoctor/usr/bin/
+	rmdir debian/ruby-asciidoctor/usr/bin
 
 override_dh_installchangelogs:
 	dh_installchangelogs -O--buildsystem=ruby CHANGELOG.adoc

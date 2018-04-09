@@ -1,6 +1,7 @@
 #!/usr/bin/make -f
 
 export GEM2DEB_TEST_RUNNER = --check-dependencies
+export ASCIIDOCTOR_MANPAGE_ABSENT_FROM_TEST = 1
 
 %:
 	dh $@ --buildsystem=ruby --with ruby
@@ -16,11 +17,7 @@ override_dh_auto_build:
 
 override_dh_auto_install:
 	dh_install
-	# man pages are needed during the tests
-	install -d debian/ruby-asciidoctor/usr/share/man/man1/
-	install -p -m0644 ./man/asciidoctor.1 debian/ruby-asciidoctor/usr/share/man/man1/asciidoctor.1
 	dh_auto_install
-	rm -rf debian/ruby-asciidoctor/usr/share/man/
 	# remove asciidoctor-safe
 	rm -f debian/ruby-asciidoctor/usr/bin/asciidoctor-safe
 	# remove bundled jquery.js

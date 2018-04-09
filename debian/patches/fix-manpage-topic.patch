@@ -4,19 +4,29 @@ Author: Joseph Herlant <herlantj@gmail.com>
 Forwarded: https://github.com/asciidoctor/asciidoctor/pull/2653
 Last-Update: 2018-04-08
 
---- a/lib/asciidoctor/cli/options.rb
-+++ b/lib/asciidoctor/cli/options.rb
-@@ -134,6 +134,13 @@
-             if topic == 'manpage'
-               if ::File.exist?(manpage_path = (::File.join ::Asciidoctor::ROOT_PATH, 'man', 'asciidoctor.1'))
-                 $stdout.puts(::IO.read manpage_path)
-+              elsif ::File.exist?(manpage_path = (::File.join ::Asciidoctor::ROOT_PATH, '..', '..', 'share', 'man', 'man1', 'asciidoctor.1'))
-+                $stdout.puts(::IO.read manpage_path)
-+              elsif ::File.exist?(manpage_path = '/usr/share/man/man1/asciidoctor.1.gz')
-+                require 'zlib'
-+                gz = Zlib::GzipReader.open(manpage_path)
-+                $stdout.puts(gz.read)
-+                gz.close
-               else
-                 $stderr.puts 'asciidoctor: FAILED: man page not found; try `man asciidoctor`'
-                 return 1
+--- a/test/options_test.rb
++++ b/test/options_test.rb
+@@ -23,6 +23,7 @@
+   end
+ 
+   test 'should dump man page and return error code 0 when help topic is manpage' do
++    skip 'this test should run only in a gem install context' if ENV['ASCIIDOCTOR_MANPAGE_ABSENT_FROM_TEST']
+     exitval, output = redirect_streams do |out, _|
+       [Asciidoctor::Cli::Options.parse!(%w(-h manpage)), out.string]
+     end
+@@ -31,6 +32,15 @@
+     assert_includes output, '.TH "ASCIIDOCTOR"'
+   end
+ 
++  test 'should print a message and return error code 1 when help topic is manpage' do
++    skip 'this test should run outside of the gem context' unless ENV['ASCIIDOCTOR_MANPAGE_ABSENT_FROM_TEST']
++    redirect_streams do |out, stderr|
++      exitval = Asciidoctor::Cli::Options.parse!(%w(-h manpage))
++      assert_equal 1, exitval
++      assert_equal 'asciidoctor: FAILED: man page not found; try `man asciidoctor`', stderr.string.chomp
++    end
++  end
++
+   test 'should return error code 1 when invalid option present' do
+     redirect_streams do |stdout, stderr|
+       exitval = Asciidoctor::Cli::Options.parse!(%w(--foobar))

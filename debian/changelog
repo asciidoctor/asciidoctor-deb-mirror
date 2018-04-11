@@ -1,3 +1,27 @@
+asciidoctor (1.5.6.2-1) unstable; urgency=low
+
+  * New upstream version 1.5.6.2 (Closes: #884213)
+  * d/control: add myself as co-maintainer to avoid nmu warnings
+  * d/control, d/compat: update standards to 4.1.4 and compat to 11 with it
+  * d/control: update Vcs-* after migration to Salsa
+  * d/watch: fix debian-watch-uses-insecure-uri
+  * d/copyright: fix insecure-copyright-format-uri
+  * Update existing patches to match the new version
+  * Add patch to workaround an upstream bug removing the README.adoc
+  * Fix failing test when getting help on the manpage topic
+  * split asciidoctor into ruby-asciidoctor (Closes: #893467)
+  * d/control: update package description
+  * d/rules: disable webfonts to fix privacy-breach-generic
+  * Update patch to fix the manpage topic test
+  * d/control: move asciidoctor to section:text
+  * wrap-and-sort
+  * d/rules: fix duplicated-compressed-files lintian complaint
+  * d/rules: disable icons and image-uri-screenshot in README generation
+  * Add patch to remove the badge in the README to fix privacy-breach-generic
+  * d/control: update package short description
+
+ -- Joseph Herlant <herlantj@gmail.com>  Wed, 11 Apr 2018 15:52:00 -0700
+
 asciidoctor (1.5.5-1) unstable; urgency=medium
 
   * Team upload

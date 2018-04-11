@@ -5,3 +5,4 @@ package-version.patch
 skip-unreadable-file.patch
 re-add_README.patch
 fix-manpage-topic.patch
+disable_badge_in_README.patch

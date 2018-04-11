@@ -31,5 +31,5 @@ override_dh_installchangelogs:
 	dh_installchangelogs -O--buildsystem=ruby CHANGELOG.adoc
 
 override_dh_installdocs:
-	bin/asciidoctor -a webfonts! README*.adoc
+	bin/asciidoctor -a webfonts! -a icons! -a image-uri-screenshot! README*.adoc
 	dh_installdocs

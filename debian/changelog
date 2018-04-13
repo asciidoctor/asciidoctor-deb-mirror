@@ -1,3 +1,10 @@
+asciidoctor (1.5.6.2-2) unstable; urgency=low
+
+  * Force the install of data files even when DH_CONFIG_ACT_ON_PACKAGES is set
+    (Closes: #895613)
+
+ -- Joseph Herlant <herlantj@gmail.com>  Fri, 13 Apr 2018 08:33:20 -0700
+
 asciidoctor (1.5.6.2-1) unstable; urgency=low
 
   * New upstream version 1.5.6.2 (Closes: #884213)

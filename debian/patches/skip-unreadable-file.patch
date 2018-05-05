@@ -7,7 +7,7 @@ Forwarded: no
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/test/reader_test.rb
 +++ b/test/reader_test.rb
-@@ -627,6 +627,7 @@
+@@ -738,6 +738,7 @@
        end
  
        test 'unreadable file referenced by include directive is replaced by warning' do

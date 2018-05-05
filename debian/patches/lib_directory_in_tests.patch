@@ -13,7 +13,7 @@ Subject: Exclude lib/ directory from tests
      t.warning = true
 --- a/test/test_helper.rb
 +++ b/test/test_helper.rb
-@@ -8,7 +8,7 @@
+@@ -9,7 +9,7 @@
  
  require 'simplecov' if ENV['COVERAGE'] == 'true'
  

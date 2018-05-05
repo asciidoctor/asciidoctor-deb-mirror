@@ -8,6 +8,7 @@ class Stylesheets
   DEFAULT_STYLESHEET_NAME = 'asciidoctor.css'
   DEFAULT_PYGMENTS_STYLE = 'default'
   STYLESHEETS_DATA_PATH = ::File.join DATA_PATH, 'stylesheets'
+  PygmentsBgColorRx = /^\.pygments +\{ *background: *([^;]+);/
 
   @__instance__ = new
 
@@ -23,7 +24,7 @@ class Stylesheets
   #
   # returns the [String] Asciidoctor stylesheet data
   def primary_stylesheet_data
-    @primary_stylesheet_data ||= ::IO.read(::File.join(STYLESHEETS_DATA_PATH, 'asciidoctor-default.css')).chomp
+    @primary_stylesheet_data ||= ::IO.read(::File.join(STYLESHEETS_DATA_PATH, 'asciidoctor-default.css')).rstrip
   end
 
   def embed_primary_stylesheet
@@ -48,7 +49,7 @@ class Stylesheets
     # unless load_coderay.nil?
     #   ::CodeRay::Encoders[:html]::CSS.new(:default).stylesheet
     # end
-    @coderay_stylesheet_data ||= ::IO.read(::File.join(STYLESHEETS_DATA_PATH, 'coderay-asciidoctor.css')).chomp
+    @coderay_stylesheet_data ||= ::IO.read(::File.join(STYLESHEETS_DATA_PATH, 'coderay-asciidoctor.css')).rstrip
   end
 
   def embed_coderay_stylesheet
@@ -65,16 +66,23 @@ class Stylesheets
     %(pygments-#{style || DEFAULT_PYGMENTS_STYLE}.css)
   end
 
+  def pygments_background style = nil
+    if load_pygments && PygmentsBgColorRx =~ (::Pygments.css '.pygments', :style => style || DEFAULT_PYGMENTS_STYLE)
+      $1
+    end
+  end
+
   # Public: Generate the Pygments stylesheet with the specified style.
   #
   # returns the [String] Pygments stylesheet data
   def pygments_stylesheet_data style = nil
     if load_pygments
-      (@pygments_stylesheet_data ||= {})[style || DEFAULT_PYGMENTS_STYLE] ||=
-          (::Pygments.css '.listingblock .pygments', :classprefix => 'tok-', :style => (style || DEFAULT_PYGMENTS_STYLE)).
+      style ||= DEFAULT_PYGMENTS_STYLE
+      (@pygments_stylesheet_data ||= {})[style] ||=
+          ((::Pygments.css '.listingblock .pygments', :classprefix => 'tok-', :style => style) || '/* Failed to load Pygments CSS. */').
           sub('.listingblock .pygments  {', '.listingblock .pygments, .listingblock .pygments code {')
     else
-      '/* Pygments styles disabled. Pygments is not available. */'
+      '/* Pygments CSS disabled. Pygments is not available. */'
     end
   end
 

@@ -18,7 +18,7 @@ module Asciidoctor
     LeadingPeriodRx = /^\./
     EscapedMacroRx = /^(?:#{ESC}\\c\n)?#{ESC}\.((?:URL|MTO) ".*?" ".*?" )( |[^\s]*)(.*?)(?: *#{ESC}\\c)?$/
     MockBoundaryRx = /<\/?BOUNDARY>/
-    EmDashCharRefRx = /&#8212(?:;&#8203;)?/
+    EmDashCharRefRx = /&#8212;(?:&#8203;)?/
     EllipsisCharRefRx = /&#8230;(?:&#8203;)?/
 
     # Converts HTML entity references back to their original form, escapes
@@ -57,6 +57,7 @@ module Asciidoctor
         gsub('&#8656;', '\(lA').  # leftwards double arrow
         gsub('&#8658;', '\(rA').  # rightwards double arrow
         gsub('&#8203;', '\:').    # zero width space
+        gsub('&amp;','&').        # literal ampersand (NOTE must take place after any other replacement that includes &)
         gsub('\'', '\(aq').       # apostrophe-quote
         gsub(MockBoundaryRx, ''). # mock boundary
         gsub(ESC_BS, '\\').       # unescape troff backslash (NOTE update if more escapes are added)
@@ -66,7 +67,7 @@ module Asciidoctor
     end
 
     def skip_with_warning node, name = nil
-      warn %(asciidoctor: WARNING: converter missing for #{name || node.node_name} node in manpage backend)
+      logger.warn %(converter missing for #{name || node.node_name} node in manpage backend)
       nil
     end
 
@@ -81,7 +82,7 @@ module Asciidoctor
       # NOTE the first line enables the table (tbl) preprocessor, necessary for non-Linux systems
       result = [%('\\" t
 .\\"     Title: #{mantitle}
-.\\"    Author: #{(node.attr? 'authors') ? (node.attr 'authors') : '[see the "AUTHORS" section]'}
+.\\"    Author: #{(node.attr? 'authors') ? (node.attr 'authors') : '[see the "AUTHOR(S)" section]'}
 .\\" Generator: Asciidoctor #{node.attr 'asciidoctor-version'})]
       result << %(.\\"      Date: #{docdate}) if docdate
       result << %(.\\"    Manual: #{(manual = node.attr 'manmanual') || '\ \&'}
@@ -105,22 +106,33 @@ module Asciidoctor
       # define URL macro for portability
       # see http://web.archive.org/web/20060102165607/http://people.debian.org/~branden/talks/wtfm/wtfm.pdf
       #
-      # Use: .URL "http://www.debian.org" "Debian" "."
+      # Usage
+      #
+      # .URL "http://www.debian.org" "Debian" "."
       #
       # * First argument: the URL
       # * Second argument: text to be hyperlinked
-      # * Third (optional) argument: text that needs to immediately trail
-      #   the hyperlink without intervening whitespace
+      # * Third (optional) argument: text that needs to immediately trail the hyperlink without intervening whitespace
       result << '.de URL
-\\\\$2 \(laURL: \\\\$1 \(ra\\\\$3
+\\fI\\\\$2\\fP <\\\\$1>\\\\$3
 ..
-.if \n[.g] .mso www.tmac'
-      result << %(.LINKSTYLE #{node.attr 'man-linkstyle', 'blue R < >'})
+.als MTO URL
+.if \n[.g] \{\
+.  mso www.tmac
+.  am URL
+.    ad l
+.  .
+.  am MTO
+.    ad l
+.  .'
+      result << %(.  LINKSTYLE #{node.attr 'man-linkstyle', 'blue R < >'})
+      result << '.\}'
 
       unless node.noheader
         if node.attr? 'manpurpose'
-          result << %(.SH "#{node.attr 'manname-title'}"
-#{manify mantitle} \\- #{manify node.attr 'manpurpose'})
+          mannames = node.attr 'mannames', [manname]
+          result << %(.SH "#{(node.attr 'manname-title').upcase}"
+#{mannames.map {|n| manify n } * ', '} \\- #{manify node.attr 'manpurpose'})
         end
       end
 
@@ -132,14 +144,19 @@ module Asciidoctor
         result.concat(node.footnotes.map {|fn| %(#{fn.index}. #{fn.text}) })
       end
 
-      # FIXME detect single author and use appropriate heading; itemize the authors if multiple
-      if node.attr? 'authors'
-        result << %(.SH "AUTHOR(S)"
+      # FIXME we really need an API that returns the authors as an array
+      if (num_authors = (node.attr 'authorcount') || 0) > 0
+        if num_authors == 1
+          result << %(.SH "AUTHOR"
 .sp
-\\fB#{node.attr 'authors'}\\fP
-.RS 4
-Author(s).
-.RE)
+#{node.attr 'author'})
+        else
+          result << '.SH "AUTHORS"'
+          (1.upto num_authors).each do |i|
+            result << %(.sp
+#{node.attr "author_#{i}"})
+          end
+        end
       end
 
       result * LF
@@ -176,16 +193,14 @@ Author(s).
 
     def admonition node
       result = []
-      result << %(.if n \\{\\
-.sp
-.\\}
+      result << %(.if n .sp
 .RS 4
 .it 1 an-trap
 .nr an-no-space-flag 1
 .nr an-break-flag 1
 .br
 .ps +1
-.B #{node.attr 'textlabel'}#{node.title? ? "\\fP: #{manify node.title}" : nil}
+.B #{node.attr 'textlabel'}#{node.title? ? "\\fP: #{manify node.title}" : ''}
 .ps -1
 .br
 #{resolve_content node}
@@ -216,10 +231,12 @@ r lw(\n(.lu*75u/100u).'
       result * LF
     end
 
-    # TODO implement title for dlist
     # TODO implement horizontal (if it makes sense)
     def dlist node
       result = []
+      result << %(.sp
+.B #{manify node.title}
+.br) if node.title?
       counter = 0
       node.items.each do |terms, dd|
         counter += 1
@@ -265,15 +282,11 @@ r lw(\n(.lu*75u/100u).'
 .B #{manify node.captioned_title}
 .br) if node.title?
       result << %(.sp
-.if n \\{\\
-.RS 4
-.\\}
+.if n .RS 4
 .nf
 #{manify node.content}
 .fi
-.if n \\{\\
-.RE
-.\\})
+.if n .RE)
       result * LF
     end
 
@@ -283,15 +296,11 @@ r lw(\n(.lu*75u/100u).'
 .B #{manify node.title}
 .br) if node.title?
       result << %(.sp
-.if n \\{\\
-.RS 4
-.\\}
+.if n .RS 4
 .nf
 #{manify node.content}
 .fi
-.if n \\{\\
-.RE
-.\\})
+.if n .RE)
       result * LF
     end
 
@@ -308,8 +317,8 @@ r lw(\n(.lu*75u/100u).'
 \\h'-04' #{idx + 1}.\\h'+01'\\c
 .\\}
 .el \\{\\
-.sp -1
-.IP " #{idx + 1}." 4.2
+.  sp -1
+.  IP " #{idx + 1}." 4.2
 .\\}
 #{manify item.text})
         result << item.content if item.blocks?
@@ -378,7 +387,7 @@ r lw(\n(.lu*75u/100u).'
     def stem node
       title_element = node.title? ? %(.sp
 .B #{manify node.title}
-.br) : nil
+.br) : ''
       open, close = BLOCK_MATH_DELIMITERS[node.style.to_sym]
 
       unless ((equation = node.content).start_with? open) && (equation.end_with? close)
@@ -538,8 +547,8 @@ allbox tab(:);'
 \\h'-04'\\(bu\\h'+03'\\c
 .\\}
 .el \\{\\
-.sp -1
-.IP \\(bu 2.3
+.  sp -1
+.  IP \\(bu 2.3
 .\\}
 #{manify item.text}]
         result << item.content if item.blocks?
@@ -574,8 +583,8 @@ allbox tab(:);'
     end
 
     def video node
-      start_param = (node.attr? 'start', nil, false) ? %(&start=#{node.attr 'start'}) : nil
-      end_param = (node.attr? 'end', nil, false) ? %(&end=#{node.attr 'end'}) : nil
+      start_param = (node.attr? 'start', nil, false) ? %(&start=#{node.attr 'start'}) : ''
+      end_param = (node.attr? 'end', nil, false) ? %(&end=#{node.attr 'end'}) : ''
       result = []
       result << %(.sp
 .B #{manify node.title}
@@ -588,17 +597,18 @@ allbox tab(:);'
       target = node.target
       case node.type
       when :link
-        if (text = node.text) == target
-          text = nil
-        else
-          text = text.gsub '"', %[#{ESC_BS}(dq]
-        end
         if target.start_with? 'mailto:'
           macro = 'MTO'
-          target = target[7..-1].sub '@', %[#{ESC_BS}(at]
+          target = target.slice 7, target.length
         else
           macro = 'URL'
         end
+        if (text = node.text) == target
+          text = ''
+        else
+          text = text.gsub '"', %[#{ESC_BS}(dq]
+        end
+        target = target.sub '@', %[#{ESC_BS}(at] if macro == 'MTO'
         %(#{ESC_BS}c#{LF}#{ESC_FS}#{macro} "#{target}" "#{text}" )
       when :xref
         refid = (node.attr 'refid') || target
@@ -607,7 +617,8 @@ allbox tab(:);'
         # These are anchor points, which shouldn't be visible
         ''
       else
-        warn %(asciidoctor: WARNING: unknown anchor type: #{node.type.inspect})
+        logger.warn %(unknown anchor type: #{node.type.inspect})
+        nil
       end
     end
 
@@ -669,7 +680,7 @@ allbox tab(:);'
       when :strong
         %(#{ESC_BS}fB<BOUNDARY>#{node.text}</BOUNDARY>#{ESC_BS}fP)
       when :monospaced
-        %(#{ESC_BS}f[CR]<BOUNDARY>#{node.text}</BOUNDARY>#{ESC_BS}fP)
+        %[#{ESC_BS}f(CR<BOUNDARY>#{node.text}</BOUNDARY>#{ESC_BS}fP]
       when :single
         %[#{ESC_BS}(oq<BOUNDARY>#{node.text}</BOUNDARY>#{ESC_BS}(cq]
       when :double
@@ -681,6 +692,17 @@ allbox tab(:);'
 
     def resolve_content node
       node.content_model == :compound ? node.content : %(.sp#{LF}#{manify node.content})
+    end
+
+    def write_alternate_pages mannames, manvolnum, target
+      if mannames && mannames.size > 1
+        mannames.shift
+        manvolext = %(.#{manvolnum})
+        dir, basename = ::File.split target
+        mannames.each do |manname|
+          ::IO.write ::File.join(dir, %(#{manname}#{manvolext})), %(.so #{basename})
+        end
+      end
     end
   end
 end

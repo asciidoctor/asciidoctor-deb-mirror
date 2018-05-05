@@ -351,7 +351,7 @@ context "Parser" do
     attributes = {1 => '%header', 'options' => 'footer', 'footer-option' => ''}
     style = Asciidoctor::Parser.parse_style_attribute(attributes)
     assert_nil style
-    assert_equal 'header,footer', attributes['options']
+    assert_equal 'footer,header', attributes['options']
     assert_equal '', attributes['header-option']
     assert_equal '', attributes['footer-option']
   end
@@ -526,6 +526,13 @@ context "Parser" do
     assert_equal 'John Smith', metadata['author_2']
   end
 
+  test 'skips blank author entries in implicit author line' do
+    metadata, _ = parse_header_metadata 'Doc Writer; ; John Smith <john.smith@asciidoc.org>;'
+    assert_equal 2, metadata['authorcount']
+    assert_equal 'Doc Writer', metadata['author_1']
+    assert_equal 'John Smith', metadata['author_2']
+  end
+
   test 'parse name with more than 3 parts in author attribute' do
     doc = empty_document
     parse_header_metadata ':author: Leroy  Harold  Scherer,  Jr.', doc
@@ -533,6 +540,14 @@ context "Parser" do
     assert_equal 'Leroy', doc.attributes['firstname']
     assert_equal 'Harold', doc.attributes['middlename']
     assert_equal 'Scherer, Jr.', doc.attributes['lastname']
+  end
+
+  test 'sets authorcount to 0 if document has no authors' do
+    input = ''
+    doc = empty_document
+    metadata, _ = parse_header_metadata input, doc
+    assert_equal 0, doc.attributes['authorcount']
+    assert_equal 0, metadata['authorcount']
   end
 
   test 'does not drop name joiner when using multiple authors' do
@@ -710,6 +725,20 @@ v0.0.7, 2013-12-18
     assert_equal 'Ryan Waldron', metadata['author']
     assert_equal '0.0.7', metadata['revnumber']
     assert_equal '2013-12-18', metadata['revdate']
+  end
+
+  test 'break header at line with three forward slashes' do
+    input = <<-EOS
+Joe Cool
+v1.0
+///
+stuff
+    EOS
+    metadata, _ = parse_header_metadata input
+    assert_equal 7, metadata.size
+    assert_equal 1, metadata['authorcount']
+    assert_equal 'Joe Cool', metadata['author']
+    assert_equal '1.0', metadata['revnumber']
   end
 
   test 'attribute entry overrides generated author initials' do

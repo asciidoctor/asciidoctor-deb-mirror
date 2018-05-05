@@ -1,7 +1,7 @@
 #!/usr/bin/make -f
 
 export GEM2DEB_TEST_RUNNER = --check-dependencies
-export ASCIIDOCTOR_MANPAGE_ABSENT_FROM_TEST = 1
+export ASCIIDOCTOR_MANPAGE_PATH = $(CURDIR)/man/asciidoctor.1
 
 %:
 	dh $@ --buildsystem=ruby --with ruby

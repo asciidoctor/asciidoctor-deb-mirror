@@ -124,15 +124,15 @@ class Block < AbstractBlock
         result * LF
       end
     else
-      warn %(Unknown content model '#{@content_model}' for block: #{to_s}) unless @content_model == :empty
+      logger.warn %(Unknown content model '#{@content_model}' for block: #{to_s}) unless @content_model == :empty
       nil
     end
   end
 
   # Public: Returns the preprocessed source of this block
   #
-  # Returns the a String containing the lines joined together or nil if there
-  # are no lines
+  # Returns the a String containing the lines joined together or empty string
+  # if there are no lines
   def source
     @lines * LF
   end

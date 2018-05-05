@@ -11,13 +11,19 @@ Gem::Specification.new do |s|
   s.email = ['dan.j.allen@gmail.com']
   s.homepage = 'http://asciidoctor.org'
   s.license = 'MIT'
+  s.metadata = {
+    'bug_tracker_uri' => 'https://github.com/asciidoctor/asciidoctor/issues',
+    'changelog_uri' => 'https://github.com/asciidoctor/asciidoctor/blob/master/CHANGELOG.adoc',
+    'mailing_list_uri' => 'http://discuss.asciidoctor.org',
+    'source_code_uri' => 'https://github.com/asciidoctor/asciidoctor'
+  }
 
   files = begin
     (result = Open3.popen3('git ls-files -z') {|_, out| out.read }.split %(\0)).empty? ? Dir['**/*'] : result
   rescue
     Dir['**/*']
   end
-  s.files = files.grep(/^(?:(?:data|lib|man)\/.+|Gemfile|Rakefile|LICENSE|(?:CHANGELOG|CONTRIBUTINGREADME(?:-\w+)?)\.adoc|#{s.name}\.gemspec)$/)
+  s.files = files.grep(/^(?:(?:data|lib|man)\/.+|Gemfile|Rakefile|LICENSE|(?:CHANGELOG|CONTRIBUTING|README(?:-\w+)?)\.adoc|#{s.name}\.gemspec)$/)
   s.executables = files.grep(/^bin\//).map {|f| File.basename f }
   s.require_paths = ['lib']
   s.test_files = files.grep(/^(?:(?:features|test)\/.+)$/)

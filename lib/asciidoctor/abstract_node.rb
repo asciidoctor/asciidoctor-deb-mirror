@@ -4,26 +4,26 @@ module Asciidoctor
 # node of AsciiDoc content. The state and methods on this class are comment to
 # all content segments in an AsciiDoc document.
 class AbstractNode
-
+  include Logging
   include Substitutors
 
-  # Public: Get the element which is the parent of this node
-  attr_reader :parent
-
-  # Public: Get the Asciidoctor::Document to which this node belongs
-  attr_reader :document
+  # Public: Get the Hash of attributes for this node
+  attr_reader :attributes
 
   # Public: Get the Symbol context for this node
   attr_reader :context
 
-  # Public: Get the String name of this node
-  attr_reader :node_name
+  # Public: Get the Asciidoctor::Document to which this node belongs
+  attr_reader :document
 
   # Public: Get/Set the id of this node
   attr_accessor :id
 
-  # Public: Get the Hash of attributes for this node
-  attr_reader :attributes
+  # Public: Get the String name of this node
+  attr_reader :node_name
+
+  # Public: Get the element which is the parent of this node
+  attr_reader :parent
 
   def initialize parent, context, opts = {}
     if context == :document
@@ -42,22 +42,6 @@ class AbstractNode
     @passthroughs = {}
   end
 
-  # Public: Associate this Block with a new parent Block
-  #
-  # parent - The Block to set as the parent of this Block
-  #
-  # Returns nothing
-  def parent=(parent)
-    @parent, @document = parent, parent.document
-    nil
-  end
-
-  # Public: Get the Asciidoctor::Converter instance being used to convert the
-  # current Asciidoctor::Document.
-  def converter
-    @document.converter
-  end
-
   # Public: Returns whether this {AbstractNode} is an instance of {Block}
   #
   # Returns [Boolean]
@@ -74,6 +58,21 @@ class AbstractNode
     # :nocov:
     raise ::NotImplementedError
     # :nocov:
+  end
+
+  # Public: Get the Asciidoctor::Converter instance being used to convert the
+  # current Asciidoctor::Document.
+  def converter
+    @document.converter
+  end
+
+  # Public: Associate this Block with a new parent Block
+  #
+  # parent - The Block to set as the parent of this Block
+  #
+  # Returns the new parent Block associated with this Block
+  def parent= parent
+    @parent, @document = parent, parent.document
   end
 
   # Public: Get the value of the specified attribute
@@ -212,7 +211,7 @@ class AbstractNode
   # in the list of roles on this node
   def has_role?(name)
     # NOTE center + include? is faster than split + include?
-    (val = @attributes['role'] || @document.attributes['role']).nil_or_empty? ? false : %( #{val} ).include?(%( #{name} ))
+    (val = @attributes['role'] || @document.attributes['role']) ? %( #{val} ).include?(%( #{name} )) : false
   end
 
   # Public: A convenience method that adds the given role directly to this node
@@ -279,15 +278,14 @@ class AbstractNode
   # Returns A String reference or data URI for an icon image
   def icon_uri name
     if attr? 'icon'
-      # QUESTION should we add extension if resolved value is an absolute URI?
-      if ::File.extname(uri = (image_uri attr('icon'), 'iconsdir')).empty?
-        %(#{uri}.#{@document.attr 'icontype', 'png'})
-      else
-        uri
+      if ::File.extname(icon = (attr 'icon')).empty?
+        # QUESTION should we be adding the extension if the icon is an absolute URI?
+        icon = %(#{icon}.#{@document.attr 'icontype', 'png'})
       end
     else
-      image_uri %(#{name}.#{@document.attr 'icontype', 'png'}), 'iconsdir'
+      icon = %(#{name}.#{@document.attr 'icontype', 'png'})
     end
+    image_uri icon, 'iconsdir'
   end
 
   # Public: Construct a URI reference or data URI to the target image.
@@ -367,15 +365,15 @@ class AbstractNode
       image_path = normalize_system_path(target_image)
     end
 
-    unless ::File.readable? image_path
-      warn %(asciidoctor: WARNING: image to embed not found or not readable: #{image_path})
-      return %(data:#{mimetype};base64,)
+    if ::File.readable? image_path
+      # NOTE base64 is autoloaded by reference to ::Base64
+      %(data:#{mimetype};base64,#{::Base64.strict_encode64 ::IO.binread image_path})
+    else
+      logger.warn %(image to embed not found or not readable: #{image_path})
+      %(data:#{mimetype};base64,)
       # uncomment to return 1 pixel white dot instead
-      #return 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='
+      #'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='
     end
-
-    # NOTE base64 is autoloaded by reference to ::Base64
-    %(data:#{mimetype};base64,#{::Base64.encode64(::IO.binread image_path).delete LF})
   end
 
   # Public: Read the image data from the specified URI and generate a data URI
@@ -402,14 +400,14 @@ class AbstractNode
 
     begin
       mimetype = nil
-      bindata = open(image_uri, 'rb') {|fd|
+      bindata = open image_uri, 'rb' do |fd|
         mimetype = fd.content_type
         fd.read
-      }
+      end
       # NOTE base64 is autoloaded by reference to ::Base64
-      %(data:#{mimetype};base64,#{::Base64.encode64(bindata).delete LF})
+      %(data:#{mimetype};base64,#{::Base64.strict_encode64 bindata})
     rescue
-      warn %(asciidoctor: WARNING: could not retrieve image data from URI: #{image_uri})
+      logger.warn %(could not retrieve image data from URI: #{image_uri})
       image_uri
       # uncomment to return empty data (however, mimetype needs to be resolved)
       #%(data:#{mimetype}:base64,)
@@ -442,8 +440,8 @@ class AbstractNode
   # start  - the String start (i.e., parent) path
   # jail   - the String jail path to confine the resolved path
   # opts   - an optional Hash of options to control processing (default: {}):
-  #          * :recover is used to control whether the processor should auto-recover
-  #              when an illegal path is encountered
+  #          * :recover is used to control whether the processor should
+  #            automatically recover when an illegal path is encountered
   #          * :target_name is used in messages to refer to the path being resolved
   #
   # raises a SecurityError if a jail is specified and the resolved path is
@@ -453,10 +451,9 @@ class AbstractNode
   # parent references resolved and self references removed. If a jail is provided,
   # this path will be guaranteed to be contained within the jail.
   def normalize_system_path target, start = nil, jail = nil, opts = {}
-    path_resolver = (@path_resolver ||= PathResolver.new)
     if (doc = @document).safe < SafeMode::SAFE
       if start
-        start = ::File.join doc.base_dir, start unless path_resolver.root? start
+        start = ::File.join doc.base_dir, start unless doc.path_resolver.root? start
       else
         start = doc.base_dir
       end
@@ -464,7 +461,7 @@ class AbstractNode
       start = doc.base_dir unless start
       jail = doc.base_dir unless jail
     end
-    path_resolver.system_path target, start, jail, opts
+    doc.path_resolver.system_path target, start, jail, opts
   end
 
   # Public: Normalize the web path using the PathResolver.
@@ -480,7 +477,7 @@ class AbstractNode
     if preserve_uri_target && (Helpers.uriish? target)
       uri_encode_spaces target
     else
-      (@path_resolver ||= PathResolver.new).web_path target, start
+      @document.path_resolver.web_path target, start
     end
   end
 
@@ -508,7 +505,8 @@ class AbstractNode
         ::IO.read path
       end
     elsif opts[:warn_on_failure]
-      warn %(asciidoctor: WARNING: #{(attr 'docfile') || '<stdin>'}: #{opts[:label] || 'file'} does not exist or cannot be read: #{path})
+      logger.warn %(#{(attr 'docfile') || '<stdin>'}: #{opts[:label] || 'file'} does not exist or cannot be read: #{path})
+      nil
     end
   end
 
@@ -531,25 +529,25 @@ class AbstractNode
   def read_contents target, opts = {}
     doc = @document
     if (Helpers.uriish? target) || ((start = opts[:start]) && (Helpers.uriish? start) &&
-        (target = (@path_resolver ||= PathResolver.new).web_path target, start))
+        (target = doc.path_resolver.web_path target, start))
       if doc.attr? 'allow-uri-read'
         Helpers.require_library 'open-uri/cached', 'open-uri-cached' if doc.attr? 'cache-uri'
         begin
           data = ::OpenURI.open_uri(target) {|fd| fd.read }
           data = (Helpers.normalize_lines_from_string data) * LF if opts[:normalize]
+          return data
         rescue
-          warn %(asciidoctor: WARNING: could not retrieve contents of #{opts[:label] || 'asset'} at URI: #{target}) if opts.fetch :warn_on_failure, true
-          data = nil
+          logger.warn %(could not retrieve contents of #{opts[:label] || 'asset'} at URI: #{target}) if opts.fetch :warn_on_failure, true
+          return
         end
       else
-        warn %(asciidoctor: WARNING: cannot retrieve contents of #{opts[:label] || 'asset'} at URI: #{target} (allow-uri-read attribute not enabled)) if opts.fetch :warn_on_failure, true
-        data = nil
+        logger.warn %(cannot retrieve contents of #{opts[:label] || 'asset'} at URI: #{target} (allow-uri-read attribute not enabled)) if opts.fetch :warn_on_failure, true
+        return
       end
     else
       target = normalize_system_path target, opts[:start], nil, :target_name => (opts[:label] || 'asset')
-      data = read_asset target, :normalize => opts[:normalize], :warn_on_failure => (opts.fetch :warn_on_failure, true), :label => opts[:label]
+      return read_asset target, :normalize => opts[:normalize], :warn_on_failure => (opts.fetch :warn_on_failure, true), :label => opts[:label]
     end
-    data
   end
 
   # Internal: URI encode spaces in a String

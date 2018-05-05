@@ -1,6 +1,8 @@
 # encoding: UTF-8
 module Asciidoctor
   module Cli
+    FS = '/'
+    RS = '\\'
 
     # Public: List of options that can be specified on the command line
     class Options < ::Hash
@@ -24,7 +26,9 @@ module Asciidoctor
         self[:load_paths] = options[:load_paths] || nil
         self[:requires] = options[:requires] || nil
         self[:base_dir] = options[:base_dir]
+        self[:source_dir] = options[:source_dir] || nil
         self[:destination_dir] = options[:destination_dir] || nil
+        self[:failure_level] = ::Logger::Severity::FATAL
         self[:trace] = false
         self[:timings] = false
       end
@@ -75,8 +79,6 @@ Example: asciidoctor -b html5 source.asciidoc
                   'specify eRuby implementation to use when rendering custom ERB templates: [erb, erubis] (default: erb)') do |eruby|
             self[:eruby] = eruby
           end
-          opts.on('-C', '--compact', 'compact the output by removing blank lines. (No longer in use)') do
-          end
           opts.on('-a', '--attribute key[=value]', 'a document attribute to set in the form of key, key! or key=value pair',
                   'unless @ is appended to the value, this attributes takes precedence over attributes',
                   'defined in the source document') do |attr|
@@ -104,6 +106,9 @@ Example: asciidoctor -b html5 source.asciidoc
           opts.on('-B', '--base-dir DIR', 'base directory containing the document and resources (default: directory of source file)') do |base_dir|
             self[:base_dir] = base_dir
           end
+          opts.on('-R', '--source-dir DIR', 'source root directory (used for calculating path in destination directory)') do |src_dir|
+            self[:source_dir] = src_dir
+          end
           opts.on('-D', '--destination-dir DIR', 'destination output directory (default: directory of source file)') do |dest_dir|
             self[:destination_dir] = dest_dir
           end
@@ -114,6 +119,10 @@ Example: asciidoctor -b html5 source.asciidoc
           opts.on('-rLIBRARY', '--require LIBRARY', 'require the specified library before executing the processor (using require)',
               'may be specified more than once') do |path|
             (self[:requires] ||= []).concat(path.split ',')
+          end
+          opts.on('--failure-level LEVEL', %w(warning WARNING error ERROR), 'set minimum logging level that triggers a non-zero exit code: [WARN, ERROR] (default: FATAL)') do |level|
+            level = 'WARN' if (level = level.upcase) == 'WARNING'
+            self[:failure_level] = ::Logger::Severity.const_get level
           end
           opts.on('-q', '--quiet', 'suppress warnings (default: false)') do |verbose|
             self[:verbose] = 0
@@ -132,11 +141,32 @@ Example: asciidoctor -b html5 source.asciidoc
               'show the command usage if TOPIC is not specified (or not recognized)',
               'dump the Asciidoctor man page (in troff/groff format) if TOPIC is manpage') do |topic|
             if topic == 'manpage'
-              if ::File.exist?(manpage_path = (::File.join ::Asciidoctor::ROOT_PATH, 'man', 'asciidoctor.1'))
-                $stdout.puts(::IO.read manpage_path)
+              if (manpage_path = ENV['ASCIIDOCTOR_MANPAGE_PATH'])
+                if ::File.exist? manpage_path
+                  if manpage_path.end_with? '.gz'
+                    require 'zlib' unless defined? ::Zlib::GzipReader
+                    $stdout.puts ::Zlib::GzipReader.open(manpage_path) {|gz| gz.read }
+                  else
+                    $stdout.puts ::IO.read manpage_path
+                  end
+                else
+                  $stderr.puts %(asciidoctor: FAILED: manual page not found: #{manpage_path})
+                  return 1
+                end
+              elsif ::File.exist?(manpage_path = (::File.join ::Asciidoctor::ROOT_PATH, 'man', 'asciidoctor.1'))
+                $stdout.puts ::IO.read manpage_path
               else
-                $stderr.puts 'asciidoctor: FAILED: man page not found; try `man asciidoctor`'
-                return 1
+                require 'open3' unless defined? ::Open3.popen3
+                manpage_path = ::Open3.popen3('man -w asciidoctor') {|_, out| out.read }.chop rescue ''
+                if manpage_path.empty?
+                  $stderr.puts 'asciidoctor: FAILED: manual page not found; try `man asciidoctor`'
+                  return 1
+                elsif manpage_path.end_with? '.gz'
+                  require 'zlib' unless defined? ::Zlib::GzipReader
+                  $stdout.puts ::Zlib::GzipReader.open(manpage_path) {|gz| gz.read }
+                else
+                  $stdout.puts ::IO.read manpage_path
+                end
               end
             else
               $stdout.puts opts
@@ -171,31 +201,39 @@ Example: asciidoctor -b html5 source.asciidoc
               # warn, but don't panic; we may have enough to proceed, so we won't force a failure
               $stderr.puts %(asciidoctor: WARNING: extra arguments detected (unparsed arguments: '#{args * "', '"}') or incorrect usage of stdin)
             else
-              if ::File.readable? file
-                matches = [file]
+              if ::File.file? file
+                infiles << file
+              # NOTE only attempt to glob if file is not found
               else
                 # Tilt backslashes in Windows paths the Ruby-friendly way
-                if ::File::ALT_SEPARATOR == '\\' && (file.include? '\\')
-                  file = file.tr '\\', '/'
+                if ::File::ALT_SEPARATOR == RS && (file.include? RS)
+                  file = file.tr RS, FS
                 end
                 if (matches = ::Dir.glob file).empty?
-                  $stderr.puts %(asciidoctor: FAILED: input file #{file} missing or cannot be read)
-                  return 1
+                  # NOTE if no matches, assume it's just a missing file and proceed
+                  infiles << file
+                else
+                  infiles.concat matches
                 end
               end
-
-              infiles.concat matches
             end
           end
         end
 
-        infiles.each do |file|
-          unless file == '-' || (::File.file? file) || (::File.pipe? file)
-            if ::File.readable? file
-              $stderr.puts %(asciidoctor: FAILED: input path #{file} is a #{(::File.stat file).ftype}, not a file)
+        infiles.reject {|file| file == '-' }.each do |file|
+          begin
+            fstat = ::File.stat file
+            if fstat.file? || fstat.pipe?
+              unless fstat.readable?
+                $stderr.puts %(asciidoctor: FAILED: input file #{file} is not readable)
+                return 1
+              end
             else
-              $stderr.puts %(asciidoctor: FAILED: input file #{file} missing or cannot be read)
+              $stderr.puts %(asciidoctor: FAILED: input path #{file} is a #{fstat.ftype}, not a file)
+              return 1
             end
+          rescue ::Errno::ENOENT
+            $stderr.puts %(asciidoctor: FAILED: input file #{file} is missing)
             return 1
           end
         end
@@ -206,7 +244,7 @@ Example: asciidoctor -b html5 source.asciidoc
 
         if self[:template_dirs]
           begin
-            require 'tilt' unless defined? ::Tilt
+            require 'tilt' unless defined? ::Tilt::VERSION
           rescue ::LoadError
             raise $! if self[:trace]
             $stderr.puts 'asciidoctor: FAILED: \'tilt\' could not be loaded'
@@ -220,7 +258,7 @@ Example: asciidoctor -b html5 source.asciidoc
 
         if (load_paths = self[:load_paths])
           (self[:load_paths] = load_paths.uniq).reverse_each do |path|
-            $:.unshift File.expand_path(path)
+            $:.unshift ::File.expand_path(path)
           end
         end
 
@@ -251,10 +289,10 @@ Example: asciidoctor -b html5 source.asciidoc
       end
 
       def print_version os = $stdout
-        os.puts %(Asciidoctor #{::Asciidoctor::VERSION} [http://asciidoctor.org])
-        if RUBY_VERSION >= '1.9.3'
-          encoding_info = {'lc' => 'locale', 'fs' => 'filesystem', 'in' => 'internal', 'ex' => 'external'}.map do |k,v|
-            %(#{k}:#{::Encoding.find(v) || '-'})
+        os.puts %(Asciidoctor #{::Asciidoctor::VERSION} [https://asciidoctor.org])
+        if RUBY_MIN_VERSION_1_9
+          encoding_info = { 'lc' => 'locale', 'fs' => 'filesystem', 'in' => 'internal', 'ex' => 'external' }.map do |k, v|
+            %(#{k}:#{v == 'internal' ? (::File.open(__FILE__) {|f| f.getc }).encoding : (::Encoding.find v)})
           end
           os.puts %(Runtime Environment (#{RUBY_DESCRIPTION}) (#{encoding_info * ' '}))
         else

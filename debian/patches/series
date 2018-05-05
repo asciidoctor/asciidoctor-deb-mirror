@@ -3,5 +3,4 @@ lib_directory_in_tests.patch
 skip-asciimath-test.patch
 package-version.patch
 skip-unreadable-file.patch
-re-add_README.patch
 disable_badge_in_README.patch

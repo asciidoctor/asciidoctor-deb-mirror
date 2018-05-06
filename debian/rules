@@ -2,6 +2,7 @@
 
 export GEM2DEB_TEST_RUNNER = --check-dependencies
 export ASCIIDOCTOR_MANPAGE_PATH = $(CURDIR)/man/asciidoctor.1
+export ASCIIDOCTOR_LIB_DIR = $(CURDIR)/debian/ruby-asciidoctor/usr/lib/ruby/vendor_ruby
 
 %:
 	dh $@ --buildsystem=ruby --with ruby

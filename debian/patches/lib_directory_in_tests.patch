@@ -1,24 +1,23 @@
-From: Guillaume Grossetie <ggrossetie@gmail.com>
-Subject: Exclude lib/ directory from tests
---- a/Rakefile
-+++ b/Rakefile
-@@ -20,7 +20,7 @@
-   Rake::TestTask.new(:test) do |t|
-     prepare_test_env
-     puts %(LANG: #{ENV['LANG']}) if ENV.key? 'TRAVIS_BUILD_ID'
--    t.libs << 'test'
-+    t.libs = ['test']
-     t.pattern = 'test/**/*_test.rb'
-     t.verbose = true
-     t.warning = true
+From: Joseph Herlant <herlantj@gmail.com>
+Subject: Make the asciidoc lib dir available via environment variable for better
+ flexibility
+Forwarded: https://github.com/asciidoctor/asciidoctor/pull/2758
 --- a/test/test_helper.rb
 +++ b/test/test_helper.rb
-@@ -9,7 +9,7 @@
+@@ -1,6 +1,7 @@
+ # encoding: UTF-8
+ ASCIIDOCTOR_TEST_DIR = File.expand_path File.dirname __FILE__
+ ASCIIDOCTOR_PROJECT_DIR = File.dirname ASCIIDOCTOR_TEST_DIR
++ASCIIDOCTOR_LIB_DIR = ENV['ASCIIDOCTOR_LIB_DIR'] || File.join(ASCIIDOCTOR_PROJECT_DIR, 'lib')
+ Dir.chdir ASCIIDOCTOR_PROJECT_DIR
+ 
+ if RUBY_VERSION < '1.9'
+@@ -9,7 +10,7 @@
  
  require 'simplecov' if ENV['COVERAGE'] == 'true'
  
 -require File.join(ASCIIDOCTOR_PROJECT_DIR, 'lib', 'asciidoctor')
-+require 'asciidoctor'
++require File.join(ASCIIDOCTOR_LIB_DIR, 'asciidoctor')
  
  require 'socket'
  require 'nokogiri'

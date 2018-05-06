@@ -1,3 +1,18 @@
+asciidoctor (1.5.7-1) unstable; urgency=low
+
+  * New upstream version 1.5.7 (Closes: #895186, #895187)
+  * remove fix-manpage-topic.patch merged upstream
+  * remove re-add_README.patch merged upstream
+  * remove skip-asciimath-test.patch as obsolete thanks to upstream change
+  * refresh quilt patches against the new version
+  * d/rules: use ASCIIDOCTOR_MANPAGE_PATH to avoid issues during the tests
+  * d/ruby-tests.rake: add ASCIIDOCTOR_MANPAGE_PATH to autopkgtests
+  * Update the privacy breach patch with the latest version requirements
+  * Change the lib_directory_in_tests.patch to be forwardable upstream
+  * Make package-version.patch forwardable to upstream
+
+ -- Joseph Herlant <herlantj@gmail.com>  Sun, 06 May 2018 01:14:29 -0700
+
 asciidoctor (1.5.6.2-2) unstable; urgency=low
 
   * Force the install of data files even when DH_CONFIG_ACT_ON_PACKAGES is set

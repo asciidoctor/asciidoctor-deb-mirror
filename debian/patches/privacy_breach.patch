@@ -1,0 +1,58 @@
+Description: Remove the badge in the readme to avoid lintian complaining about
+ privacy-breach-generic
+Author: Joseph Herlant <herlantj@gmail.com>
+Forwarded: not-needed
+Last-Update: 2018-05-05
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/README.adoc
++++ b/README.adoc
+@@ -94,10 +94,6 @@
+ We want to recognize our generous sponsors, without whose support Asciidoctor would not be possible.
+ Thank you sponsors for your dedication to improving the state of technical documentation!
+ 
+-image:https://www.okta.com/sites/all/themes/Okta/images/blog/Logos/Okta_Logo_BrightBlue_Medium.png[Okta,280,link=https://developer.okta.com/signup?utm_source=asciidoctor&utm_medium=logo&utm_campaign=sponsor,title="Add User Auth to Your Apps in Minutes with Okta"]
+-&nbsp; &nbsp; &nbsp;
+-image:https://secure.gravatar.com/avatar/823717a797dbd78ceff7b26aa397f383.png?size=200[OpenDevise,100,link=https://opendevise.com,title="Let the Creators of Asciidoctor and Antora Help You to Accelerate Your Docs"]
+-
+ Major funding for Asciidoctor is provided by our *Change Makers*, https://developer.okta.com/signup?utm_source=asciidoctor&utm_medium=text-link&utm_campaign=sponsor[Okta] and https://opendevise.com[OpenDevise], and our *Strategy Sponsors*, Khronos Group and Linda Roberts.
+ Additional funding is provided by our https://asciidoctor.org/supporters[Community Backers].
+ 
+@@ -412,7 +408,6 @@
+ 
+ Discussion list (Nabble):: {uri-discuss}
+ Twitter:: https://twitter.com/search?f=tweets&q=%23asciidoctor[#asciidoctor] hashtag or https://twitter.com/asciidoctor[@asciidoctor] mention
+-Chat (Gitter):: image:https://badges.gitter.im/Join%20In.svg[Gitter, link=https://gitter.im/asciidoctor/asciidoctor]
+ ////
+ Chat (IRC):: {uri-irc}[#asciidoctor] on FreeNode IRC
+ ////
+--- a/README-fr.adoc
++++ b/README-fr.adoc
+@@ -399,7 +399,6 @@
+ 
+ Mailing list:: {uri-discuss}
+ Twitter:: hashtag https://twitter.com/search?f=tweets&q=%23asciidoctor[#asciidoctor] ou la mention https://twitter.com/asciidoctor[@asciidoctor]
+-Gitter (Chat):: image:https://badges.gitter.im/Join%20In.svg[Gitter, link=https://gitter.im/asciidoctor/asciidoctor]
+ ////
+ IRC (Chat):: {uri-irc}[#asciidoctor] sur FreeNode IRC
+ ////
+--- a/README-jp.adoc
++++ b/README-jp.adoc
+@@ -379,7 +379,6 @@
+ 
+ Discussion list (Nabble):: {uri-discuss}
+ Twitter:: #asciidoctor hashtag or @asciidoctor mention
+-Chat (Gitter):: image:https://badges.gitter.im/Join%20In.svg[Gitter, link=https://gitter.im/asciidoctor/asciidoctor]
+ 
+ ifdef::env-github[]
+ 以下のプロジェクトサイトに、Asciidoctorに関するさらに詳しい情報やドキュメントがあります。
+--- a/README-zh_CN.adoc
++++ b/README-zh_CN.adoc
+@@ -395,7 +395,6 @@
+ 
+ 讨论组 (Nabble):: {uri-discuss}
+ Twitter:: https://twitter.com/search?f=tweets&q=%23asciidoctor[#asciidoctor] 来加入话题 或 https://twitter.com/asciidoctor[@asciidoctor] at并提醒我们
+-聊天 (Gitter):: image:https://badges.gitter.im/Join%20In.svg[Gitter, link=https://gitter.im/asciidoctor/asciidoctor]
+ 
+ ifdef::env-github[]
+ Further information and documentation about Asciidoctor can be found on the project's website.

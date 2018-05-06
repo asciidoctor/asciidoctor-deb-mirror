@@ -1,27 +1,46 @@
 Description: gemspec: load asciidoctor/version from system is not available locally
  This fixes running tests under autopkgtest
-Author: Antonio Terceiro <terceiro@debian.org>
-Origin: vendor
-Forwarded: no
-Last-Update: 2015-11-17
+Author: Joseph Herlant <herlantj@gmail.com>
+Forwarded: https://github.com/asciidoctor/asciidoctor/pull/2760
+Last-Update: 2018-05-06
 ---
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/asciidoctor.gemspec
 +++ b/asciidoctor.gemspec
-@@ -1,5 +1,6 @@
+@@ -1,5 +1,10 @@
  # encoding: UTF-8
 -require File.expand_path '../lib/asciidoctor/version', __FILE__
-+$LOAD_PATH << File.expand_path('../lib', __FILE__)
-+require 'asciidoctor/version'
++begin
++  require 'asciidoctor/version'
++rescue LoadError
++  require File.expand_path '../lib/asciidoctor/version', __FILE__
++end
++
  require 'open3' unless defined? Open3
  
  Gem::Specification.new do |s|
 --- a/Rakefile
 +++ b/Rakefile
-@@ -1,4 +1,5 @@
+@@ -1,5 +1,3 @@
 -require File.expand_path '../lib/asciidoctor/version', __FILE__
-+$LOAD_PATH << File.expand_path('../lib', __FILE__)
-+require 'asciidoctor/version'
- 
+-
  def prepare_test_env
    # rather than hardcoding gc settings in test task,
+   # could use https://gist.github.com/benders/788695
+@@ -65,16 +63,6 @@
+ 
+ begin
+   require 'bundler/gem_tasks'
+-
+-  # Enhance the release task to create an explicit commit for the release
+-  #Rake::Task[:release].enhance [:commit_release]
+-
+-  # NOTE you don't need to push after updating version and committing locally
+-  # WARNING no longer works; it's now necessary to get master in a state ready for tagging
+-  task :commit_release do
+-    Bundler::GemHelper.new.send(:guard_clean)
+-    sh "git commit --allow-empty -a -m 'Release #{Asciidoctor::VERSION}'"
+-  end
+ rescue LoadError
+ end
+ 

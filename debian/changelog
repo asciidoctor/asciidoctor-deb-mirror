@@ -1,3 +1,9 @@
+asciidoctor (1.5.6.2-2~bpo9+1) stretch-backports; urgency=medium
+
+  * Rebuild for stretch-backports.
+
+ -- Pirate Praveen <praveen@debian.org>  Thu, 10 May 2018 13:35:56 +0530
+
 asciidoctor (1.5.6.2-2) unstable; urgency=low
 
   * Force the install of data files even when DH_CONFIG_ACT_ON_PACKAGES is set

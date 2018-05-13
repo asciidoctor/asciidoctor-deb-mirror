@@ -7,7 +7,7 @@ Last-Update: 2018-05-05
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/README.adoc
 +++ b/README.adoc
-@@ -94,10 +94,6 @@
+@@ -95,10 +95,6 @@
  We want to recognize our generous sponsors, without whose support Asciidoctor would not be possible.
  Thank you sponsors for your dedication to improving the state of technical documentation!
  
@@ -28,7 +28,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  ////
 --- a/README-fr.adoc
 +++ b/README-fr.adoc
-@@ -399,7 +399,6 @@
+@@ -400,7 +400,6 @@
  
  Mailing list:: {uri-discuss}
  Twitter:: hashtag https://twitter.com/search?f=tweets&q=%23asciidoctor[#asciidoctor] ou la mention https://twitter.com/asciidoctor[@asciidoctor]
@@ -38,7 +38,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  ////
 --- a/README-jp.adoc
 +++ b/README-jp.adoc
-@@ -379,7 +379,6 @@
+@@ -380,7 +380,6 @@
  
  Discussion list (Nabble):: {uri-discuss}
  Twitter:: #asciidoctor hashtag or @asciidoctor mention
@@ -48,7 +48,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  以下のプロジェクトサイトに、Asciidoctorに関するさらに詳しい情報やドキュメントがあります。
 --- a/README-zh_CN.adoc
 +++ b/README-zh_CN.adoc
-@@ -395,7 +395,6 @@
+@@ -396,7 +396,6 @@
  
  讨论组 (Nabble):: {uri-discuss}
  Twitter:: https://twitter.com/search?f=tweets&q=%23asciidoctor[#asciidoctor] 来加入话题 或 https://twitter.com/asciidoctor[@asciidoctor] at并提醒我们

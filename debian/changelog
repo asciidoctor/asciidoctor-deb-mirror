@@ -1,3 +1,12 @@
+asciidoctor (1.5.7.1-1) unstable; urgency=low
+
+  * New upstream version 1.5.7.1
+  * Remove lib_directory_in_tests.patch integrated upstream
+  * Remove package-version.patch integrated upstream
+  * Refresh quilt patches on new version
+
+ -- Joseph Herlant <herlantj@gmail.com>  Sun, 13 May 2018 16:43:20 -0700
+
 asciidoctor (1.5.7-1) unstable; urgency=low
 
   * New upstream version 1.5.7 (Closes: #895186, #895187)

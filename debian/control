@@ -43,7 +43,7 @@ Architecture: any
 Multi-Arch: foreign
 XB-Ruby-Versions: ${ruby:Versions}
 Depends: ruby | ruby-interpreter,
-         ruby-asciidoctor,
+         ruby-asciidoctor (>= ${source:Version}),
          ${misc:Depends},
          ${shlibs:Depends}
 Description: AsciiDoc to HTML rendering for Ruby

@@ -39,7 +39,7 @@ Description: AsciiDoc to HTML rendering for Ruby (core libraries)
  This package contains the library files used by the asciidoctor package.
 
 Package: asciidoctor
-Architecture: any
+Architecture: all
 Multi-Arch: foreign
 XB-Ruby-Versions: ${ruby:Versions}
 Depends: ruby | ruby-interpreter,

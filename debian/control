@@ -52,6 +52,7 @@ Description: AsciiDoc to HTML rendering for Ruby
 
 Package: asciidoctor-doc
 Architecture: all
+Multi-Arch: foreign
 Section: doc
 Depends: libjs-jquery, ${misc:Depends}
 Suggests: asciidoctor

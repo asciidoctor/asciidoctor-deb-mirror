@@ -16,7 +16,7 @@ Build-Depends: coderay,
                ruby-mocha,
                ruby-nokogiri (>= 1.5.10),
                ruby-slim,
-               ruby-thread-safe,
+               ruby-concurrent,
                ruby-tilt
 Standards-Version: 4.1.4
 Vcs-Git: https://salsa.debian.org/ruby-team/asciidoctor.git

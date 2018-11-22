@@ -43,7 +43,7 @@ context 'Manpage' do
       assert_includes output.lines, %(command, alt_command \\- does stuff\n)
     end
 
-    test 'should skip line comments in NAME section' do
+    test 'should not parse NAME section if manname and manpurpose attributes are set' do
       input = <<-EOS
 = foobar (1)
 Author Name
@@ -51,10 +51,37 @@ Author Name
 :man manual: Foo Bar Manual
 :man source: Foo Bar 1.0
 
+== SYNOPSIS
+
+*foobar* [_OPTIONS_]...
+
+== DESCRIPTION
+
+When you need to put some foo on the bar.
+      EOS
+
+      attrs = { 'manname' => 'foobar', 'manpurpose' => 'puts some foo on the bar' }
+      doc = Asciidoctor.load input, :backend => :manpage, :header_footer => true, :attributes => attrs
+      assert_equal 'foobar', (doc.attr 'manname')
+      assert_equal ['foobar'], (doc.attr 'mannames')
+      assert_equal 'puts some foo on the bar', (doc.attr 'manpurpose')
+      assert_equal 'SYNOPSIS', doc.sections[0].title
+    end
+
+    test 'should normalize whitespace and skip line comments before and inside NAME section' do
+      input = <<-EOS
+= foobar (1)
+Author Name
+:doctype: manpage
+:man manual: Foo Bar Manual
+:man source: Foo Bar 1.0
+
+// this is the name section
 == NAME
 
-// follows the form `name - description`
-foobar - puts some foo on the bar
+// it follows the form `name - description`
+foobar - puts some foo
+ on the bar
 // a little bit of this, a little bit of that
 
 == SYNOPSIS
@@ -68,6 +95,52 @@ When you need to put some foo on the bar.
 
       doc = Asciidoctor.load input, :backend => :manpage, :header_footer => true
       assert_equal 'puts some foo on the bar', (doc.attr 'manpurpose')
+    end
+
+    test 'should parse malformed document with warnings' do
+      input = 'garbage in'
+      using_memory_logger do |logger|
+        doc = Asciidoctor.load input, :backend => :manpage, :header_footer => true, :attributes => { 'docname' => 'cmd' }
+        assert_equal 'cmd', doc.attr('manname')
+        assert_equal ['cmd'], doc.attr('mannames')
+        assert_equal '.1', doc.attr('outfilesuffix')
+        output = doc.convert
+        refute logger.messages.empty?
+        assert_includes output, 'Title: cmd'
+        assert output.end_with?('garbage in')
+      end
+    end
+
+    test 'should warn if document title is non-conforming' do
+      input = <<-EOS
+= command
+
+== Name
+
+command - does stuff
+      EOS
+
+      using_memory_logger do |logger|
+        document_from_string input, :backend => :manpage
+        assert_message logger, :ERROR, '<stdin>: line 1: non-conforming manpage title', Hash
+      end
+    end
+
+    test 'should warn if first section is not name section' do
+      input = <<-EOS
+= command(1)
+
+== Synopsis
+
+Does stuff.
+      EOS
+
+      using_memory_logger do |logger|
+        doc = document_from_string input, :backend => :manpage
+        assert_message logger, :ERROR, '<stdin>: line 3: non-conforming name section body', Hash
+        refute_nil doc.sections[0]
+        assert_equal 'Synopsis', doc.sections[0].title
+      end
     end
 
     test 'should define default linkstyle' do
@@ -133,6 +206,44 @@ BBB this line and the one above it should be visible)
 
       output = Asciidoctor.convert input, :backend => :manpage
       assert_equal '\&.if 1 .nx', output.lines.entries[-2].chomp
+    end
+
+    test 'should normalize whitespace in a paragraph' do
+      input = %(#{SAMPLE_MANPAGE_HEADER}
+
+Oh, here it goes again
+  I should have known,
+    should have known,
+should have known again)
+
+      output = Asciidoctor.convert input, :backend => :manpage
+      assert_includes output, %(Oh, here it goes again\nI should have known,\nshould have known,\nshould have known again)
+    end
+
+    test 'should normalize whitespace in a list item' do
+      input = %(#{SAMPLE_MANPAGE_HEADER}
+
+* Oh, here it goes again
+    I should have known,
+  should have known,
+should have known again)
+
+      output = Asciidoctor.convert input, :backend => :manpage
+      assert_includes output, %(Oh, here it goes again\nI should have known,\nshould have known,\nshould have known again)
+    end
+
+    test 'should collapse whitespace in the man manual and man source' do
+      input = %(#{SAMPLE_MANPAGE_HEADER}
+
+Describe this thing.)
+
+      output = Asciidoctor.convert input, :backend => :manpage, :header_footer => true, :attributes => {
+        'manmanual' => %(General\nCommands\nManual),
+        'mansource' => %(Control\nAll\nThe\nThings\n5.0)
+      }
+      assert_includes output, 'Manual: General Commands Manual'
+      assert_includes output, 'Source: Control All The Things 5.0'
+      assert_includes output, '"Control All The Things 5.0" "General Commands Manual"'
     end
   end
 
@@ -464,6 +575,32 @@ The Magic 8 Ball says image:signs-point-to-yes.jpg[].)
 The Magic 8 Ball says image:signs-point-to-yes.jpg[link=https://en.wikipedia.org/wiki/Magic_8-Ball].)
       output = Asciidoctor.convert input, :backend => :manpage
       assert_includes output, 'The Magic 8 Ball says [signs point to yes] <https://en.wikipedia.org/wiki/Magic_8\-Ball>.'
+    end
+  end
+
+  context 'Quote Block' do
+    test 'should indent quote block' do
+      input = %(#{SAMPLE_MANPAGE_HEADER}
+
+[,James Baldwin]
+____
+Not everything that is faced can be changed.
+But nothing can be changed until it is faced.
+____)
+      output = Asciidoctor.convert input, :backend => :manpage
+      assert output.end_with? '.RS 3
+.ll -.6i
+.sp
+Not everything that is faced can be changed.
+But nothing can be changed until it is faced.
+.br
+.RE
+.ll
+.RS 5
+.ll -.10i
+\(em James Baldwin
+.RE
+.ll'
     end
   end
 

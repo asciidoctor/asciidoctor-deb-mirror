@@ -65,7 +65,7 @@ Example: asciidoctor -b html5 source.asciidoc
             self[:safe] = SafeMode::SAFE
           end
           opts.on('-S', '--safe-mode SAFE_MODE', (safe_mode_names = SafeMode.names),
-                  %(set safe mode level explicitly: [#{safe_mode_names * ', '}] (default: unsafe)),
+                  %(set safe mode level explicitly: [#{safe_mode_names.join ', '}] (default: unsafe)),
                   'disables potentially dangerous macros in source files, such as include::[]') do |name|
             self[:safe] = SafeMode.value_for_name name
           end
@@ -84,10 +84,6 @@ Example: asciidoctor -b html5 source.asciidoc
                   'defined in the source document') do |attr|
             key, val = attr.split '=', 2
             val = val ? (FORCE_ENCODING ? (val.force_encoding ::Encoding::UTF_8) : val) : ''
-            # move leading ! to end for internal processing
-            #if !val && key.start_with?('!')
-            #  key = %(#{key[1..-1]}!)
-            #end
             self[:attributes][key] = val
           end
           opts.on('-T', '--template-dir DIR', 'a directory containing custom converter templates that override the built-in converter (requires tilt gem)',
@@ -199,7 +195,7 @@ Example: asciidoctor -b html5 source.asciidoc
           args.each do |file|
             if file == '-' || (file.start_with? '-')
               # warn, but don't panic; we may have enough to proceed, so we won't force a failure
-              $stderr.puts %(asciidoctor: WARNING: extra arguments detected (unparsed arguments: '#{args * "', '"}') or incorrect usage of stdin)
+              $stderr.puts %(asciidoctor: WARNING: extra arguments detected (unparsed arguments: '#{args.join "', '"}') or incorrect usage of stdin)
             else
               if ::File.file? file
                 infiles << file
@@ -290,13 +286,13 @@ Example: asciidoctor -b html5 source.asciidoc
 
       def print_version os = $stdout
         os.puts %(Asciidoctor #{::Asciidoctor::VERSION} [https://asciidoctor.org])
-        if RUBY_MIN_VERSION_1_9
+        if ::RUBY_MIN_VERSION_1_9
           encoding_info = { 'lc' => 'locale', 'fs' => 'filesystem', 'in' => 'internal', 'ex' => 'external' }.map do |k, v|
             %(#{k}:#{v == 'internal' ? (::File.open(__FILE__) {|f| f.getc }).encoding : (::Encoding.find v)})
           end
-          os.puts %(Runtime Environment (#{RUBY_DESCRIPTION}) (#{encoding_info * ' '}))
+          os.puts %(Runtime Environment (#{::RUBY_DESCRIPTION}) (#{encoding_info.join ' '}))
         else
-          os.puts %(Runtime Environment (#{RUBY_DESCRIPTION}))
+          os.puts %(Runtime Environment (#{::RUBY_DESCRIPTION}))
         end
         0
       end

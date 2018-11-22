@@ -20,8 +20,8 @@ module Asciidoctor
   # backend format (e.g., "html5").
   #
   # As an optimization, scan results and templates are cached for the lifetime
-  # of the Ruby process. If the {https://rubygems.org/gems/thread_safe
-  # thread_safe} gem is installed, these caches are guaranteed to be thread
+  # of the Ruby process. If the {https://rubygems.org/gems/concurrent-ruby
+  # concurrent-ruby} gem is installed, these caches are guaranteed to be thread
   # safe. If this gem is not present, there is no such guarantee and a warning
   # will be issued.
   class Converter::TemplateConverter < Converter::Base
@@ -33,10 +33,11 @@ module Asciidoctor
       :slim => { :disable_escape => true, :sort_attrs => false, :pretty => false }
     }
 
-    # QUESTION are we handling how we load the thread_safe support correctly?
     begin
-      require 'thread_safe' unless defined? ::ThreadSafe
-      @caches = { :scans => ::ThreadSafe::Cache.new, :templates => ::ThreadSafe::Cache.new }
+      unless defined? ::Concurrent::Hash
+        require ::RUBY_MIN_VERSION_1_9 ? 'concurrent/hash' : 'asciidoctor/core_ext/1.8.7/concurrent/hash'
+      end
+      @caches = { :scans => ::Concurrent::Hash.new, :templates => ::Concurrent::Hash.new }
     rescue ::LoadError
       @caches = { :scans => {}, :templates => {} }
     end
@@ -75,7 +76,7 @@ module Asciidoctor
       end
       case opts[:template_cache]
       when true
-        logger.warn 'gem \'thread_safe\' is not installed. This gem is recommended when using the built-in template cache.' unless defined? ::ThreadSafe
+        logger.warn 'gem \'concurrent-ruby\' is not installed. This gem is recommended when using the built-in template cache.' unless defined? ::Concurrent::Hash
         @caches = self.class.caches
       when ::Hash
         @caches = opts[:template_cache]
@@ -255,6 +256,7 @@ module Asciidoctor
             unless @active_engines[extsym]
               # NOTE slim doesn't get automatically loaded by Tilt
               Helpers.require_library 'slim' unless defined? ::Slim
+              ::Slim::Engine.define_options :asciidoc => {}
               # align safe mode of AsciiDoc embedded in Slim template with safe mode of current document
               # NOTE safe mode won't get updated if using template cache and changing safe mode
               (@engine_options[extsym][:asciidoc] ||= {})[:safe] ||= @safe if @safe && ::Slim::VERSION >= '3.0'

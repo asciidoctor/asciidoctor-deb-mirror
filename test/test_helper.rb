@@ -19,6 +19,7 @@ require 'tmpdir'
 
 autoload :FileUtils, 'fileutils'
 autoload :Pathname,  'pathname'
+autoload :Open3, 'open3'
 
 RE_XMLNS_ATTRIBUTE = / xmlns="[^"]+"/
 RE_DOCTYPE = /\s*<!DOCTYPE (.*)/
@@ -193,7 +194,7 @@ class Minitest::Test
     doc.blocks.first
   end
 
-  def render_string(src, opts = {})
+  def convert_string(src, opts = {})
     keep_namespaces = opts.delete(:keep_namespaces)
     if keep_namespaces
       document_from_string(src, opts).convert
@@ -205,12 +206,12 @@ class Minitest::Test
     end
   end
 
-  def render_embedded_string(src, opts = {})
+  def convert_string_to_embedded(src, opts = {})
     opts[:header_footer] = false
     document_from_string(src, opts).convert
   end
 
-  def render_inline_string(src, opts = {})
+  def convert_inline_string(src, opts = {})
     opts[:doctype] = :inline
     document_from_string(src, opts).convert
   end

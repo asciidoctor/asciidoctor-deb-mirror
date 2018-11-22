@@ -159,6 +159,29 @@ module Extensions
       Block.new parent, context, { :source => source, :attributes => attrs }.merge(opts)
     end
 
+    # Public: Creates a list node and links it to the specified parent.
+    #
+    # parent - The parent Block (Block, Section, or Document) of this new list block.
+    # context - The list context (e.g., :ulist, :olist, :colist, :dlist)
+    # attrs  - A Hash of attributes to set on this list block
+    #
+    # Returns a [List] node with all properties properly initialized.
+    def create_list parent, context, attrs = nil
+      list = List.new parent, context
+      list.update_attributes attrs if attrs
+      list
+    end
+
+    # Public: Creates a list item node and links it to the specified parent.
+    #
+    # parent - The parent List of this new list item block.
+    # text   - The text of the list item.
+    #
+    # Returns a [ListItem] node with all properties properly initialized.
+    def create_list_item parent, text = nil
+      ListItem.new parent, text
+    end
+
     # Public: Creates an image block node and links it to the specified parent.
     #
     # parent - The parent Block (Block, Section, or Document) of this new image block.
@@ -173,7 +196,13 @@ module Extensions
         raise ::ArgumentError, 'Unable to create an image block, target attribute is required'
       end
       attrs['alt'] ||= (attrs['default-alt'] = Helpers.basename(target, true).tr('_-', ' '))
-      create_block parent, :image, nil, attrs, opts
+      title = (attrs.key? 'title') ? (attrs.delete 'title') : nil
+      block = create_block parent, :image, nil, attrs, opts
+      if title
+        block.title = title
+        block.assign_caption((attrs.delete 'caption'), (opts[:caption_context] || 'figure'))
+      end
+      block
     end
 
     def create_inline parent, context, text, opts = {}
@@ -243,7 +272,15 @@ module Extensions
     end
   end
 
-  module SyntaxDsl
+  module DocumentProcessorDsl
+    include ProcessorDsl
+
+    def prefer
+      option :position, :>>
+    end
+  end
+
+  module SyntaxProcessorDsl
     include ProcessorDsl
 
     def named value
@@ -343,7 +380,7 @@ module Extensions
       raise ::NotImplementedError, %(Asciidoctor::Extensions::Preprocessor subclass must implement ##{__method__} method)
     end
   end
-  Preprocessor::DSL = ProcessorDsl
+  Preprocessor::DSL = DocumentProcessorDsl
 
   # Public: TreeProcessors are run on the Document after the source has been
   # parsed into an abstract syntax tree (AST), as represented by the Document
@@ -360,7 +397,7 @@ module Extensions
       raise ::NotImplementedError, %(Asciidoctor::Extensions::TreeProcessor subclass must implement ##{__method__} method)
     end
   end
-  TreeProcessor::DSL = ProcessorDsl
+  TreeProcessor::DSL = DocumentProcessorDsl
 
   # Alias deprecated class name for backwards compatibility
   Treeprocessor = TreeProcessor
@@ -385,7 +422,7 @@ module Extensions
       raise ::NotImplementedError, %(Asciidoctor::Extensions::Postprocessor subclass must implement ##{__method__} method)
     end
   end
-  Postprocessor::DSL = ProcessorDsl
+  Postprocessor::DSL = DocumentProcessorDsl
 
   # Public: IncludeProcessors are used to process `include::<target>[]`
   # directives in the source document.
@@ -409,7 +446,7 @@ module Extensions
   end
 
   module IncludeProcessorDsl
-    include ProcessorDsl
+    include DocumentProcessorDsl
 
     def handles? *args, &block
       if block_given?
@@ -451,7 +488,7 @@ module Extensions
   end
 
   module DocinfoProcessorDsl
-    include ProcessorDsl
+    include DocumentProcessorDsl
 
     def at_location value
       option :location, value
@@ -507,7 +544,7 @@ module Extensions
   end
 
   module BlockProcessorDsl
-    include SyntaxDsl
+    include SyntaxProcessorDsl
 
     def contexts *value
       option :contexts, value.flatten.to_set
@@ -533,7 +570,7 @@ module Extensions
   end
 
   module MacroProcessorDsl
-    include SyntaxDsl
+    include SyntaxProcessorDsl
 
     def resolves_attributes *args
       if args.size == 1 && !args[0]
@@ -552,6 +589,10 @@ module Extensions
   #
   # BlockMacroProcessor implementations must extend BlockMacroProcessor.
   class BlockMacroProcessor < MacroProcessor
+    def name
+      raise ::ArgumentError, %(invalid name for block macro: #{@name}) unless MacroNameRx.match? @name.to_s
+      @name
+    end
   end
   BlockMacroProcessor::DSL = MacroProcessorDsl
 
@@ -1253,6 +1294,26 @@ module Extensions
       @inline_macro_extensions.values
     end
 
+    # Public: Inserts the document processor {Extension} instance as the first
+    # processor of its kind in the extension registry.
+    #
+    # Examples
+    #
+    #   prefer :include_processor do
+    #     process do |document, reader, target, attrs|
+    #       ...
+    #     end
+    #   end
+    #
+    # Returns the [Extension] stored in the registry that proxies the instance
+    # of this processor.
+    def prefer *args, &block
+      extension = ProcessorExtension === (arg0 = args.shift) ? arg0 : (send arg0, *args, &block)
+      extensions_store = instance_variable_get(%(@#{extension.kind}_extensions).to_sym)
+      extensions_store.unshift extensions_store.delete extension
+      extension
+    end
+
     private
 
     def add_document_processor kind, args, &block
@@ -1298,11 +1359,8 @@ module Extensions
         end
       end
 
-      if extension.config[:position] == :>>
-        kind_store.unshift extension
-      else
-        kind_store << extension
-      end
+      extension.config[:position] == :>> ? (kind_store.unshift extension) : (kind_store << extension)
+      extension
     end
 
     def add_syntax_processor kind, args, &block
@@ -1490,7 +1548,7 @@ module Extensions
     # Public: Resolves the Class object for the qualified name.
     #
     # Returns Class
-    if RUBY_MIN_VERSION_2
+    if ::RUBY_MIN_VERSION_2
       def class_for_name qualified_name
         resolved = ::Object.const_get qualified_name, false
         raise unless ::Class === resolved
@@ -1498,7 +1556,7 @@ module Extensions
       rescue
         raise ::NameError, %(Could not resolve class for name: #{qualified_name})
       end
-    elsif RUBY_MIN_VERSION_1_9
+    elsif ::RUBY_MIN_VERSION_1_9
       def class_for_name qualified_name
         resolved = (qualified_name.split '::').reduce ::Object do |current, name|
           name.empty? ? current : (current.const_get name, false)

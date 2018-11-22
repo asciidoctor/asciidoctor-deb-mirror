@@ -10,7 +10,7 @@ class List < AbstractBlock
   # Public: Create alias to check if this list has blocks
   alias items? blocks?
 
-  def initialize parent, context
+  def initialize parent, context, opts = {}
     super
   end
 
@@ -57,7 +57,7 @@ class ListItem < AbstractBlock
     super parent, :list_item
     @text = text
     @level = parent.level
-    @subs = NORMAL_SUBS.dup
+    @subs = NORMAL_SUBS.drop 0
   end
 
   # Public: A convenience method that checks whether the text of this list item

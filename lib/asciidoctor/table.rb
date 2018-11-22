@@ -248,7 +248,7 @@ class Table::Cell < AbstractNode
       # REVIEW feels hacky to inherit all attributes from column
       update_attributes column.attributes
     end
-    # NOTE if attributes is defined, we know this is a psv cell; implies text should be stripped
+    # NOTE if attributes is defined, we know this is a psv cell; implies text needs to be stripped
     if attributes
       if attributes.empty?
         @colspan = @rowspan = nil
@@ -280,6 +280,10 @@ class Table::Cell < AbstractNode
       end
     else
       @colspan = @rowspan = nil
+      if cell_style == :asciidoc
+        asciidoc = true
+        inner_document_cursor = opts[:cursor]
+      end
     end
     # NOTE only true for non-header rows
     if asciidoc
@@ -587,14 +591,18 @@ class Table::ParserContext
       @buffer = ''
       cellspec = nil
       repeat = 1
-      if @format == 'csv'
-        if !cell_text.empty? && cell_text.include?('"')
-          # this may not be perfect logic, but it hits the 99%
-          if cell_text.start_with?('"') && cell_text.end_with?('"')
-            # unquote
-            cell_text = cell_text.slice(1, cell_text.length - 2).strip
+      if @format == 'csv' && !cell_text.empty? && cell_text.include?('"')
+        # this may not be perfect logic, but it hits the 99%
+        if cell_text.start_with?('"') && cell_text.end_with?('"')
+          # unquote
+          if (cell_text = cell_text.slice(1, cell_text.length - 2))
+            # trim whitespace and collapse escaped quotes
+            cell_text = cell_text.strip.squeeze('"')
+          else
+            logger.error message_with_context 'unclosed quote in CSV data; setting cell to empty', :source_location => @reader.cursor_at_prev_line
+            cell_text = ''
           end
-
+        else
           # collapse escaped quotes
           cell_text = cell_text.squeeze('"')
         end

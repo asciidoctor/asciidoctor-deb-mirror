@@ -29,7 +29,7 @@ module Asciidoctor
         result << '</listitem>'
       end
       result << %(</orderedlist>)
-      result * LF
+      result.join LF
     end
 
     def inline_anchor node
@@ -52,28 +52,15 @@ module Asciidoctor
       end
     end
 
-    def author_tag doc, index = nil
-      if index
-        firstname_key = %(firstname_#{index})
-        middlename_key = %(middlename_#{index})
-        lastname_key = %(lastname_#{index})
-        email_key = %(email_#{index})
-      else
-        firstname_key = 'firstname'
-        middlename_key = 'middlename'
-        lastname_key = 'lastname'
-        email_key = 'email'
-      end
-
+    def author_tag author
       result = []
       result << '<author>'
-      result << %(<firstname>#{doc.attr firstname_key}</firstname>) if doc.attr? firstname_key
-      result << %(<othername>#{doc.attr middlename_key}</othername>) if doc.attr? middlename_key
-      result << %(<surname>#{doc.attr lastname_key}</surname>) if doc.attr? lastname_key
-      result << %(<email>#{doc.attr email_key}</email>) if doc.attr? email_key
+      result << %(<firstname>#{author.firstname}</firstname>) if author.firstname
+      result << %(<othername>#{author.middlename}</othername>) if author.middlename
+      result << %(<surname>#{author.lastname}</surname>) if author.lastname
+      result << %(<email>#{author.email}</email>) if author.email
       result << '</author>'
-
-      result * LF
+      result.join LF
     end
 
     def common_attributes id, role = nil, reftext = nil

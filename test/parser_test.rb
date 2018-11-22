@@ -96,189 +96,6 @@ context "Parser" do
     end
   end
 
-  test "collect unnamed attribute" do
-    attributes = {}
-    line = 'quote'
-    expected = {1 => 'quote'}
-    Asciidoctor::AttributeList.new(line).parse_into(attributes)
-    assert_equal expected, attributes
-  end
-
-  test "collect unnamed attribute double-quoted" do
-    attributes = {}
-    line = '"quote"'
-    expected = {1 => 'quote'}
-    Asciidoctor::AttributeList.new(line).parse_into(attributes)
-    assert_equal expected, attributes
-  end
-
-  test "collect empty unnamed attribute double-quoted" do
-    attributes = {}
-    line = '""'
-    expected = {1 => ''}
-    Asciidoctor::AttributeList.new(line).parse_into(attributes)
-    assert_equal expected, attributes
-  end
-
-  test "collect unnamed attribute double-quoted containing escaped quote" do
-    attributes = {}
-    line = '"ba\"zaar"'
-    expected = {1 => 'ba"zaar'}
-    Asciidoctor::AttributeList.new(line).parse_into(attributes)
-    assert_equal expected, attributes
-  end
-
-  test "collect unnamed attribute single-quoted" do
-    attributes = {}
-    line = '\'quote\''
-    expected = {1 => 'quote'}
-    Asciidoctor::AttributeList.new(line).parse_into(attributes)
-    assert_equal expected, attributes
-  end
-
-  test "collect empty unnamed attribute single-quoted" do
-    attributes = {}
-    line = '\'\''
-    expected = {1 => ''}
-    Asciidoctor::AttributeList.new(line).parse_into(attributes)
-    assert_equal expected, attributes
-  end
-
-  test "collect unnamed attribute single-quoted containing escaped quote" do
-    attributes = {}
-    line = '\'ba\\\'zaar\''
-    expected = {1 => 'ba\'zaar'}
-    Asciidoctor::AttributeList.new(line).parse_into(attributes)
-    assert_equal expected, attributes
-  end
-
-  test "collect unnamed attribute with dangling delimiter" do
-    attributes = {}
-    line = 'quote , '
-    expected = {1 => 'quote'}
-    Asciidoctor::AttributeList.new(line).parse_into(attributes)
-    assert_equal expected, attributes
-  end
-
-  test "collect unnamed attribute in second position after empty attribute" do
-    attributes = {}
-    line = ', John Smith'
-    expected = {1 => nil, 2 => 'John Smith'}
-    Asciidoctor::AttributeList.new(line).parse_into(attributes)
-    assert_equal expected, attributes
-  end
-
-  test "collect unnamed attributes" do
-    attributes = {}
-    line = "first, second one, third"
-    expected = {1 => 'first', 2 => 'second one', 3 => 'third'}
-    Asciidoctor::AttributeList.new(line).parse_into(attributes)
-    assert_equal expected, attributes
-  end
-
-  test "collect named attribute" do
-    attributes = {}
-    line = 'foo=bar'
-    expected = {'foo' => 'bar'}
-    Asciidoctor::AttributeList.new(line).parse_into(attributes)
-    assert_equal expected, attributes
-  end
-
-  test "collect named attribute double-quoted" do
-    attributes = {}
-    line = 'foo="bar"'
-    expected = {'foo' => 'bar'}
-    Asciidoctor::AttributeList.new(line).parse_into(attributes)
-    assert_equal expected, attributes
-  end
-
-  test 'collect named attribute with double-quoted empty value' do
-    attributes = {}
-    line = 'height=100,caption="",link="images/octocat.png"'
-    expected = {'height' => '100', 'caption' => '', 'link' => 'images/octocat.png'}
-    Asciidoctor::AttributeList.new(line).parse_into(attributes)
-    assert_equal expected, attributes
-  end
-
-  test "collect named attribute single-quoted" do
-    attributes = {}
-    line = 'foo=\'bar\''
-    expected = {'foo' => 'bar'}
-    Asciidoctor::AttributeList.new(line).parse_into(attributes)
-    assert_equal expected, attributes
-  end
-
-  test 'collect named attribute with single-quoted empty value' do
-    attributes = {}
-    line = "height=100,caption='',link='images/octocat.png'"
-    expected = {'height' => '100', 'caption' => '', 'link' => 'images/octocat.png'}
-    Asciidoctor::AttributeList.new(line).parse_into(attributes)
-    assert_equal expected, attributes
-  end
-
-  test "collect named attributes unquoted" do
-    attributes = {}
-    line = "first=value, second=two, third=3"
-    expected = {'first' => 'value', 'second' => 'two', 'third' => '3'}
-    Asciidoctor::AttributeList.new(line).parse_into(attributes)
-    assert_equal expected, attributes
-  end
-
-  test "collect named attributes quoted" do
-    attributes = {}
-    line = "first='value', second=\"value two\", third=three"
-    expected = {'first' => 'value', 'second' => 'value two', 'third' => 'three'}
-    Asciidoctor::AttributeList.new(line).parse_into(attributes)
-    assert_equal expected, attributes
-  end
-
-  test "collect named attributes quoted containing non-semantic spaces" do
-    attributes = {}
-    line = "     first    =     'value', second     =\"value two\"     , third=       three      "
-    expected = {'first' => 'value', 'second' => 'value two', 'third' => 'three'}
-    Asciidoctor::AttributeList.new(line).parse_into(attributes)
-    assert_equal expected, attributes
-  end
-
-  test "collect mixed named and unnamed attributes" do
-    attributes = {}
-    line = "first, second=\"value two\", third=three, Sherlock Holmes"
-    expected = {1 => 'first', 'second' => 'value two', 'third' => 'three', 4 => 'Sherlock Holmes'}
-    Asciidoctor::AttributeList.new(line).parse_into(attributes)
-    assert_equal expected, attributes
-  end
-
-  test "collect options attribute" do
-    attributes = {}
-    line = "quote, options='opt1,opt2 , opt3'"
-    expected = {1 => 'quote', 'options' => 'opt1,opt2,opt3', 'opt1-option' => '', 'opt2-option' => '', 'opt3-option' => ''}
-    Asciidoctor::AttributeList.new(line).parse_into(attributes)
-    assert_equal expected, attributes
-  end
-
-  test "collect opts attribute as options" do
-    attributes = {}
-    line = "quote, opts='opt1,opt2 , opt3'"
-    expected = {1 => 'quote', 'options' => 'opt1,opt2,opt3', 'opt1-option' => '', 'opt2-option' => '', 'opt3-option' => ''}
-    Asciidoctor::AttributeList.new(line).parse_into(attributes)
-    assert_equal expected, attributes
-  end
-
-  test "collect and rekey unnamed attributes" do
-    attributes = {}
-    line = "first, second one, third, fourth"
-    expected = {1 => 'first', 2 => 'second one', 3 => 'third', 4 => 'fourth', 'a' => 'first', 'b' => 'second one', 'c' => 'third'}
-    Asciidoctor::AttributeList.new(line).parse_into(attributes, ['a', 'b', 'c'])
-    assert_equal expected, attributes
-  end
-
-  test "rekey positional attributes" do
-    attributes = {1 => 'source', 2 => 'java'}
-    expected = {1 => 'source', 2 => 'java', 'style' => 'source', 'language' => 'java'}
-    Asciidoctor::AttributeList.rekey(attributes, ['style', 'language', 'linenums'])
-    assert_equal expected, attributes
-  end
-
   test 'parse style attribute with id and role' do
     attributes = {1 => 'style#id.role'}
     style = Asciidoctor::Parser.parse_style_attribute(attributes)
@@ -542,6 +359,26 @@ context "Parser" do
     assert_equal 'Scherer, Jr.', doc.attributes['lastname']
   end
 
+  test 'use explicit authorinitials if set after implicit author line' do
+    input = <<-EOS.chomp
+Jean-Claude Van Damme
+:authorinitials: JCVD
+    EOS
+    doc = empty_document
+    parse_header_metadata input, doc
+    assert_equal 'JCVD', doc.attributes['authorinitials']
+  end
+
+  test 'use explicit authorinitials if set after author attribute' do
+    input = <<-EOS.chomp
+:author: Jean-Claude Van Damme
+:authorinitials: JCVD
+    EOS
+    doc = empty_document
+    parse_header_metadata input, doc
+    assert_equal 'JCVD', doc.attributes['authorinitials']
+  end
+
   test 'sets authorcount to 0 if document has no authors' do
     input = ''
     doc = empty_document
@@ -601,6 +438,34 @@ v0.0.7, 2013-12-18: The first release you can stand on
     assert_equal '0.0.7', metadata['revnumber']
     assert_equal '2013-12-18', metadata['revdate']
     assert_equal 'The first release you can stand on', metadata['revremark']
+  end
+
+  test 'parse rev number, data, and remark as attribute references' do
+    input = <<-EOS
+Author Name
+v{project-version}, {release-date}: {release-summary}
+    EOS
+    metadata, _ = parse_header_metadata input
+    assert_equal 9, metadata.size
+    assert_equal '{project-version}', metadata['revnumber']
+    assert_equal '{release-date}', metadata['revdate']
+    assert_equal '{release-summary}', metadata['revremark']
+  end
+
+  test 'should resolve attribute references in rev number, data, and remark' do
+    input = <<-EOS
+= Document Title
+Author Name
+{project-version}, {release-date}: {release-summary}
+    EOS
+    doc = document_from_string input, :attributes => {
+      'project-version' => '1.0.1',
+      'release-date' => '2018-05-15',
+      'release-summary' => 'The one you can count on!'
+    }
+    assert_equal '1.0.1', (doc.attr 'revnumber')
+    assert_equal '2018-05-15', (doc.attr 'revdate')
+    assert_equal 'The one you can count on!', (doc.attr 'revremark')
   end
 
   test "parse rev date" do
@@ -859,4 +724,19 @@ devtmpfs                3.9G       0     3.9G     0%    /dev
     assert_equal expected, lines
   end
 
+  test 'should warn if inline anchor is already in use' do
+    input = <<-EOS
+[#in-use]
+A paragraph with an id.
+
+Another paragraph
+[[in-use]]that uses an id
+which is already in use.
+    EOS
+
+    using_memory_logger do |logger|
+      document_from_string input
+      assert_message logger, :WARN, '<stdin>: line 5: id assigned to anchor already in use: in-use', Hash
+    end
+  end
 end

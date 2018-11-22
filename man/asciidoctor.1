@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: asciidoctor
 .\"    Author: Dan Allen, Sarah White, Ryan Waldron
-.\" Generator: Asciidoctor 1.5.7.1
-.\"      Date: 2018-05-10
+.\" Generator: Asciidoctor 1.5.8
+.\"      Date: 2018-10-28
 .\"    Manual: Asciidoctor Manual
-.\"    Source: Asciidoctor 1.5.7.1
+.\"    Source: Asciidoctor 1.5.8
 .\"  Language: English
 .\"
-.TH "ASCIIDOCTOR" "1" "2018-05-10" "Asciidoctor 1.5.7.1" "Asciidoctor Manual"
+.TH "ASCIIDOCTOR" "1" "2018-10-28" "Asciidoctor 1.5.8" "Asciidoctor Manual"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -153,7 +153,8 @@ This option may be specified more than once.
 .sp
 \fB\-s, \-\-no\-header\-footer\fP
 .RS 4
-Suppress the document header and footer in the output.
+Output an embeddable document, which excludes the header, the footer, and everything outside the body of the document.
+This option is useful for producing documents that can be inserted into an external template.
 .RE
 .sp
 \fB\-T, \-\-template\-dir\fP=\fIDIR\fP

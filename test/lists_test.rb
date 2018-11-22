@@ -15,7 +15,7 @@ List
 - Boo
 - Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 3
     end
@@ -26,7 +26,7 @@ List
  - Boo
  - Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 3
     end
@@ -37,7 +37,7 @@ List
 \t-\tBoo
 \t-\tBlech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 3
     end
@@ -54,7 +54,7 @@ List
 
 - Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 3
     end
@@ -72,7 +72,7 @@ more text
 // another line comment
 - Blech
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 3
       assert_xpath %((//ul/li)[2]/p[text()="Boo\nmore text"]), output, 1
@@ -90,7 +90,7 @@ List
 
 - Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 2
       assert_xpath '(//ul)[1]/li', output, 2
       assert_xpath '(//ul)[2]/li', output, 1
@@ -107,7 +107,7 @@ List
 .Also
 - Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 2
       assert_xpath '(//ul)[1]/li', output, 2
       assert_xpath '(//ul)[2]/li', output, 1
@@ -124,7 +124,7 @@ List
 :foo: bar
 - Blech
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//ul', output, 2
       assert_xpath '(//ul)[1]/li', output, 2
       assert_xpath '(//ul)[2]/li', output, 1
@@ -140,7 +140,7 @@ wrapped content
 - Boo
 - Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li[1]/*', output, 1
       assert_xpath "//ul/li[1]/p[text() = 'Foo\nwrapped content']", output, 1
@@ -155,7 +155,7 @@ wrapped content
 - Boo
 - Blech
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li[1]/*', output, 1
       assert_xpath "//ul/li[1]/p[text() = 'Foo\n.wrapped content']", output, 1
@@ -170,7 +170,7 @@ wrapped content
 - Boo
 - Blech
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li[1]/*', output, 1
       assert_xpath "//ul/li[1]/p[text() = 'Foo\n:foo: bar']", output, 1
@@ -183,7 +183,7 @@ Bar
 * Foo
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'ul ul', output, 1
       refute_includes output, '* Foo'
     end
@@ -203,7 +203,7 @@ text
 term:: def
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'ul ol', output, 1
       refute_includes output, '* Foo'
       assert_css 'ul dl', output, 1
@@ -220,7 +220,7 @@ List
 - Boo
 - Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li[1]/*', output, 1
       assert_xpath "//ul/li[1]/p[text() = 'Foo\nwrapped content']", output, 1
@@ -235,7 +235,7 @@ List
 second wrapped line
 - list item 2
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'ul', output, 1
       assert_css 'ul li', output, 2
       # NOTE for some reason, we're getting an extra line after the indented line
@@ -253,7 +253,7 @@ second wrapped line
 * Foo
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'ul ul', output, 1
       refute_includes output, '* Foo'
     end
@@ -264,7 +264,7 @@ second wrapped line
  *. normal text
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'ul', output, 1
       assert_css 'ul li', output, 1
       assert_xpath "//ul/li/p[text()='first item\n*. normal text']", output, 1
@@ -285,7 +285,7 @@ second wrapped line
 term:: def
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'ul ol', output, 1
       refute_includes output, '* Foo'
       assert_css 'ul dl', output, 1
@@ -304,7 +304,7 @@ List
 - Boo
 - Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 3
       assert_xpath '(//ul/li)[1]/p[text() = "Foo"]', output, 1
@@ -327,7 +327,7 @@ para
 - Boo
 - Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 3
       assert_xpath '(//ul/li)[1]/p[text() = "Foo"]', output, 1
@@ -346,7 +346,7 @@ para
 NOTE: This is a note.
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'ul', output, 1
       assert_css 'ul > li', output, 1
       assert_css 'ul > li > p', output, 1
@@ -370,7 +370,7 @@ NOTE: This is a note.
 '''
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'ul ul .admonitionblock.note', output, 0
       assert_xpath '(//ul)[1]/li/*[@class="admonitionblock note"]', output, 1
       assert_css 'ul ul hr', output, 0
@@ -415,7 +415,7 @@ example
 '''
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'ul > li > .paragraph', output, 1
       assert_css 'ul > li > .exampleblock', output, 1
     end
@@ -429,7 +429,7 @@ paragraph in list item 1
 
 - list item 2
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'ul', output, 1
       assert_css 'ul li', output, 2
       assert_xpath '(//ul/li)[1]/p[text()="list item 1"]', output, 1
@@ -449,7 +449,7 @@ para
 
 * Bar
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 2
       assert_xpath '(//ul/li)[1]/p[text() = "Foo"]', output, 1
@@ -475,7 +475,7 @@ List
 - Boo
 - Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 3
       assert_xpath '(//ul/li)[1]/p[text() = "Foo"]', output, 1
@@ -496,7 +496,7 @@ List
 - Boo
 - Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 1
       assert_xpath '(//ul/li)[1]/p[text() = "Foo"]', output, 1
@@ -514,7 +514,7 @@ List
 * Boo
 * Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 3
     end
@@ -525,7 +525,7 @@ List
  * Boo
  * Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 3
     end
@@ -536,7 +536,7 @@ List
  • Boo
  • Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 3
     end if ::RUBY_MIN_VERSION_1_9
@@ -547,7 +547,7 @@ List
 \t*\tBoo
 \t*\tBlech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 3
     end
@@ -560,7 +560,7 @@ List
 * b
 * c
         EOS
-        output = render_embedded_string input
+        output = convert_string_to_embedded input
         assert_css ".ulist.#{style}", output, 1
         assert_css ".ulist.#{style} ul.#{style}", output, 1
       end
@@ -578,7 +578,7 @@ List
 
 * Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 3
     end
@@ -596,7 +596,7 @@ more text
 // another line comment
 * Blech
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 3
       assert_xpath %((//ul/li)[2]/p[text()="Boo\nmore text"]), output, 1
@@ -614,7 +614,7 @@ List
 
 * Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 2
       assert_xpath '(//ul)[1]/li', output, 2
       assert_xpath '(//ul)[2]/li', output, 1
@@ -631,7 +631,7 @@ List
 .Also
 * Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 2
       assert_xpath '(//ul)[1]/li', output, 2
       assert_xpath '(//ul)[2]/li', output, 1
@@ -648,7 +648,7 @@ List
 :foo: bar
 * Blech
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//ul', output, 2
       assert_xpath '(//ul)[1]/li', output, 2
       assert_xpath '(//ul)[2]/li', output, 1
@@ -666,7 +666,7 @@ item
 
 == Section
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 2
       assert_xpath '//h2[text() = "Section"]', output, 1
@@ -685,7 +685,7 @@ item
 [[sec]]
 == Section
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 2
       assert_xpath '//h2[@id = "sec"][text() = "Section"]', output, 1
@@ -698,12 +698,36 @@ item
 == Not a section
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'ul', output, 1
       assert_css 'ul > li', output, 2
       assert_css 'h2', output, 0
       assert_includes output, '== Not a section'
       assert_xpath %((//li)[2]/p[text() = "second\n== Not a section"]), output, 1
+    end
+
+    test 'should match trailing line separator in text of list item' do
+      input = <<-EOS.chomp
+* a
+* b#{decode_char 8232}
+* c
+      EOS
+
+      output = convert_string input
+      assert_css 'li', output, 3
+      assert_xpath %((//li)[2]/p[text()="b#{decode_char 8232}"]), output, 1
+    end
+
+    test 'should match line separator in text of list item' do
+      input = <<-EOS.chomp
+* a
+* b#{decode_char 8232}b
+* c
+      EOS
+
+      output = convert_string input
+      assert_css 'li', output, 3
+      assert_xpath %((//li)[2]/p[text()="b#{decode_char 8232}b"]), output, 1
     end
   end
 
@@ -717,7 +741,7 @@ List
 - I am _stressed_.
 - I am `flexible`.
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 3
       assert_xpath '(//ul/li)[1]//strong', output, 1
@@ -734,7 +758,7 @@ List
 - side a {vbar} side b
 - Take me to a {foo}.
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 2
       assert_xpath '(//ul/li)[1]//p[text() = "side a | side b"]', output, 1
@@ -747,7 +771,7 @@ List
 * .second
 * .third
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 3
       %w(.first .second .third).each_with_index do |text, index|
@@ -761,12 +785,12 @@ A. This is the story about
    AsciiDoc. It begins here.
 B. And it ends here.
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ol', output, 1
       assert_xpath '//ol/li', output, 2
     end
 
-    test 'should discover anchor at start of list item text and register it as a reference' do
+    test 'should discover anchor at start of unordered list item text and register it as a reference' do
       input = <<-EOS
 The highest peak in the Front Range is <<grays-peak>>, which tops <<mount-evans>> by just a few feet.
 
@@ -785,6 +809,26 @@ Grays Peak rises to 14,278 feet, making it the highest summit in the Front Range
       assert_xpath '(//p)[1]/a[@href="#grays-peak"][text()="Grays Peak"]', output, 1
       assert_xpath '(//p)[1]/a[@href="#mount-evans"][text()="Mount Evans"]', output, 1
     end
+
+    test 'should discover anchor at start of ordered list item text and register it as a reference' do
+      input = <<-EOS
+This is a cross-reference to <<step-2>>.
+This is a cross-reference to <<step-4>>.
+
+. Ordered list, item 1, without anchor
+. [[step-2,Step 2]]Ordered list, item 2, with anchor
+. Ordered list, item 3, without anchor
+. [[step-4,Step 4]]Ordered list, item 4, with anchor
+      EOS
+
+      doc = document_from_string input
+      refs = doc.catalog[:refs]
+      assert refs.key?('step-2')
+      assert refs.key?('step-4')
+      output = doc.convert :header_footer => false
+      assert_xpath '(//p)[1]/a[@href="#step-2"][text()="Step 2"]', output, 1
+      assert_xpath '(//p)[1]/a[@href="#step-4"][text()="Step 4"]', output, 1
+    end
   end
 
   context "Nested lists" do
@@ -797,7 +841,7 @@ List
 * Boo
 - Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 2
       assert_xpath '//ul/li', output, 3
       assert_xpath '(//ul)[1]/li', output, 2
@@ -813,7 +857,7 @@ List
 - Boo
 * Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 2
       assert_xpath '//ul/li', output, 3
       assert_xpath '(//ul)[1]/li', output, 2
@@ -832,7 +876,7 @@ List
 
 - Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 2
       assert_xpath '//ul/li', output, 3
       assert_xpath '(//ul)[1]/li', output, 2
@@ -848,7 +892,7 @@ List
 ** Boo
 * Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 2
       assert_xpath '//ul/li', output, 3
       assert_xpath '(//ul)[1]/li', output, 2
@@ -865,7 +909,7 @@ List
 *** Snoo
 * Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 3
       assert_xpath '(//ul)[1]/li', output, 2
       assert_xpath '((//ul)[1]/li//ul)[1]/li', output, 1
@@ -883,7 +927,7 @@ List
 **** Froo
 * Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 4
       assert_xpath '(//ul)[1]/li', output, 2
       assert_xpath '((//ul)[1]/li//ul)[1]/li', output, 1
@@ -903,7 +947,7 @@ List
 ***** Groo
 * Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 5
       assert_xpath '(//ul)[1]/li', output, 2
       assert_xpath '((//ul)[1]/li//ul)[1]/li', output, 1
@@ -912,25 +956,46 @@ List
       assert_xpath '(((((//ul)[1]/li//ul)[1]/li//ul)[1]/li//ul)[1]/li//ul)[1]/li', output, 1
     end
 
-    test 'nested elements (5) with unicode bullet' do
-      input = <<-EOS
-List
-====
+    test 'nested arbitrary depth with asterisks' do
+      input = []
+      ('a'..'z').each_with_index do |ch, i|
+        input << %(#{'*' * (i + 1)} #{ch})
+      end
+      output = convert_string_to_embedded input.join(%(\n))
+      refute_includes output, '*'
+      assert_css 'li', output, 26
+    end
 
-• Foo
-•• Boo
-••• Snoo
-•••• Froo
-••••• Groo
-• Blech
+    test 'level of unordered list should match section level' do
+      input = <<-EOS
+== Parent Section
+
+* item 1.1
+ ** item 2.1
+  *** item 3.1
+ ** item 2.2
+* item 1.2
+
+=== Nested Section
+
+* item 1.1
       EOS
-      output = render_string input
-      assert_xpath '//ul', output, 5
-      assert_xpath '(//ul)[1]/li', output, 2
-      assert_xpath '((//ul)[1]/li//ul)[1]/li', output, 1
-      assert_xpath '(((//ul)[1]/li//ul)[1]/li//ul)[1]/li', output, 1
-      assert_xpath '((((//ul)[1]/li//ul)[1]/li//ul)[1]/li//ul)[1]/li', output, 1
-      assert_xpath '(((((//ul)[1]/li//ul)[1]/li//ul)[1]/li//ul)[1]/li//ul)[1]/li', output, 1
+
+      doc = document_from_string input
+      lists = doc.find_by :context => :ulist
+      assert_equal 1, lists[0].level
+      assert_equal 1, lists[1].level
+      assert_equal 1, lists[2].level
+      assert_equal 2, lists[3].level
+    end
+
+    test 'does not recognize lists with repeating unicode bullets' do
+      input = <<-EOS
+•• Boo
+      EOS
+      output = convert_string input
+      assert_xpath '//ul', output, 0
+      assert_includes output, '•'
     end if ::RUBY_MIN_VERSION_1_9
 
     test "nested ordered elements (2)" do
@@ -942,7 +1007,7 @@ List
 .. Boo
 . Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ol', output, 2
       assert_xpath '//ol/li', output, 3
       assert_xpath '(//ol)[1]/li', output, 2
@@ -959,11 +1024,44 @@ List
 ... Snoo
 . Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ol', output, 3
       assert_xpath '(//ol)[1]/li', output, 2
       assert_xpath '((//ol)[1]/li//ol)[1]/li', output, 1
       assert_xpath '(((//ol)[1]/li//ol)[1]/li//ol)[1]/li', output, 1
+    end
+
+    test 'nested arbitrary depth with dot marker' do
+      input = []
+      ('a'..'z').each_with_index do |ch, i|
+        input << %(#{'.' * (i + 1)} #{ch})
+      end
+      output = convert_string_to_embedded input.join(%(\n))
+      refute_includes output, '.'
+      assert_css 'li', output, 26
+    end
+
+    test 'level of ordered list should match section level' do
+      input = <<-EOS
+== Parent Section
+
+. item 1.1
+ .. item 2.1
+  ... item 3.1
+ .. item 2.2
+. item 1.2
+
+=== Nested Section
+
+. item 1.1
+      EOS
+
+      doc = document_from_string input
+      lists = doc.find_by :context => :olist
+      assert_equal 1, lists[0].level
+      assert_equal 1, lists[1].level
+      assert_equal 1, lists[2].level
+      assert_equal 2, lists[3].level
     end
 
     test "nested unordered inside ordered elements" do
@@ -975,7 +1073,7 @@ List
 * Boo
 . Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ol', output, 1
       assert_xpath '//ul', output, 1
       assert_xpath '(//ol)[1]/li', output, 2
@@ -991,7 +1089,7 @@ List
 . Boo
 * Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ol', output, 1
       assert_xpath '(//ul)[1]/li', output, 2
@@ -1008,7 +1106,7 @@ List
 * bullet 2
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css '.ulist', output, 2
       assert_css '.olist', output, 1
       assert_css '.ulist > ul > li > p', output, 3
@@ -1031,7 +1129,7 @@ List
 
 * Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ol', output, 1
       assert_xpath '(//ul)[1]/li', output, 2
@@ -1051,7 +1149,7 @@ List
 
 . numbered
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//li', output, 2
       assert_xpath '//ul//ol', output, 1
@@ -1077,8 +1175,8 @@ List
 literal
 ....
       EOS
-      # use render_string so we can match all ulists easier
-      output = render_string input
+      # use convert_string so we can match all ulists easier
+      output = convert_string input
       assert_xpath '//*[@class="ulist"]/ul', output, 2
       assert_xpath '(//*[@class="ulist"])[1]/following-sibling::*[@class="literalblock"]', output, 1
       assert_xpath '(//*[@class="ulist"])[1]/following-sibling::*[@class="literalblock"]/*[@class="title"]', output, 1
@@ -1095,7 +1193,7 @@ term1:: def1
 
 * Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//dl', output, 1
       assert_xpath '//ul[1]/li', output, 2
@@ -1113,7 +1211,7 @@ Blah
 . Boo
 * Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ol', output, 1
       assert_xpath '(//ul)[1]/li', output, 2
@@ -1133,7 +1231,7 @@ Item one, paragraph two
 +
 * Item two
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 2
       assert_xpath '//ul/li[1]/p', output, 1
@@ -1155,7 +1253,7 @@ Item one, literal block
 +
 * Item two
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 2
       assert_xpath '//ul/li[1]/p', output, 1
@@ -1179,7 +1277,7 @@ Lists
 
 * Item two
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 2
       assert_xpath '//ul/li[1]/p', output, 1
@@ -1199,7 +1297,7 @@ Lists
 
 * Item two
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 2
       assert_xpath '//ul/li[1]/*', output, 1
@@ -1217,7 +1315,7 @@ Lists
 
 * Item two
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 2
       assert_xpath '//ul/li[1]/*', output, 1
@@ -1240,7 +1338,7 @@ ____
 +
 * Item two
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 2
       assert_xpath '//ul/li[1]/p', output, 1
@@ -1261,7 +1359,7 @@ open block in list item 1
 
 . list item 2
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'ol', output, 1
       assert_css 'ol li', output, 2
       assert_xpath %((//ol/li)[1]/p[text()="list item 1\ncontinued"]), output, 1
@@ -1284,7 +1382,7 @@ nested list item paragraph
 
 . list item 2
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css '.olist ol', output, 1
       assert_css '.olist ol > li', output, 2
       assert_css '.ulist ul', output, 1
@@ -1315,7 +1413,7 @@ paragraph for list item 1
 
 . list item 2
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css '.olist ol', output, 1
       assert_css '.olist ol > li', output, 2
       assert_css '.ulist ul', output, 1
@@ -1348,7 +1446,7 @@ bullet 1 paragraph
 
 * bullet 2
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
 
       assert_xpath '(//ul)[1]/li', output, 2
 
@@ -1389,7 +1487,7 @@ paragraph for list item 1
 
 . list item 2
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css '.olist ol', output, 1
       assert_css '.olist ol > li', output, 2
       assert_css '.ulist ul', output, 1
@@ -1430,7 +1528,7 @@ paragraph for list item 1
 
 . list item 2
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css '.olist ol', output, 1
       assert_css '.olist ol > li', output, 2
       assert_css '.ulist ul', output, 1
@@ -1472,7 +1570,7 @@ paragraph for list item 1
 
 . list item 2
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css '.olist ol', output, 1
       assert_css '.olist ol > li', output, 2
       assert_css '.ulist ul', output, 1
@@ -1514,7 +1612,7 @@ bullet 1 paragraph
 
 * bullet 2
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
 
       assert_xpath '((//ul)[1]/li[1])/*', output, 3
       assert_xpath '(((//ul)[1]/li[1])/*)[1]/self::p[text()="bullet 1"]', output, 1
@@ -1548,7 +1646,7 @@ attached paragraph
 * item 2
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
 
       assert_css 'ul', output, 1
       assert_css 'ol', output, 1
@@ -1580,7 +1678,7 @@ attached paragraph
 * item 2
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
 
       assert_css 'ul', output, 1
       assert_css 'dl', output, 1
@@ -1615,7 +1713,7 @@ Item one, paragraph two
 +
 +
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 2
       assert_xpath '//ul/li[1]/p', output, 1
@@ -1635,7 +1733,7 @@ example
       EOS
 
       using_memory_logger do |logger|
-        output = render_embedded_string input
+        output = convert_string_to_embedded input
         assert_xpath '//ul/li', output, 1
         assert_xpath '//ul/li/*[@class="exampleblock"]', output, 1
         assert_xpath %(//p[text()="example\n* swallowed item"]), output, 1
@@ -1656,7 +1754,7 @@ List
 . Boo
 . Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ol', output, 1
       assert_xpath '//ol/li', output, 3
     end
@@ -1667,7 +1765,7 @@ List
  . Boo
  . Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ol', output, 1
       assert_xpath '//ol/li', output, 3
     end
@@ -1678,7 +1776,7 @@ List
 \t.\tBoo
 \t.\tBlech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ol', output, 1
       assert_xpath '//ol/li', output, 3
     end
@@ -1691,9 +1789,35 @@ List
 . Refactor!
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css '.olist.arabic.dry', output, 1
       assert_css '.olist ol.arabic', output, 1
+    end
+
+    test 'should base list style on marker length rather than list depth' do
+      input = <<-EOS
+... parent
+.. child
+. grandchild
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_css '.olist.lowerroman', output, 1
+      assert_css '.olist.lowerroman .olist.loweralpha', output, 1
+      assert_css '.olist.lowerroman .olist.loweralpha .olist.arabic', output, 1
+    end
+
+    test 'should allow list style to be specified explicitly when using markers with implicit style' do
+      input = <<-EOS
+[loweralpha]
+i) 1
+ii) 2
+iii) 3
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_css '.olist.loweralpha', output, 1
+      assert_css '.olist.lowerroman', output, 0
     end
 
     test 'should represent custom numbering and explicit role attribute as style classes' do
@@ -1704,7 +1828,7 @@ List
 . Refactor!
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css '.olist.loweralpha.dry', output, 1
       assert_css '.olist ol.loweralpha', output, 1
     end
@@ -1718,7 +1842,7 @@ List
 . blast off!
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'ol[reversed][start="3"]', output, 1
     end
 
@@ -1730,7 +1854,7 @@ List
 . Refactor!
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css '.olist.arabic.dry', output, 1
       assert_css '.olist ol.arabic', output, 1
     end
@@ -1743,7 +1867,7 @@ List
 . Refactor!
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css '.olist.loweralpha.dry', output, 1
       assert_css '.olist ol.loweralpha', output, 1
     end
@@ -1760,7 +1884,7 @@ List
 
 . Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ol', output, 1
       assert_xpath '//ol/li', output, 3
     end
@@ -1778,7 +1902,7 @@ more text
 // another line comment
 . Blech
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//ol', output, 1
       assert_xpath '//ol/li', output, 3
       assert_xpath %((//ol/li)[2]/p[text()="Boo\nmore text"]), output, 1
@@ -1796,7 +1920,7 @@ List
 
 . Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ol', output, 2
       assert_xpath '(//ol)[1]/li', output, 2
       assert_xpath '(//ol)[2]/li', output, 1
@@ -1813,7 +1937,7 @@ List
 .Also
 . Blech
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//ol', output, 2
       assert_xpath '(//ol)[1]/li', output, 2
       assert_xpath '(//ol)[2]/li', output, 1
@@ -1830,7 +1954,7 @@ List
 :foo: bar
 . Blech
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//ol', output, 2
       assert_xpath '(//ol)[1]/li', output, 2
       assert_xpath '(//ol)[2]/li', output, 1
@@ -1845,7 +1969,7 @@ List
 . item 8
       EOS
 
-      output = render_embedded_string input, :backend => 'docbook45'
+      output = convert_string_to_embedded input, :backend => 'docbook45'
       assert_xpath '//orderedlist', output, 1
       assert_xpath '(//orderedlist)/listitem', output, 2
       assert_xpath '(//orderedlist/listitem)[1][@override = "7"]', output, 1
@@ -1860,10 +1984,34 @@ List
 . item 8
       EOS
 
-      output = render_embedded_string input, :backend => 'docbook5'
+      output = convert_string_to_embedded input, :backend => 'docbook5'
       assert_xpath '//orderedlist', output, 1
       assert_xpath '(//orderedlist)/listitem', output, 2
       assert_xpath '(//orderedlist)[@startingnumber = "7"]', output, 1
+    end
+
+    test 'should match trailing line separator in text of list item' do
+      input = <<-EOS.chomp
+. a
+. b#{decode_char 8232}
+. c
+      EOS
+
+      output = convert_string input
+      assert_css 'li', output, 3
+      assert_xpath %((//li)[2]/p[text()="b#{decode_char 8232}"]), output, 1
+    end
+
+    test 'should match line separator in text of list item' do
+      input = <<-EOS.chomp
+. a
+. b#{decode_char 8232}b
+. c
+      EOS
+
+      output = convert_string input
+      assert_css 'li', output, 3
+      assert_xpath %((//li)[2]/p[text()="b#{decode_char 8232}b"]), output, 1
     end
   end
 
@@ -1873,7 +2021,7 @@ I) one
 III) three
     EOS
     using_memory_logger do |logger|
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//ol/li', output, 2
       assert_message logger, :WARN, '<stdin>: line 2: list item index: expected II, got III', Hash
     end
@@ -1885,7 +2033,7 @@ i) one
 iii) three
     EOS
     using_memory_logger do |logger|
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//ol/li', output, 2
       assert_message logger, :WARN, '<stdin>: line 2: list item index: expected ii, got iii', Hash
     end
@@ -1899,7 +2047,7 @@ context "Description lists (:dlist)" do
 term1:: def1
 term2:: def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 1
       assert_xpath '//dl/dt', output, 2
       assert_xpath '//dl/dt/following-sibling::dd', output, 2
@@ -1914,7 +2062,7 @@ term2:: def2
 term1;; ;; def1
 term2;; ;; def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 1
       assert_xpath '//dl/dt', output, 2
       assert_xpath '//dl/dt/following-sibling::dd', output, 2
@@ -1929,7 +2077,7 @@ term2;; ;; def2
 term1:: def1
  term2:: def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 1
       assert_xpath '//dl/dt', output, 2
       assert_xpath '//dl/dt/following-sibling::dd', output, 2
@@ -1944,7 +2092,7 @@ term1:: def1
 term1::\tdef1
 \tterm2::\tdef2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 1
       assert_xpath '//dl/dt', output, 2
       assert_xpath '//dl/dt/following-sibling::dd', output, 2
@@ -1960,7 +2108,7 @@ term1:: def1
 
 term2:: def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 1
       assert_xpath '//dl/dt', output, 2
       assert_xpath '//dl/dt/following-sibling::dd', output, 2
@@ -1974,7 +2122,7 @@ term1:: def1
 
 term2:: def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 2
       assert_xpath '//dl/dt', output, 2
       assert_xpath '(//dl)[1]/dt', output, 1
@@ -1989,7 +2137,7 @@ term1:: def1
 
 term2:: def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 2
       assert_xpath '//dl/dt', output, 2
       assert_xpath '//dl//hr', output, 0
@@ -2004,7 +2152,7 @@ term1:: def1
 .Some more
 term2:: def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 2
       assert_xpath '//dl/dt', output, 2
       assert_xpath '(//dl)[1]/dt', output, 1
@@ -2019,7 +2167,7 @@ def1
 term2::
 def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 1
       assert_xpath '//dl/dt', output, 2
       assert_xpath '//dl/dt/following-sibling::dd', output, 2
@@ -2036,7 +2184,7 @@ term1::
 term2::
   def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 1
       assert_xpath '//dl/dt', output, 2
       assert_xpath '//dl/dt/following-sibling::dd', output, 2
@@ -2056,7 +2204,7 @@ term2::
 // comment
   def2 continued
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//dl', output, 1
       assert_xpath '//dl/dt', output, 2
       assert_xpath '//dl/dt/following-sibling::dd', output, 2
@@ -2074,7 +2222,7 @@ term1::
 // not a comment
  line 3
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="literalblock"]', output, 1
       assert_xpath %(//*[@class="literalblock"]//pre[text()=" line 1\n// not a comment\n line 3"]), output, 1
     end
@@ -2088,7 +2236,7 @@ term1::
 term2::
   def2
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//dl', output, 1
       assert_xpath '//dl/dt', output, 2
       assert_xpath '//dl/dt/following-sibling::dd', output, 2
@@ -2104,7 +2252,7 @@ term1::
 term2::
 def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 1
       assert_xpath '//dl/dt', output, 2
       assert_xpath '//dl/dd', output, 1
@@ -2122,7 +2270,7 @@ description
 
 last::
       EOS
-      output = render_embedded_string input, :backend => 'docbook'
+      output = convert_string_to_embedded input, :backend => 'docbook'
       assert_xpath '//varlistentry', output, 2
       assert_xpath '(//varlistentry)[1]/term', output, 2
       assert_xpath '(//varlistentry)[2]/term', output, 1
@@ -2139,7 +2287,7 @@ term2::
 
 def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 1
       assert_xpath '//dl/dt', output, 2
       assert_xpath '//dl/dt/following-sibling::dd', output, 2
@@ -2160,7 +2308,7 @@ def1
 term2::
   def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 1
       assert_xpath '//dl/dt', output, 2
       assert_xpath '//dl/dt/following-sibling::dd', output, 2
@@ -2177,7 +2325,7 @@ term1:: def1
 term2::
 def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 1
       assert_xpath '//dl/dt', output, 2
       assert_xpath '//dl/dt/following-sibling::dd', output, 2
@@ -2212,7 +2360,7 @@ The highest peak in the Front Range is <<grays-peak>>, which tops <<mount-evans>
 term1::def1
 term2::def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 0
     end
 
@@ -2227,7 +2375,7 @@ literal, line 2
 ....
 anotherterm:: def
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl/dt', output, 2
       assert_xpath '//dl/dd', output, 2
       assert_xpath '//dl/dd//pre', output, 1
@@ -2247,7 +2395,7 @@ literal, line 2
 +
 anotherterm:: def
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl/dt', output, 2
       assert_xpath '//dl/dd', output, 2
       assert_xpath '//dl/dd//pre', output, 1
@@ -2272,7 +2420,7 @@ listing, line 2
 ----
 anotherterm:: def
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl/dt', output, 2
       assert_xpath '//dl/dd', output, 2
       assert_xpath '//dl/dd//pre', output, 2
@@ -2291,7 +2439,7 @@ And some more detail...
 --
 anotherterm:: def
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl/dd//p', output, 3
       assert_xpath '(//dl/dd)[1]//*[@class="openblock"]//p', output, 2
     end
@@ -2304,7 +2452,7 @@ more detail
 +
 term2:: def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '(//dl/dt)[1][normalize-space(text())="term1"]', output, 1
       assert_xpath '(//dl/dt)[2][normalize-space(text())="term2"]', output, 1
       assert_xpath '(//dl/dd)[1]//p', output, 2
@@ -2321,7 +2469,7 @@ more detail
 +
 term2:: def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '(//dl/dt)[1][normalize-space(text())="term1"]', output, 1
       assert_xpath '(//dl/dt)[2][normalize-space(text())="term2"]', output, 1
       assert_xpath '(//dl/dd)[1]//p', output, 2
@@ -2338,7 +2486,7 @@ la la la
 
 term2:: def
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl/dd//p', output, 2
       assert_xpath '(//dl/dd)[1]/*[@class="verseblock"]/pre[text() = "la la la"]', output, 1
     end
@@ -2351,7 +2499,7 @@ term1::
 * level 1
 term2:: def
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl/dd', output, 2
       assert_xpath '//dl/dd/p', output, 1
       assert_xpath '(//dl/dd)[1]//ul', output, 2
@@ -2368,7 +2516,7 @@ term1::
 
 term2:: def
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl/dd', output, 2
       assert_xpath '//dl/dd/p', output, 1
       assert_xpath '(//dl/dd)[1]//ul', output, 2
@@ -2389,7 +2537,7 @@ A new paragraph
 
 Another new paragraph
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 1
       assert_xpath '//dl/dd', output, 2
       assert_xpath '(//dl/dd)[1]/p[text() = "def1"]', output, 1
@@ -2413,7 +2561,7 @@ A new paragraph
 
 Another new paragraph
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 1
       assert_xpath '//dl/dd', output, 2
       assert_xpath '(//dl/dd)[1]/p[text() = "def1"]', output, 1
@@ -2437,7 +2585,7 @@ term2::
 
 A new paragraph.
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 1
       assert_xpath '//dl/dd', output, 2
       assert_xpath '(//dl/dd)[1]/p[text() = "def1"]', output, 1
@@ -2450,6 +2598,19 @@ A new paragraph.
 
     test 'should not match comment line that looks like description list term' do
       input = <<-EOS
+before
+
+//key:: val
+
+after
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_css 'dl', output, 0
+    end
+
+    test 'should not match comment line following list that looks like description list term' do
+      input = <<-EOS
 * item
 
 //::
@@ -2458,11 +2619,69 @@ A new paragraph.
 section text
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '/*[@class="ulist"]', output, 1
       assert_xpath '/*[@class="sect1"]', output, 1
       assert_xpath '/*[@class="sect1"]/h2[text()="Section"]', output, 1
       assert_xpath '/*[@class="ulist"]/following-sibling::*[@class="sect1"]', output, 1
+    end
+
+    test 'should not match comment line that looks like sibling description list term' do
+      input = <<-EOS
+before
+
+foo:: bar
+//yin:: yang
+
+after
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_css '.dlist', output, 1
+      assert_css '.dlist dt', output, 1
+      refute_includes output, 'yin'
+    end
+
+    test 'should not hang on description list item in list that begins with ///' do
+      input = <<-EOS
+* x
+///::
+y
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_css '.ulist', output, 1
+      assert_css '.ulist .dlist', output, 1
+      assert_xpath '//dt[text()="///"]', output, 1
+      assert_xpath '//dd/p[text()="y"]', output, 1
+    end
+
+    test 'should not hang on sibling description list item that begins with ///' do
+      input = <<-EOS
+::
+///::
+y
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_css '.dlist', output, 1
+      assert_xpath '(//dl/dt)[1][not(text())]', output, 1
+      assert_xpath '(//dl/dt)[2][text()="///"]', output, 1
+      assert_xpath '//dl/dd/p[text()="y"]', output, 1
+    end
+
+    test 'should skip dlist term that begins with // unless it begins with ///' do
+      input = <<-EOS
+category a::
+//ignored term:: def
+
+category b::
+///term:: def
+      EOS
+
+      output = convert_string_to_embedded input
+      refute_includes output, 'ignored term'
+      assert_xpath '//dt[text()="///term"]', output, 1
     end
 
     test 'more than 4 consecutive colons should become part of description list term' do
@@ -2470,7 +2689,7 @@ section text
 A term::::: a description
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//dl', output, 1
       assert_xpath '//dt', output, 1
       assert_xpath '//dt[text()="A term:"]', output, 1
@@ -2488,6 +2707,30 @@ paragraph
       dd = doc.blocks[0].items[0][1]
       assert_nil dd.text
     end
+
+    test 'should match trailing line separator in text of list item' do
+      input = <<-EOS.chomp
+A:: a
+B:: b#{decode_char 8232}
+C:: c
+      EOS
+
+      output = convert_string input
+      assert_css 'dd', output, 3
+      assert_xpath %((//dd)[2]/p[text()="b#{decode_char 8232}"]), output, 1
+    end
+
+    test 'should match line separator in text of list item' do
+      input = <<-EOS.chomp
+A:: a
+B:: b#{decode_char 8232}b
+C:: c
+      EOS
+
+      output = convert_string input
+      assert_css 'dd', output, 3
+      assert_xpath %((//dd)[2]/p[text()="b#{decode_char 8232}b"]), output, 1
+    end
   end
 
   context "Nested lists" do
@@ -2497,7 +2740,7 @@ term1:: def1
 label1::: detail1
 term2:: def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 2
       assert_xpath '//dl//dl', output, 1
       assert_xpath '(//dl)[1]/dt[1][normalize-space(text()) = "term1"]', output, 1
@@ -2516,7 +2759,7 @@ name1:::: value1
 item1;; price1
 term2:: def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 4
       assert_xpath '//dl//dl//dl//dl', output, 1
     end
@@ -2529,7 +2772,7 @@ label1::: detail1
 
 term2:: def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 2
       assert_xpath '//dl//dl', output, 1
       assert_xpath '(//dl)[1]/dt[1][normalize-space(text()) = "term1"]', output, 1
@@ -2548,7 +2791,7 @@ label1::: detail1
 label2::: detail2
 term2:: def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 2
       assert_xpath '//dl//dl', output, 1
       assert_xpath '(//dl)[1]/dt[1][normalize-space(text()) = "term1"]', output, 1
@@ -2565,7 +2808,7 @@ term1:: def1
 label1;; detail1
 term2:: def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 2
       assert_xpath '//dl//dl', output, 1
       assert_xpath '(//dl)[1]/dt[1][normalize-space(text()) = "term1"]', output, 1
@@ -2585,7 +2828,7 @@ detail1
 term2::
 def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 2
       assert_xpath '//dl//dl', output, 1
       assert_xpath '(//dl)[1]/dt[1][normalize-space(text()) = "term1"]', output, 1
@@ -2608,7 +2851,7 @@ detail2
 
 term2:: def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 2
       assert_xpath '//dl//dl', output, 1
       assert_xpath '(//dl)[1]/dt[1][normalize-space(text()) = "term1"]', output, 1
@@ -2628,7 +2871,7 @@ term1::
 term2::
   def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 2
       assert_xpath '//dl//dl', output, 1
       assert_xpath '(//dl)[1]/dt', output, 2
@@ -2649,7 +2892,7 @@ term1:: def1
    detail1
 term2:: def2
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 2
       assert_xpath '//dl//dl', output, 1
       assert_xpath '(//dl)[1]/dt[1][normalize-space(text()) = "term1"]', output, 1
@@ -2667,7 +2910,7 @@ continued
 label1:::
 detail1
       EOS
-      output = render_string input
+      output = convert_string input
       assert_xpath '//dl', output, 2
       assert_xpath '//dl//dl', output, 1
       assert_xpath '(//dl)[1]/dt[1][normalize-space(text()) = "term1"]', output, 1
@@ -2679,13 +2922,13 @@ detail1
   end
 
   context 'Special lists' do
-    test 'should render glossary list with proper semantics' do
+    test 'should convert glossary list with proper semantics' do
       input = <<-EOS
 [glossary]
 term 1:: def 1
 term 2:: def 2
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css '.dlist.glossary', output, 1
       assert_css '.dlist dt:not([class])', output, 2
     end
@@ -2699,7 +2942,7 @@ description
 
 last::
       EOS
-      output = render_embedded_string input, :backend => 'docbook'
+      output = convert_string_to_embedded input, :backend => 'docbook'
       assert_xpath '/glossentry', output, 2
       assert_xpath '(/glossentry)[1]/glossterm', output, 2
       assert_xpath '(/glossentry)[2]/glossterm', output, 1
@@ -2707,7 +2950,7 @@ last::
       assert_xpath '(/glossentry)[2]/glossdef[normalize-space(text())=""]', output, 1
     end
 
-    test 'should render horizontal list with proper markup' do
+    test 'should convert horizontal list with proper markup' do
       input = <<-EOS
 [horizontal]
 first term:: description
@@ -2716,7 +2959,7 @@ more detail
 
 second term:: description
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css '.hdlist', output, 1
       assert_css '.hdlist table', output, 1
       assert_css '.hdlist table colgroup', output, 0
@@ -2741,7 +2984,7 @@ second term:: description
 term:: def
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup', output, 1
       assert_css 'table > colgroup > col', output, 2
@@ -2756,7 +2999,7 @@ term:: def
 term:: def
       EOS
 
-      output = render_embedded_string input, :backend => 'docbook'
+      output = convert_string_to_embedded input, :backend => 'docbook'
       assert_css 'informaltable', output, 1
       assert_css 'informaltable > tgroup', output, 1
       assert_css 'informaltable > tgroup > colspec', output, 2
@@ -2770,7 +3013,7 @@ term:: def
 term:: def
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css '.hdlist', output, 1
       assert_css '.hdlist td.hdlist1.strong', output, 1
     end
@@ -2784,7 +3027,7 @@ description
 
 last::
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//tr', output, 2
       assert_xpath '(//tr)[1]/td[@class="hdlist1"]', output, 1
       # NOTE I'm trimming the trailing <br> in Asciidoctor
@@ -2802,7 +3045,7 @@ description
 
 last::
       EOS
-      output = render_embedded_string input, :backend => 'docbook'
+      output = convert_string_to_embedded input, :backend => 'docbook'
       assert_xpath '//row', output, 2
       assert_xpath '(//row)[1]/entry', output, 2
       assert_xpath '((//row)[1]/entry)[1]/simpara', output, 2
@@ -2810,7 +3053,7 @@ last::
       assert_xpath '((//row)[2]/entry)[2][normalize-space(text())=""]', output, 1
     end
 
-    test 'should render horizontal list in docbook with proper markup' do
+    test 'should convert horizontal list in docbook with proper markup' do
       input = <<-EOS
 .Terms
 [horizontal]
@@ -2820,7 +3063,7 @@ more detail
 
 second term:: description
       EOS
-      output = render_embedded_string input, :backend => 'docbook'
+      output = convert_string_to_embedded input, :backend => 'docbook'
       assert_xpath '/table', output, 1
       assert_xpath '/table[@tabstyle="horizontal"]', output, 1
       assert_xpath '/table[@tabstyle="horizontal"]/title[text()="Terms"]', output, 1
@@ -2830,7 +3073,7 @@ second term:: description
       assert_xpath '((/table//row)[1]/entry)[2]/simpara', output, 2
     end
 
-    test 'should render qanda list in HTML with proper semantics' do
+    test 'should convert qanda list in HTML with proper semantics' do
       input = <<-EOS
 [qanda]
 Question 1::
@@ -2840,7 +3083,7 @@ Question 2::
 +
 NOTE: A note about Answer 2.
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css '.qlist.qanda', output, 1
       assert_css '.qanda > ol', output, 1
       assert_css '.qanda > ol > li', output, 2
@@ -2854,7 +3097,7 @@ NOTE: A note about Answer 2.
       assert_xpath "/*[@class = 'qlist qanda']/ol/li[2]/p[2]/following-sibling::div[@class='admonitionblock note']", output, 1
     end
 
-    test 'should render qanda list in DocBook with proper semantics' do
+    test 'should convert qanda list in DocBook with proper semantics' do
       input = <<-EOS
 [qanda]
 Question 1::
@@ -2864,7 +3107,7 @@ Question 2::
 +
 NOTE: A note about Answer 2.
       EOS
-      output = render_embedded_string input, :backend => 'docbook'
+      output = convert_string_to_embedded input, :backend => 'docbook'
       assert_css 'qandaset', output, 1
       assert_css 'qandaset > qandaentry', output, 2
       (1..2).each do |idx|
@@ -2887,7 +3130,7 @@ response
 
 last question::
       EOS
-      output = render_embedded_string input, :backend => 'docbook'
+      output = convert_string_to_embedded input, :backend => 'docbook'
       assert_xpath '//qandaentry', output, 2
       assert_xpath '(//qandaentry)[1]/question', output, 1
       assert_xpath '(//qandaentry)[1]/question/simpara', output, 2
@@ -2896,7 +3139,7 @@ last question::
       assert_xpath '(//qandaentry)[2]/answer[normalize-space(text())=""]', output, 1
     end
 
-    test 'should render bibliography list with proper semantics' do
+    test 'should convert bibliography list with proper semantics' do
       input = <<-EOS
 [bibliography]
 - [[[taoup]]] Eric Steven Raymond. 'The Art of Unix
@@ -2905,7 +3148,7 @@ last question::
   'DocBook - The Definitive Guide'. O'Reilly & Associates. 1999.
   ISBN 1-56592-580-7.
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css '.ulist.bibliography', output, 1
       assert_css '.ulist.bibliography ul', output, 1
       assert_css '.ulist.bibliography ul li', output, 2
@@ -2916,7 +3159,7 @@ last question::
       assert text.text.start_with?('[taoup] ')
     end
 
-    test 'should render bibliography list with proper semantics to DocBook' do
+    test 'should convert bibliography list with proper semantics to DocBook' do
       input = <<-EOS
 [bibliography]
 - [[[taoup]]] Eric Steven Raymond. 'The Art of Unix
@@ -2925,7 +3168,7 @@ last question::
   'DocBook - The Definitive Guide'. O'Reilly & Associates. 1999.
   ISBN 1-56592-580-7.
       EOS
-      output = render_embedded_string input, :backend => 'docbook'
+      output = convert_string_to_embedded input, :backend => 'docbook'
       assert_css 'bibliodiv', output, 1
       assert_css 'bibliodiv > bibliomixed', output, 2
       assert_css 'bibliodiv > bibliomixed > bibliomisc', output, 2
@@ -2944,7 +3187,7 @@ Addison-Wesley. 1997.
 Addison-Wesley. 1997.
       EOS
       using_memory_logger do |logger|
-        output = render_embedded_string input
+        output = convert_string_to_embedded input
         assert_css '.ulist.bibliography', output, 1
         assert_css '.ulist.bibliography ul li:nth-child(1) p a#Fowler', output, 1
         assert_css '.ulist.bibliography ul li:nth-child(2) p a#Fowler', output, 1
@@ -2980,7 +3223,7 @@ Addison-Wesley. 1997.
 - [[[1984]]] George Orwell. '1984'. New American Library. 1950.
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_includes output, '[[[1984]]]'
       assert_xpath '//a[@id="1984"]', output, 0
     end
@@ -2991,7 +3234,7 @@ Addison-Wesley. 1997.
 - [[[_1984]]] George Orwell. '1984'. New American Library. 1950.
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       refute_includes output, '[[[_1984]]]'
       assert_includes output, '[_1984]'
       assert_xpath '//a[@id="_1984"]', output, 1
@@ -3045,7 +3288,7 @@ Please read #{'<<'}Fowler_1997>>.
 * [[[Fowler_1997,1]]] Fowler M. _Analysis Patterns: Reusable Object Models_. Addison-Wesley. 1997.
       EOS
 
-      result = render_embedded_string input, :backend => :docbook
+      result = convert_string_to_embedded input, :backend => :docbook
       assert_includes result, '<anchor xml:id="Fowler_1997" xreflabel="[1]"/>'
     end
   end
@@ -3063,7 +3306,7 @@ term1::
 def1
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p[text()="def1"]', output, 1
@@ -3079,7 +3322,7 @@ term1::
 def1
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p[text()="def1"]', output, 1
@@ -3095,7 +3338,7 @@ def1
 term2:: def2
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 2
       assert_xpath '(//*[@class="dlist"]//dd)[1]/p[text()="def1"]', output, 1
@@ -3112,7 +3355,7 @@ def1
 term2:: def2
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'dl', output, 1
       assert_css 'dl > dt', output, 2
       assert_css 'dl > dd', output, 2
@@ -3128,7 +3371,7 @@ term1::
 def1
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p[text()="def1"]', output, 1
@@ -3144,7 +3387,7 @@ term1::
 def1
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p[text()="def1"]', output, 1
@@ -3158,7 +3401,7 @@ term1::
   def1
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p[text()="def1"]', output, 1
@@ -3173,7 +3416,7 @@ term1::
   def1
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p[text()="def1"]', output, 1
@@ -3188,7 +3431,7 @@ term1::
 '''
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath %(//*[@class="dlist"]//dd/p[text()="'''"]), output, 1
@@ -3204,7 +3447,7 @@ term1::
 '''
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath %(//*[@class="dlist"]//dd/p[text()="'''"]), output, 1
@@ -3220,7 +3463,7 @@ term1::
 continued
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath %(//*[@class="dlist"]//dd/p[normalize-space(text())="''' continued"]), output, 1
@@ -3235,7 +3478,7 @@ term1::
 .def1
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p[text()=".def1"]', output, 1
@@ -3251,7 +3494,7 @@ term1::
 .def1
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p[text()=".def1"]', output, 1
@@ -3266,7 +3509,7 @@ term1::
 NOTE: def1
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p[text()="NOTE: def1"]', output, 1
@@ -3281,7 +3524,7 @@ term1::
 == Another Section
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p[text()="== Another Section"]', output, 1
@@ -3302,7 +3545,7 @@ term1::
   literal
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p[text()="def1"]', output, 1
@@ -3322,7 +3565,7 @@ def1
 term2:: def2
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 2
       assert_xpath '(//*[@class="dlist"]//dd)[1]/p[text()="def1"]', output, 1
@@ -3339,7 +3582,7 @@ term1::
   literal
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p', output, 0
@@ -3358,7 +3601,7 @@ term1::
 '''
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p', output, 0
@@ -3378,7 +3621,7 @@ para
 '''
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p', output, 0
@@ -3400,7 +3643,7 @@ literal
 ....
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p', output, 0
@@ -3424,7 +3667,7 @@ detached
 ....
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p', output, 0
@@ -3445,7 +3688,7 @@ term1::
 * three
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p', output, 0
@@ -3464,7 +3707,7 @@ term1::
 term2:: def2
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 2
       assert_xpath '(//*[@class="dlist"]//dd)[1]/p', output, 0
@@ -3487,7 +3730,7 @@ label 2::
 
 paragraph
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css '.dlist > dl', output, 1
       assert_css '.dlist dt', output, 2
       assert_xpath '(//*[@class="dlist"]//dt)[1][normalize-space(text())="label 1"]', output, 1
@@ -3515,7 +3758,7 @@ label 2::
 
 paragraph
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css '.dlist > dl', output, 1
       assert_css '.dlist dt', output, 2
       assert_xpath '(//*[@class="dlist"]//dt)[1][normalize-space(text())="label 1"]', output, 1
@@ -3542,7 +3785,7 @@ term1::
 para
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p', output, 0
@@ -3565,7 +3808,7 @@ nested list para
 term1 para
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p', output, 0
@@ -3589,7 +3832,7 @@ notnestedterm:::
 notnestedterm:::
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p', output, 0
@@ -3606,7 +3849,7 @@ term1::
 para
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p', output, 0
@@ -3622,7 +3865,7 @@ more description
 not a term::: def
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css '.dlist > dl > dt', output, 1
       assert_css '.dlist > dl > dd', output, 1
       assert_css '.dlist > dl > dd > .paragraph', output, 1
@@ -3639,7 +3882,7 @@ more description
 not a term:: def
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css '.dlist > dl > dt', output, 1
       assert_css '.dlist > dl > dd', output, 1
       assert_css '.dlist > dl > dd > .paragraph', output, 1
@@ -3656,7 +3899,7 @@ more description
 not a term::: def
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css '.dlist > dl > dt', output, 1
       assert_css '.dlist > dl > dd', output, 1
       assert_css '.dlist > dl > dd > .quoteblock', output, 1
@@ -3674,7 +3917,7 @@ term1::
 para
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p', output, 0
@@ -3692,7 +3935,7 @@ term1::
 para
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p', output, 0
@@ -3710,7 +3953,7 @@ detached
 ====
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 0
       assert_xpath '//*[@class="dlist"]/following-sibling::*[@class="exampleblock"]', output, 1
@@ -3726,7 +3969,7 @@ term1::
 detached
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 0
       assert_xpath '//*[@class="dlist"]/following-sibling::*[@class="verseblock"]', output, 1
@@ -3742,7 +3985,7 @@ term1::
 detached
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 0
       assert_xpath '//*[@class="dlist"]/following-sibling::*[@class="paragraph"]', output, 1
@@ -3760,7 +4003,7 @@ term1:: def1
 continued
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath %(//*[@class="dlist"]//dd/p[text()="def1\ncontinued"]), output, 1
@@ -3775,7 +4018,7 @@ continued
 continued
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath %(//*[@class="dlist"]//dd/p[text()="def1\ncontinued\ncontinued"]), output, 1
@@ -3790,7 +4033,7 @@ term1:: def1
 continued
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath %(//*[@class="dlist"]//dd/p[text()="def1\ncontinued"]), output, 1
@@ -3804,7 +4047,7 @@ term1:: def1
   continued
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath %(//*[@class="dlist"]//dd/p[text()="def1\ncontinued"]), output, 1
@@ -3819,7 +4062,7 @@ term1:: def1
   literal
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p[text()="def1"]', output, 1
@@ -3838,7 +4081,7 @@ term1:: def1
 para
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p[text()="def1"]', output, 1
@@ -3859,7 +4102,7 @@ para
   literal
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p[text()="def1"]', output, 1
@@ -3880,7 +4123,7 @@ term1:: def1
 * three
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p[text()="def1"]', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p/following-sibling::*[@class="ulist"]', output, 1
@@ -3898,7 +4141,7 @@ term1:: def1
 '''
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p[text()="def1"]', output, 1
@@ -3916,7 +4159,7 @@ term1:: def1
 detached
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p[text()="def1"]', output, 1
@@ -3937,7 +4180,7 @@ Detached
 ~~~~~~~~
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 2
       assert_xpath '//*[@class="dlist"]//dd', output, 2
       assert_xpath '//*[@class="dlist"]/dl//dl', output, 1
@@ -3960,7 +4203,7 @@ para
 detached
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p[text()="def1"]', output, 1
@@ -3983,7 +4226,7 @@ detached
 ****
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p[text()="def1"]', output, 1
@@ -4003,7 +4246,7 @@ term1:: def1
 para
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p[text()="def1"]', output, 1
@@ -4021,7 +4264,7 @@ term1:: def1
 para
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 1
       assert_xpath '//*[@class="dlist"]//dd', output, 1
       assert_xpath '//*[@class="dlist"]//dd/p[text()="def1"]', output, 1
@@ -4040,7 +4283,7 @@ term1:: def1
 term2:: def2
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 2
     end
 
@@ -4055,7 +4298,7 @@ term1:: def1
 term2:: def2
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 2
     end
 
@@ -4070,7 +4313,7 @@ term1:: def1
 term2:: def2
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//*[@class="dlist"]/dl', output, 2
       assert_xpath '(//*[@class="dlist"])[2]/*[@class="title"][text()="title"]', output, 1
     end
@@ -4078,6 +4321,18 @@ term2:: def2
 end
 
 context 'Callout lists' do
+  test 'does not recognize callout list denoted by markers that only have a trailing bracket' do
+    input  = <<-EOS
+----
+require 'asciidoctor' # <1>
+----
+1> Not a callout list item
+    EOS
+
+    output = convert_string_to_embedded input
+    assert_css '.colist', output, 0
+  end
+
   test 'listing block with sequential callouts followed by adjacent callout list' do
     input = <<-EOS
 [source, ruby]
@@ -4090,7 +4345,7 @@ puts doc.convert # <3>
 <2> Describe the second line
 <3> Describe the third line
     EOS
-    output = render_string input, :attributes => {'backend' => 'docbook45'}
+    output = convert_string input, :attributes => {'backend' => 'docbook45'}
     assert_xpath '//programlisting', output, 1
     assert_xpath '//programlisting//co', output, 3
     assert_xpath '(//programlisting//co)[1][@id = "CO1-1"]', output, 1
@@ -4117,7 +4372,7 @@ Paragraph.
 <2> Describe the second line
 <3> Describe the third line
     EOS
-    output = render_string input, :attributes => {'backend' => 'docbook45'}
+    output = convert_string input, :attributes => {'backend' => 'docbook45'}
     assert_xpath '//programlisting', output, 1
     assert_xpath '//programlisting//co', output, 3
     assert_xpath '(//programlisting//co)[1][@id = "CO1-1"]', output, 1
@@ -4141,7 +4396,7 @@ puts doc.convert # <2>
 <1> Import the library
 <2> Where the magic happens
     EOS
-    output = render_string input, :attributes => {'backend' => 'docbook45'}
+    output = convert_string input, :attributes => {'backend' => 'docbook45'}
     assert_xpath '//programlisting', output, 1
     assert_xpath '//programlisting//co', output, 3
     assert_xpath '(//programlisting//co)[1][@id = "CO1-1"]', output, 1
@@ -4164,7 +4419,7 @@ puts doc.convert # <1>
 <2> Describe the second line
 <3> Describe the third line
     EOS
-    output = render_string input, :attributes => {'backend' => 'docbook45'}
+    output = convert_string input, :attributes => {'backend' => 'docbook45'}
     assert_xpath '//programlisting', output, 1
     assert_xpath '//programlisting//co', output, 3
     assert_xpath '(//programlisting//co)[1][@id = "CO1-1"]', output, 1
@@ -4195,7 +4450,7 @@ puts doc.convert # <3>
 <2> Describe the second line
 <3> Describe the third line
     EOS
-    output = render_string input, :attributes => {'backend' => 'docbook45'}
+    output = convert_string input, :attributes => {'backend' => 'docbook45'}
     assert_xpath '//programlisting', output, 2
     assert_xpath '(//programlisting)[1]//co', output, 1
     assert_xpath '(//programlisting)[1]//co[@id = "CO1-1"]', output, 1
@@ -4225,7 +4480,7 @@ puts doc.convert # <2>
 <1> Describe the second line
 <2> Describe the third line
     EOS
-    output = render_string input, :attributes => {'backend' => 'docbook45'}
+    output = convert_string input, :attributes => {'backend' => 'docbook45'}
     assert_xpath '//programlisting', output, 2
     assert_xpath '(//programlisting)[1]//co', output, 1
     assert_xpath '(//programlisting)[1]//co[@id = "CO1-1"]', output, 1
@@ -4257,7 +4512,7 @@ as a RubyGem
 +
 You can write this to file rather than printing to stdout.
     EOS
-    output = render_embedded_string input
+    output = convert_string_to_embedded input
     assert_xpath '//ol/li', output, 3
     assert_xpath %((//ol/li)[1]/p[text()="Imports the library\nas a RubyGem"]), output, 1
     assert_xpath %((//ol/li)[2]//ul), output, 1
@@ -4282,7 +4537,7 @@ as a RubyGem
 +
 You can write this to file rather than printing to stdout.
     EOS
-    output = render_string input, :attributes => {'backend' => 'docbook45'}
+    output = convert_string input, :attributes => {'backend' => 'docbook45'}
     assert_xpath '//calloutlist', output, 1
     assert_xpath '//calloutlist/callout', output, 3
     assert_xpath '(//calloutlist/callout)[1]/*', output, 1
@@ -4294,13 +4549,39 @@ You can write this to file rather than printing to stdout.
 
   test 'escaped callout should not be interpreted as a callout' do
     input = <<-EOS
-[source, ruby]
+[source,text]
 ----
 require 'asciidoctor' # \\<1>
+Asciidoctor.convert 'convert me!' \\<2>
 ----
     EOS
-    output = render_string input, :attributes => {'backend' => 'docbook45'}
-    assert_xpath '//co', output, 0
+    [{}, {'source-highlighter' => 'coderay'}].each do |attributes|
+      output = convert_string_to_embedded input, :attributes => attributes
+      assert_css 'pre b', output, 0
+      assert_includes output, ' # &lt;1&gt;'
+      assert_includes output, ' &lt;2&gt;'
+    end
+  end
+
+  test 'should autonumber <.> callouts' do
+    input = <<-EOS
+[source, ruby]
+----
+require 'asciidoctor' # <.>
+doc = Asciidoctor::Document.new('Hello, World!') # <.>
+puts doc.convert # <.>
+----
+<.> Describe the first line
+<.> Describe the second line
+<.> Describe the third line
+    EOS
+    output = convert_string_to_embedded input
+    pre_html = (xmlnodes_at_css 'pre', output)[0].inner_html
+    assert_includes pre_html, '(1)'
+    assert_includes pre_html, '(2)'
+    assert_includes pre_html, '(3)'
+    assert_css '.colist ol', output, 1
+    assert_css '.colist ol li', output, 3
   end
 
   test 'should not recognize callouts in middle of line' do
@@ -4310,7 +4591,7 @@ require 'asciidoctor' # \\<1>
 puts "The syntax <1> at the end of the line makes a code callout"
 ----
     EOS
-    output = render_embedded_string input
+    output = convert_string_to_embedded input
     assert_xpath '//b', output, 0
   end
 
@@ -4330,7 +4611,7 @@ exit 0
 <5> Renders document to String
 <6> Prints output to stdout
     EOS
-    output = render_embedded_string input
+    output = convert_string_to_embedded input
     assert_xpath '//code/b', output, 6
     assert_match(/ <b class="conum">\(1\)<\/b>$/, output)
     assert_match(/ <b class="conum">\(2\)<\/b> <b class="conum">\(3\)<\/b> <b class="conum">\(4\)<\/b>$/, output)
@@ -4349,7 +4630,7 @@ exit 0
 <1> The title is required
 <2> The content isn't
     EOS
-    output = render_embedded_string input
+    output = convert_string_to_embedded input
     assert_xpath '//b', output, 2
     assert_xpath '//b[text()="(1)"]', output, 1
     assert_xpath '//b[text()="(2)"]', output, 1
@@ -4362,7 +4643,7 @@ First line <1-->
 Second line <2-->
 ----
     EOS
-    output = render_embedded_string input
+    output = convert_string_to_embedded input
     assert_xpath '//b', output, 0
   end
 
@@ -4374,7 +4655,7 @@ foo::
 <1> Not pointing to a callout
     EOS
     using_memory_logger do |logger|
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//dl//b', output, 0
       assert_xpath '//dl/dd/p[text()="bar <1>"]', output, 1
       assert_xpath '//ol/li/p[text()="Not pointing to a callout"]', output, 1
@@ -4390,7 +4671,7 @@ foo::
 <1> Not pointing to a callout
     EOS
     using_memory_logger do |logger|
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//ul//b', output, 0
       assert_xpath %(//ul/li/p[text()="foo\nbar <1>"]), output, 1
       assert_xpath '//ol/li/p[text()="Not pointing to a callout"]', output, 1
@@ -4410,7 +4691,7 @@ Beans are fun.
 <3> An actual bean.
     EOS
     using_memory_logger do |logger|
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//ol/li', output, 2
       assert_messages logger, [
         [:WARN, '<stdin>: line 8: callout list item index: expected 2, got 3', Hash],
@@ -4419,7 +4700,7 @@ Beans are fun.
     end
   end
 
-  test 'should remove line comment chars that precedes callout number' do
+  test 'should preserve line comment chars that precede callout number if icons is not set' do
     input = <<-EOS
 [source,ruby]
 ----
@@ -4447,8 +4728,47 @@ main = putStrLn "Hello, World!" -- <1>
 <1> Haskell
     EOS
     [{}, {'source-highlighter' => 'coderay'}].each do |attributes|
-      output = render_embedded_string input, :attributes => attributes
+      output = convert_string_to_embedded input, :attributes => attributes
       assert_xpath '//b', output, 4
+      nodes = xmlnodes_at_css 'pre', output
+      assert_equal %(puts 'Hello, world!' # (1)), nodes[0].text
+      assert_equal %(println 'Hello, world!' // (1)), nodes[1].text
+      assert_equal %((def hello (fn [] "Hello, world!")) ;; (1)\n(hello)), nodes[2].text
+      assert_equal %(main = putStrLn "Hello, World!" -- (1)), nodes[3].text
+    end
+  end
+
+  test 'should remove line comment chars that precede callout number if icons is font' do
+    input = <<-EOS
+[source,ruby]
+----
+puts 'Hello, world!' # <1>
+----
+<1> Ruby
+
+[source,groovy]
+----
+println 'Hello, world!' // <1>
+----
+<1> Groovy
+
+[source,clojure]
+----
+(def hello (fn [] "Hello, world!")) ;; <1>
+(hello)
+----
+<1> Clojure
+
+[source,haskell]
+----
+main = putStrLn "Hello, World!" -- <1>
+----
+<1> Haskell
+    EOS
+    [{}, {'source-highlighter' => 'coderay'}].each do |attributes|
+      output = convert_string_to_embedded input, :attributes => attributes.merge({ 'icons' => 'font' })
+      assert_css 'pre b', output, 4
+      assert_css 'pre i.conum', output, 4
       nodes = xmlnodes_at_css 'pre', output
       assert_equal %(puts 'Hello, world!' (1)), nodes[0].text
       assert_equal %(println 'Hello, world!' (1)), nodes[1].text
@@ -4461,14 +4781,31 @@ main = putStrLn "Hello, World!" -- <1>
     input = <<-EOS
 [source,erlang,line-comment=%]
 ----
-hello_world() -> io:fwrite("hello, world\n"). % <1>
+hello_world() -> % <1>
+  io:fwrite("hello, world~n"). %<2>
 ----
-<1> Erlang
+<1> Erlang function clause head.
+<2> ~n adds a new line to the output.
     EOS
-    output = render_embedded_string input
+    output = convert_string_to_embedded input
+    assert_xpath '//b', output, 2
+    nodes = xmlnodes_at_css 'pre', output
+    assert_equal %(hello_world() -> % (1)\n  io:fwrite("hello, world~n"). %(2)), nodes[0].text
+  end
+
+  test 'should allow line comment chars preceding callout number to be configurable when source-highlighter is coderay' do
+    input = <<-EOS
+[source,html,line-comment=-#]
+----
+-# <1>
+%p Hello
+----
+<1> Prints a paragraph with the text "Hello"
+    EOS
+    output = convert_string_to_embedded input, :attributes => { 'source-highlighter' => 'coderay' }
     assert_xpath '//b', output, 1
     nodes = xmlnodes_at_css 'pre', output
-    assert_equal %(hello_world() -> io:fwrite("hello, world\n"). (1)), nodes[0].text
+    assert_equal %(-# (1)\n%p Hello), nodes[0].text
   end
 
   test 'literal block with callouts' do
@@ -4482,7 +4819,7 @@ Violets are blue <2>
 <1> And so is Ruby
 <2> But violet is more like purple
     EOS
-    output = render_string input, :attributes => {'backend' => 'docbook45'}
+    output = convert_string input, :attributes => {'backend' => 'docbook45'}
     assert_xpath '//literallayout', output, 1
     assert_xpath '//literallayout//co', output, 2
     assert_xpath '(//literallayout//co)[1][@id = "CO1-1"]', output, 1
@@ -4504,7 +4841,7 @@ puts doc.convert # <3>
 <2> Describe the second line
 <3> Describe the third line
     EOS
-    output = render_embedded_string input, :attributes => {'icons' => ''}
+    output = convert_string_to_embedded input, :attributes => {'icons' => ''}
     assert_css '.listingblock code > img', output, 3
     (1..3).each do |i|
       assert_xpath %((/div[@class="listingblock"]//code/img)[#{i}][@src="./images/icons/callouts/#{i}.png"][@alt="#{i}"]), output, 1
@@ -4527,7 +4864,7 @@ puts doc.convert #<3>
 <2> Describe the second line
 <3> Describe the third line
     EOS
-    output = render_embedded_string input, :attributes => {'icons' => 'font'}
+    output = convert_string_to_embedded input, :attributes => {'icons' => 'font'}
     assert_css '.listingblock code > i', output, 3
     (1..3).each do |i|
       assert_xpath %((/div[@class="listingblock"]//code/i)[#{i}]), output, 1
@@ -4540,6 +4877,40 @@ puts doc.convert #<3>
       assert_xpath %((/div[@class="colist arabic"]//td/i)[#{i}][@class="conum"][@data-value = "#{i}"]), output, 1
       assert_xpath %((/div[@class="colist arabic"]//td/i)[#{i}]/following-sibling::b[text() = "#{i}"]), output, 1
     end
+  end
+
+  test 'should match trailing line separator in text of list item' do
+    input = <<-EOS.chomp
+----
+A <1>
+B <2>
+C <3>
+----
+<1> a
+<2> b#{decode_char 8232}
+<3> c
+    EOS
+
+    output = convert_string input
+    assert_css 'li', output, 3
+    assert_xpath %((//li)[2]/p[text()="b#{decode_char 8232}"]), output, 1
+  end
+
+  test 'should match line separator in text of list item' do
+    input = <<-EOS.chomp
+----
+A <1>
+B <2>
+C <3>
+----
+<1> a
+<2> b#{decode_char 8232}b
+<3> c
+    EOS
+
+    output = convert_string input
+    assert_css 'li', output, 3
+    assert_xpath %((//li)[2]/p[text()="b#{decode_char 8232}b"]), output, 1
   end
 end
 
@@ -4579,7 +4950,7 @@ context 'Checklists' do
 - plain
     EOS
 
-    output = render_embedded_string input, :attributes => {'icons' => 'font'}
+    output = convert_string_to_embedded input, :attributes => {'icons' => 'font'}
     assert_css '.ulist.checklist', output, 1
     assert_css '.ulist.checklist li i.fa-check-square-o', output, 1
     assert_css '.ulist.checklist li i.fa-square-o', output, 1

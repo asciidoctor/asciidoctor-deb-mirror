@@ -1,7 +1,7 @@
 # encoding: UTF-8
 module Asciidoctor
 # Public: An abstract base class that provides state and methods for managing a
-# node of AsciiDoc content. The state and methods on this class are comment to
+# node of AsciiDoc content. The state and methods on this class are common to
 # all content segments in an AsciiDoc document.
 class AbstractNode
   include Logging
@@ -162,21 +162,32 @@ class AbstractNode
     @attributes.key? %(#{name}-option)
   end
 
-  # TODO document me
+  # Public: Set the specified option on this node.
+  #
+  # This method sets the specified option on this node if not already set.
+  # It will add the name to the options attribute and set the <name>-option
+  # attribute.
+  #
+  # name - the String name of the option
+  #
+  # returns truthy if the option was set or falsey if the option was already set
   def set_option(name)
-    if @attributes.key? 'options'
-      @attributes['options'] = %(#{@attributes['options']},#{name})
+    if (attrs = @attributes)['options']
+      unless attrs[key = %(#{name}-option)]
+        attrs['options'] += %(,#{name})
+        attrs[key] = ''
+      end
     else
-      @attributes['options'] = name
+      attrs['options'] = name
+      attrs[%(#{name}-option)] = ''
     end
-    @attributes[%(#{name}-option)] = ''
   end
 
   # Public: Update the attributes of this node with the new values in
   # the attributes argument.
   #
   # If an attribute already exists with the same key, it's value will
-  # be overridden.
+  # be overwritten.
   #
   # attributes - A Hash of attributes to assign to this node.
   #
@@ -240,7 +251,7 @@ class AbstractNode
       if val.empty?
         @attributes.delete('role')
       else
-        @attributes['role'] = val * ' '
+        @attributes['role'] = val.join ' '
       end
       true
     else
@@ -358,7 +369,7 @@ class AbstractNode
   def generate_data_uri(target_image, asset_dir_key = nil)
     ext = ::File.extname target_image
     # QUESTION what if ext is empty?
-    mimetype = (ext == '.svg' ? 'image/svg+xml' : %(image/#{ext[1..-1]}))
+    mimetype = (ext == '.svg' ? 'image/svg+xml' : %(image/#{ext.slice 1, ext.length}))
     if asset_dir_key
       image_path = normalize_system_path(target_image, @document.attr(asset_dir_key), nil, :target_name => 'image')
     else
@@ -400,9 +411,9 @@ class AbstractNode
 
     begin
       mimetype = nil
-      bindata = open image_uri, 'rb' do |fd|
-        mimetype = fd.content_type
-        fd.read
+      bindata = open image_uri, 'rb' do |f|
+        mimetype = f.content_type
+        f.read
       end
       # NOTE base64 is autoloaded by reference to ::Base64
       %(data:#{mimetype};base64,#{::Base64.strict_encode64 bindata})
@@ -499,7 +510,8 @@ class AbstractNode
     opts = { :warn_on_failure => (opts != false) } unless ::Hash === opts
     if ::File.readable? path
       if opts[:normalize]
-        Helpers.normalize_lines_from_string(::IO.read path) * LF
+        # NOTE Opal does not yet support File#readlines
+        (Helpers.normalize_lines_array ::File.open(path, 'rb') {|f| f.each_line.to_a }).join LF
       else
         # QUESTION should we chomp or rstrip content?
         ::IO.read path
@@ -533,9 +545,12 @@ class AbstractNode
       if doc.attr? 'allow-uri-read'
         Helpers.require_library 'open-uri/cached', 'open-uri-cached' if doc.attr? 'cache-uri'
         begin
-          data = ::OpenURI.open_uri(target) {|fd| fd.read }
-          data = (Helpers.normalize_lines_from_string data) * LF if opts[:normalize]
-          return data
+          if opts[:normalize]
+            # NOTE Opal does not yet support File#readlines
+            (Helpers.normalize_lines_array ::OpenURI.open_uri(target) {|f| f.each_line.to_a }).join LF
+          else
+            ::OpenURI.open_uri(target) {|f| f.read }
+          end
         rescue
           logger.warn %(could not retrieve contents of #{opts[:label] || 'asset'} at URI: #{target}) if opts.fetch :warn_on_failure, true
           return
@@ -546,7 +561,7 @@ class AbstractNode
       end
     else
       target = normalize_system_path target, opts[:start], nil, :target_name => (opts[:label] || 'asset')
-      return read_asset target, :normalize => opts[:normalize], :warn_on_failure => (opts.fetch :warn_on_failure, true), :label => opts[:label]
+      read_asset target, :normalize => opts[:normalize], :warn_on_failure => (opts.fetch :warn_on_failure, true), :label => opts[:label]
     end
   end
 

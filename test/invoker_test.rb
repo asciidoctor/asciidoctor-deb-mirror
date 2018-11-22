@@ -7,7 +7,7 @@ require 'asciidoctor/cli/options'
 require 'asciidoctor/cli/invoker'
 
 context 'Invoker' do
-  test 'should parse source and render as html5 article by default' do
+  test 'should parse source and convert to html5 article by default' do
     invoker = nil
     output = nil
     redirect_streams do |out, err|
@@ -49,12 +49,12 @@ context 'Invoker' do
 
   test 'should allow docdate and doctime to be overridden' do
     sample_filepath = fixture_path 'sample.asciidoc'
-    invoker = invoke_cli_to_buffer %w(-o /dev/null -a docdate=2015-01-01 -a doctime=10:00:00-07:00), sample_filepath
+    invoker = invoke_cli_to_buffer %w(-o /dev/null -a docdate=2015-01-01 -a doctime=10:00:00-0700), sample_filepath
     doc = invoker.document
     assert doc.attr?('docdate', '2015-01-01')
     assert doc.attr?('docyear', '2015')
-    assert doc.attr?('doctime', '10:00:00-07:00')
-    assert doc.attr?('docdatetime', '2015-01-01 10:00:00-07:00')
+    assert doc.attr?('doctime', '10:00:00-0700')
+    assert doc.attr?('docdatetime', '2015-01-01 10:00:00-0700')
   end
 
   test 'should accept document from stdin and write to stdout' do
@@ -362,7 +362,7 @@ context 'Invoker' do
     end
   end
 
-  test 'should render all passed files' do
+  test 'should convert all passed files' do
     basic_outpath = fixture_path 'basic.html'
     sample_outpath = fixture_path 'sample.html'
     begin
@@ -390,7 +390,7 @@ context 'Invoker' do
     end
   end
 
-  test 'should render all files that matches a glob expression' do
+  test 'should convert all files that matches a glob expression' do
     basic_outpath = fixture_path 'basic.html'
     begin
       invoke_cli_to_buffer [], "ba*.asciidoc"
@@ -400,7 +400,7 @@ context 'Invoker' do
     end
   end
 
-  test 'should render all files that matches an absolute path glob expression' do
+  test 'should convert all files that matches an absolute path glob expression' do
     basic_outpath = fixture_path 'basic.html'
     glob = fixture_path 'ba*.asciidoc'
     # test Windows using backslash-style pathname
@@ -629,6 +629,7 @@ eve, islifeform - analyzes an image to determine if it's a picture of a life for
   end
 
   test 'should force default external encoding to UTF-8' do
+    ruby = File.join RbConfig::CONFIG['bindir'], RbConfig::CONFIG['ruby_install_name']
     executable = File.join ASCIIDOCTOR_PROJECT_DIR, 'bin', 'asciidoctor'
     input_path = fixture_path 'encoding.asciidoc'
     old_lang = ENV['LANG']
@@ -636,14 +637,9 @@ eve, islifeform - analyzes an image to determine if it's a picture of a life for
     begin
       # using open3 to work around a bug in JRuby process_manager.rb,
       # which tries to run a gsub on stdout prematurely breaking the test
-      require 'open3'
-      #cmd = "#{executable} -o - --trace #{input_path}"
-      cmd = "#{File.join RbConfig::CONFIG['bindir'], RbConfig::CONFIG['ruby_install_name']} #{executable} -o - --trace #{input_path}"
-      _, out, _ = Open3.popen3 cmd
-      #stderr_lines = stderr.readlines
+      cmd = %(#{ruby} #{executable} -o - --trace #{input_path})
       # warnings may be issued, so don't assert on stderr
-      #assert_empty stderr_lines, 'Command failed. Expected to receive a rendered document.'
-      stdout_lines = out.readlines
+      stdout_lines = Open3.popen3(cmd) {|_, out| out.readlines }
       refute_empty stdout_lines
       stdout_lines.each {|l| l.force_encoding Encoding::UTF_8 } if Asciidoctor::FORCE_ENCODING
       stdout_str = stdout_lines.join
@@ -655,17 +651,59 @@ eve, islifeform - analyzes an image to determine if it's a picture of a life for
 
   test 'should print timings when -t flag is specified' do
     input = <<-EOS
-    Sample *AsciiDoc*
+Sample *AsciiDoc*
     EOS
     invoker = nil
     error = nil
-    redirect_streams do |out, err|
+    redirect_streams do |_, err|
       invoker = invoke_cli(%w(-t -o /dev/null), '-') { input }
       error = err.string
     end
     refute_nil invoker
     refute_nil error
     assert_match(/Total time/, error)
+  end
+
+  test 'should show timezone as UTC if system TZ is set to UTC' do
+    ruby = File.join RbConfig::CONFIG['bindir'], RbConfig::CONFIG['ruby_install_name']
+    executable = File.join ASCIIDOCTOR_PROJECT_DIR, 'bin', 'asciidoctor'
+    input_path = fixture_path 'doctime-localtime.adoc'
+    cmd = %(#{ruby} #{executable} -d inline -o - -s #{input_path})
+    old_tz = ENV['TZ']
+    begin
+      ENV['TZ'] = 'UTC'
+      result = Open3.popen3(cmd) {|_, out| out.read }
+      doctime, localtime = result.lines.map {|l| l.chomp }
+      assert doctime.end_with?(' UTC')
+      assert localtime.end_with?(' UTC')
+    rescue
+      if old_tz
+        ENV['TZ'] = old_tz
+      else
+        ENV.delete 'TZ'
+      end
+    end
+  end
+
+  test 'should show timezone as offset if system TZ is not set to UTC' do
+    ruby = File.join RbConfig::CONFIG['bindir'], RbConfig::CONFIG['ruby_install_name']
+    executable = File.join ASCIIDOCTOR_PROJECT_DIR, 'bin', 'asciidoctor'
+    input_path = fixture_path 'doctime-localtime.adoc'
+    cmd = %(#{ruby} #{executable} -d inline -o - -s #{input_path})
+    old_tz = ENV['TZ']
+    begin
+      ENV['TZ'] = 'EST+5'
+      result = Open3.popen3(cmd) {|_, out| out.read }
+      doctime, localtime = result.lines.map {|l| l.chomp }
+      assert doctime.end_with?(' -0500')
+      assert localtime.end_with?(' -0500')
+    ensure
+      if old_tz
+        ENV['TZ'] = old_tz
+      else
+        ENV.delete 'TZ'
+      end
+    end
   end
 
   test 'should use SOURCE_DATE_EPOCH as modified time of input file and local time' do
@@ -677,10 +715,10 @@ eve, islifeform - analyzes an image to determine if it's a picture of a life for
       doc = invoker.document
       assert_equal '2009-02-08', (doc.attr 'docdate')
       assert_equal '2009', (doc.attr 'docyear')
-      assert_match(/2009-02-08 20:03:32 (GMT|UTC)/, (doc.attr 'docdatetime'))
+      assert_match(/2009-02-08 20:03:32 UTC/, (doc.attr 'docdatetime'))
       assert_equal '2009-02-08', (doc.attr 'localdate')
       assert_equal '2009', (doc.attr 'localyear')
-      assert_match(/2009-02-08 20:03:32 (GMT|UTC)/, (doc.attr 'localdatetime'))
+      assert_match(/2009-02-08 20:03:32 UTC/, (doc.attr 'localdatetime'))
     ensure
       if old_source_date_epoch
         ENV['SOURCE_DATE_EPOCH'] = old_source_date_epoch

@@ -82,6 +82,10 @@ module Asciidoctor
 # can take the process to completion by calling the {Document#convert} method.
 class Document < AbstractBlock
 
+  ImageReference = ::Struct.new :target, :imagesdir do
+    alias to_s target
+  end
+
   Footnote = ::Struct.new :index, :id, :text
 
   class AttributeEntry
@@ -132,6 +136,9 @@ class Document < AbstractBlock
       @combined
     end
   end
+
+  # Public: The Author class represents information about an author extracted from document attributes
+  Author = ::Struct.new :name, :firstname, :middlename, :lastname, :initials, :email
 
   # Public A read-only integer value indicating the level of security that
   # should be enforced while processing this document. The value must be
@@ -287,7 +294,7 @@ class Document < AbstractBlock
       (options[:attributes] || {}).each do |key, val|
         if key.end_with? '@'
           if key.start_with? '!'
-            key, val = (key.slice 1, key.length), false
+            key, val = (key.slice 1, key.length - 2), false
           elsif key.end_with? '!@'
             key, val = (key.slice 0, key.length - 2), false
           else
@@ -327,7 +334,7 @@ class Document < AbstractBlock
     end
 
     @parsed = false
-    @header = nil
+    @header = @header_attributes = nil
     @counters = {}
     @attributes_modified = ::Set.new
     @docinfo_processor_extensions = {}
@@ -493,14 +500,12 @@ class Document < AbstractBlock
       if (localdate = attrs['localdate'])
         localyear = (attrs['localyear'] ||= ((localdate.index '-') == 4 ? (localdate.slice 0, 4) : nil))
       else
-        localdate = attrs['localdate'] = (now.strftime '%Y-%m-%d')
+        localdate = attrs['localdate'] = (now.strftime '%F')
         localyear = (attrs['localyear'] ||= now.year.to_s)
       end
-      localtime = (attrs['localtime'] ||= begin
-          now.strftime '%H:%M:%S %Z'
-        rescue # Asciidoctor.js fails if timezone string has characters outside basic Latin (see asciidoctor.js#23)
-          now.strftime '%H:%M:%S %z'
-        end)
+      # %Z is OS dependent and may contain characters that aren't UTF-8 encoded (see asciidoctor#2770 and asciidoctor.js#23)
+      # Ruby 1.8 doesn't support %:z
+      localtime = (attrs['localtime'] ||= now.strftime %(%T #{now.utc_offset == 0 ? 'UTC' : '%z'}))
       attrs['localdatetime'] ||= %(#{localdate} #{localtime})
 
       # docdate, doctime and docdatetime should default to
@@ -643,7 +648,9 @@ class Document < AbstractBlock
     when :footnotes, :indexterms
       @catalog[type] << value
     else
-      @catalog[type] << value if @options[:catalog_assets]
+      if @options[:catalog_assets]
+        @catalog[type] << (type == :images ? (ImageReference.new value[0], value[1]) : value)
+      end
     end
   end
 
@@ -750,6 +757,27 @@ class Document < AbstractBlock
   # returns the full name of the author as a String
   def author
     @attributes['author']
+  end
+
+  # Public: Convenience method to retrieve the authors of this document as an Array of Author objects.
+  #
+  # This method is backed by the author-related attributes on the document.
+  #
+  # returns the authors of this document as an Array
+  def authors
+    if (attrs = @attributes).key? 'author'
+      authors = [(Author.new attrs['author'], attrs['firstname'], attrs['middlename'], attrs['lastname'], attrs['authorinitials'], attrs['email'])]
+      if (num_authors = attrs['authorcount'] || 0) > 1
+        idx = 1
+        while idx < num_authors
+          idx += 1
+          authors << (Author.new attrs[%(author_#{idx})], attrs[%(firstname_#{idx})], attrs[%(middlename_#{idx})], attrs[%(lastname_#{idx})], attrs[%(authorinitials_#{idx})], attrs[%(email_#{idx})])
+        end
+      end
+      authors
+    else
+      []
+    end
   end
 
   # Public: Convenience method to retrieve the document attribute 'revdate'
@@ -968,6 +996,27 @@ class Document < AbstractBlock
     @attribute_overrides.key?(name)
   end
 
+  # Public: Assign a value to the specified attribute in the document header.
+  #
+  # The assignment will be visible when the header attributes are restored,
+  # typically between processor phases (e.g., between parse and convert).
+  #
+  # name      - The String attribute name to assign
+  # value     - The Object value to assign to the attribute (default: '')
+  # overwrite - A Boolean indicating whether to assign the attribute
+  #             if already present in the attributes Hash (default: true)
+  #
+  # Returns a [Boolean] indicating whether the assignment was performed
+  def set_header_attribute name, value = '', overwrite = true
+    attrs = @header_attributes || @attributes
+    if overwrite == false && (attrs.key? name)
+      false
+    else
+      attrs[name] = value
+      true
+    end
+  end
+
   # Internal: Apply substitutions to the attribute value
   #
   # If the value is an inline passthrough macro (e.g., pass:<subs>[value]),
@@ -1168,11 +1217,14 @@ class Document < AbstractBlock
       @converter.write output, target
     else
       if target.respond_to? :write
+        # QUESTION should we set encoding using target.set_encoding?
         unless output.nil_or_empty?
           target.write output.chomp
           # ensure there's a trailing endline
           target.write LF
         end
+      elsif COERCE_ENCODING
+        ::IO.write target, output, :encoding => ::Encoding::UTF_8
       else
         ::IO.write target, output
       end
@@ -1265,7 +1317,7 @@ class Document < AbstractBlock
         content += @docinfo_processor_extensions[location].map {|ext| ext.process_method[self] }.compact
       end
 
-      content * LF
+      content.join LF
     end
   end
 

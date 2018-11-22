@@ -13,10 +13,14 @@ class AbstractBlock < AbstractNode
   # Public: Set the Integer level of this Section or the Section level in which this Block resides
   attr_accessor :level
 
-  # Public: Get/Set the number of this block (if section, relative to parent, otherwise absolute)
+  # Public: Get/Set the numeral of this block (if section, relative to parent, otherwise absolute)
   # Only assigned to section if automatic section numbering is enabled
   # Only assigned to formal block (block with title) if corresponding caption attribute is present
-  attr_accessor :number
+  attr_accessor :numeral
+
+  # Deprecated: Legacy property to get/set the numeral of this block
+  alias number numeral
+  alias number= numeral=
 
   # Public: Gets/Sets the location in the AsciiDoc source where this block begins
   attr_accessor :source_location
@@ -32,7 +36,7 @@ class AbstractBlock < AbstractNode
     @content_model = :compound
     @blocks = []
     @subs = []
-    @id = @title = @title_converted = @caption = @number = @style = @default_subs = @source_location = nil
+    @id = @title = @title_converted = @caption = @numeral = @style = @default_subs = @source_location = nil
     if context == :document
       @level = 0
     elsif parent && context != :section
@@ -41,7 +45,7 @@ class AbstractBlock < AbstractNode
       @level = nil
     end
     @next_section_index = 0
-    @next_section_number = 1
+    @next_section_ordinal = 1
   end
 
   def block?
@@ -77,7 +81,7 @@ class AbstractBlock < AbstractNode
   # Public: Get the converted result of the child blocks by converting the
   # children appropriate to content model that this block supports.
   def content
-    @blocks.map {|b| b.convert } * LF
+    @blocks.map {|b| b.convert }.join LF
   end
 
   # Public: Update the context of this block.
@@ -132,10 +136,16 @@ class AbstractBlock < AbstractNode
     @next_section_index > 0
   end
 
-  # Public: Query for all descendant block-level nodes in the document tree
-  # that match the specified selector (context, style, id, and/or role). If a
-  # Ruby block is given, it's used as an additional filter. If no selector or
-  # Ruby block is supplied, all block-level nodes in the tree are returned.
+  # Public: Walk the document tree and find all block-level nodes that match
+  # the specified selector (context, style, id, role, and/or custom filter).
+  #
+  # If a Ruby block is given, it's treated as an supplemental filter. If the
+  # filter returns true, the node is accepted and traversal continues. If the
+  # filter returns false, the node is rejected, but traversal continues. If the
+  # filter returns :skip, the node and all its descendants are rejected. If the
+  # filter returns :skip_children, the node is accepted, but its descendants
+  # are rejected. If no selector or filter block is supplied, all block-level
+  # nodes in the tree are returned.
   #
   # Examples
   #
@@ -153,20 +163,34 @@ class AbstractBlock < AbstractNode
   #--
   # TODO support jQuery-style selector (e.g., image.thumb)
   def find_by selector = {}, &block
-    result = []
+    find_by_internal selector, (result = []), &block
+  rescue ::StopIteration
+    result
+  end
 
+  alias query find_by
+
+  # Internal: Performs the work for find_by, but does not handle the StopIteration exception.
+  def find_by_internal selector = {}, result = [], &block
     if ((any_context = !(context_selector = selector[:context])) || context_selector == @context) &&
         (!(style_selector = selector[:style]) || style_selector == @style) &&
         (!(role_selector = selector[:role]) || (has_role? role_selector)) &&
         (!(id_selector = selector[:id]) || id_selector == @id)
       if id_selector
-        if block_given?
-          return (yield self) ? [self] : result
-        else
-          return [self]
-        end
+        result.replace block_given? ? ((yield self) ? [self] : []) : [self]
+        raise ::StopIteration
       elsif block_given?
-        result << self if (yield self)
+        if (verdict = yield self)
+          case verdict
+          when :skip_children
+            result << self
+            return result
+          when :skip
+            return result
+          else
+            result << self
+          end
+        end
       else
         result << self
       end
@@ -174,7 +198,7 @@ class AbstractBlock < AbstractNode
 
     # process document header as a section if present
     if @context == :document && (any_context || context_selector == :section) && header?
-      result.concat(@header.find_by selector, &block)
+      @header.find_by_internal selector, result, &block
     end
 
     unless context_selector == :document # optimization
@@ -183,20 +207,18 @@ class AbstractBlock < AbstractNode
         if any_context || context_selector != :section # optimization
           @blocks.flatten.each do |li|
             # NOTE the list item of a dlist can be nil, so we have to check
-            result.concat(li.find_by selector, &block) if li
+            li.find_by_internal selector, result, &block if li
           end
         end
       elsif
         @blocks.each do |b|
           next if (context_selector == :section && b.context != :section) # optimization
-          result.concat(b.find_by selector, &block)
+          b.find_by_internal selector, result, &block
         end
       end
     end
     result
   end
-
-  alias query find_by
 
   # Move to the next adjacent block in document order. If the current block is the last
   # item in a list, this method will return the following sibling of the list block.
@@ -358,14 +380,14 @@ class AbstractBlock < AbstractNode
       case xrefstyle
       when 'full'
         quoted_title = sprintf sub_quotes(@document.compat_mode ? %q(``%s'') : '"`%s`"'), title
-        if @number && (prefix = @document.attributes[@context == :image ? 'figure-caption' : %(#{@context}-caption)])
-          %(#{prefix} #{@number}, #{quoted_title})
+        if @numeral && (prefix = @document.attributes[@context == :image ? 'figure-caption' : %(#{@context}-caption)])
+          %(#{prefix} #{@numeral}, #{quoted_title})
         else
           %(#{@caption.chomp '. '}, #{quoted_title})
         end
       when 'short'
-        if @number && (prefix = @document.attributes[@context == :image ? 'figure-caption' : %(#{@context}-caption)])
-          %(#{prefix} #{@number})
+        if @numeral && (prefix = @document.attributes[@context == :image ? 'figure-caption' : %(#{@context}-caption)])
+          %(#{prefix} #{@numeral})
         else
           @caption.chomp '. '
         end
@@ -397,7 +419,7 @@ class AbstractBlock < AbstractNode
   def assign_caption value = nil, key = nil
     unless @caption || !@title || (@caption = value || @document.attributes['caption'])
       if (prefix = @document.attributes[%(#{key ||= @context}-caption)])
-        @caption = %(#{prefix} #{@number = @document.increment_and_store_counter "#{key}-number", self}. )
+        @caption = %(#{prefix} #{@numeral = @document.increment_and_store_counter "#{key}-number", self}. )
         nil
       end
     end
@@ -417,17 +439,18 @@ class AbstractBlock < AbstractNode
     @next_section_index = (section.index = @next_section_index) + 1
     if (like = section.numbered)
       if (sectname = section.sectname) == 'appendix'
-        section.number = @document.counter 'appendix-number', 'A'
+        section.numeral = @document.counter 'appendix-number', 'A'
         if (caption = @document.attributes['appendix-caption'])
-          section.caption = %(#{caption} #{section.number}: )
+          section.caption = %(#{caption} #{section.numeral}: )
         else
-          section.caption = %(#{section.number}. )
+          section.caption = %(#{section.numeral}. )
         end
       # NOTE currently chapters in a book doctype are sequential even for multi-part books (see #979)
       elsif sectname == 'chapter' || like == :chapter
-        section.number = @document.counter 'chapter-number', 1
+        section.numeral = @document.counter 'chapter-number', 1
       else
-        @next_section_number = (section.number = @next_section_number) + 1
+        section.numeral = @next_section_ordinal
+        @next_section_ordinal += 1
       end
     end
     nil
@@ -445,7 +468,7 @@ class AbstractBlock < AbstractNode
   # Returns nothing
   def reindex_sections
     @next_section_index = 0
-    @next_section_number = 1
+    @next_section_ordinal = 1
     @blocks.each do |block|
       if block.context == :section
         assign_numeral block

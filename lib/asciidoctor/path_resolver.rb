@@ -109,7 +109,7 @@ class PathResolver
   SLASH = '/'
   BACKSLASH = '\\'
   DOUBLE_SLASH = '//'
-  WindowsRootRx = /^[a-zA-Z]:(?:\\|\/)/
+  WindowsRootRx = /^(?:[a-zA-Z]:)?[\\\/]/
 
   attr_accessor :file_separator
   attr_accessor :working_dir
@@ -132,11 +132,11 @@ class PathResolver
 
   # Public: Check whether the specified path is an absolute path.
   #
-  # This operation considers both posix paths and Windows paths. It does not
-  # consider URIs.
+  # This operation considers both posix paths and Windows paths. The path does
+  # not have to be posixified beforehand. This operation does not handle URIs.
   #
-  # Unix absolute paths and UNC paths both start with slash. Windows roots can
-  # start with a drive letter.
+  # Unix absolute paths start with a slash. UNC paths can start with a slash or
+  # backslash. Windows roots can start with a drive letter.
   #
   # path - the String path to check
   #
@@ -214,7 +214,15 @@ class PathResolver
   #
   # Return the [String] relative path of the specified path calculated from the base directory.
   def relative_path path, base
-    (root? path) && (offset = descends_from? path, base) ? (path.slice offset, path.length) : path
+    if root? path
+      if (offset = descends_from? path, base)
+        path.slice offset, path.length
+      else
+        (Pathname.new path).relative_path_from(Pathname.new base).to_s
+      end
+    else
+      path
+    end
   end
 
   # Public: Normalize path by converting any backslashes to forward slashes
@@ -313,7 +321,7 @@ class PathResolver
   # returns a String path formed by joining the segments using the posix file
   # separator and prepending the root, if specified
   def join_path segments, root = nil
-    root ? %(#{root}#{segments * SLASH}) : segments * SLASH
+    root ? %(#{root}#{segments.join SLASH}) : (segments.join SLASH)
   end
 
   # Public: Securely resolve a system path

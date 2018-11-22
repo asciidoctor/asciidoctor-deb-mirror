@@ -60,12 +60,13 @@ class Reader
       @lineno = cursor.lineno || 1 # IMPORTANT lineno assignment must proceed prepare_lines call!
     end
     @lines = data ? (prepare_lines data, opts) : []
-    @source_lines = @lines.dup
+    @source_lines = @lines.drop 0
     @mark = nil
     @look_ahead = 0
     @process_lines = true
     @unescape_next_line = false
     @unterminated = nil
+    @saved = nil
   end
 
   # Internal: Prepare the lines from the provided data
@@ -91,7 +92,7 @@ class Reader
     elsif opts[:normalize]
       Helpers.normalize_lines_array data
     else
-      data.dup
+      data.drop 0
     end
   end
 
@@ -167,7 +168,7 @@ class Reader
   # Returns nothing if there is no more data.
   def peek_line direct = false
     if direct || @look_ahead > 0
-      @unescape_next_line ? @lines[0][1..-1] : @lines[0]
+      @unescape_next_line ? ((line = @lines[0]).slice 1, line.length) : @lines[0]
     elsif @lines.empty?
       @look_ahead = 0
       nil
@@ -245,7 +246,7 @@ class Reader
   #
   # Returns the lines read joined as a String
   def read
-    read_lines * LF
+    read_lines.join LF
   end
 
   # Public: Advance to the next line by discarding the line at the front of the stack
@@ -556,17 +557,39 @@ class Reader
   #
   # Returns A copy of the String Array of lines remaining in this Reader
   def lines
-    @lines.dup
+    @lines.drop 0
   end
 
   # Public: Get a copy of the remaining lines managed by this Reader joined as a String
   def string
-    @lines * LF
+    @lines.join LF
   end
 
   # Public: Get the source lines for this Reader joined as a String
   def source
-    @source_lines * LF
+    @source_lines.join LF
+  end
+
+  def save
+    accum = {}
+    instance_variables.each do |name|
+      accum[name] = ::Array === (val = instance_variable_get name) ? val.dup : val unless name == :@saved || name == :@source_lines
+    end
+    @saved = accum
+    nil
+  end
+
+  def restore_save
+    if @saved
+      @saved.each do |name, val|
+        instance_variable_set name, val
+      end
+      @saved = nil
+    end
+  end
+
+  def discard_save
+    @saved = nil
   end
 
   # Public: Get a summary of this Reader.
@@ -602,7 +625,7 @@ class PreprocessorReader < Reader
     # QUESTION should this work for AsciiDoc table cell content? Currently it does not.
     if @document && @document.attributes['skip-front-matter']
       if (front_matter = skip_front_matter! result)
-        @document.attributes['front-matter'] = front_matter * LF
+        @document.attributes['front-matter'] = front_matter.join LF
       end
     end
 
@@ -633,7 +656,7 @@ class PreprocessorReader < Reader
         if $1 == '\\'
           @unescape_next_line = true
           @look_ahead += 1
-          line[1..-1]
+          line.slice 1, line.length
         elsif preprocess_conditional_directive $2, $3, $4, $5
           # move the pointer past the conditional line
           shift
@@ -653,7 +676,7 @@ class PreprocessorReader < Reader
         if $1 == '\\'
           @unescape_next_line = true
           @look_ahead += 1
-          line[1..-1]
+          line.slice 1, line.length
         # QUESTION should we strip whitespace from raw attributes in Substitutors#parse_attributes? (check perf)
         elsif preprocess_include_directive $2, $3
           # peek again since the content has changed
@@ -842,21 +865,22 @@ class PreprocessorReader < Reader
   # Returns a [Boolean] indicating whether the line under the cursor was changed. To skip over the
   # directive, call shift and return true.
   def preprocess_include_directive target, attrlist
+    doc = @document
     if ((expanded_target = target).include? ATTR_REF_HEAD) &&
-        (expanded_target = @document.sub_attributes target, :attribute_missing => 'drop-line').empty?
+        (expanded_target = doc.sub_attributes target, :attribute_missing => 'drop-line').empty?
       shift
-      if (@document.attributes['attribute-missing'] || Compliance.attribute_missing) == 'skip'
+      if (doc.attributes['attribute-missing'] || Compliance.attribute_missing) == 'skip'
         unshift %(Unresolved directive in #{@path} - include::#{target}[#{attrlist}])
       end
       true
     elsif include_processors? && (ext = @include_processor_extensions.find {|candidate| candidate.instance.handles? expanded_target })
       shift
       # FIXME parse attributes only if requested by extension
-      ext.process_method[@document, self, expanded_target, attrlist ? (AttributeList.new attrlist).parse : {}]
+      ext.process_method[doc, self, expanded_target, (doc.parse_attributes attrlist, [], :sub_input => true)]
       true
     # if running in SafeMode::SECURE or greater, don't process this directive
     # however, be friendly and at least make it a link to the source document
-    elsif @document.safe >= SafeMode::SECURE
+    elsif doc.safe >= SafeMode::SECURE
       # FIXME we don't want to use a link macro if we are in a verbatim context
       replace_next_line %(link:#{expanded_target}[])
     elsif (abs_maxdepth = @maxdepth[:abs]) > 0
@@ -865,30 +889,30 @@ class PreprocessorReader < Reader
         return
       end
 
-      parsed_attributes = attrlist ? (AttributeList.new attrlist).parse : {}
-      inc_path, target_type, relpath = resolve_include_path expanded_target, attrlist, parsed_attributes
+      parsed_attrs = doc.parse_attributes attrlist, [], :sub_input => true
+      inc_path, target_type, relpath = resolve_include_path expanded_target, attrlist, parsed_attrs
       return inc_path unless target_type
 
       inc_linenos = inc_tags = nil
       if attrlist
-        if parsed_attributes.key? 'lines'
+        if parsed_attrs.key? 'lines'
           inc_linenos = []
-          parsed_attributes['lines'].split(DataDelimiterRx).each do |linedef|
-            if linedef.include?('..')
-              from, to = linedef.split('..', 2).map {|it| it.to_i }
-              inc_linenos += to < 0 ? [from, 1.0/0.0] : ::Range.new(from, to).to_a
+          (split_delimited_value parsed_attrs['lines']).each do |linedef|
+            if linedef.include? '..'
+              from, to = linedef.split '..', 2
+              inc_linenos += (to.empty? || (to = to.to_i) < 0) ? [from.to_i, 1.0/0.0] : ::Range.new(from.to_i, to).to_a
             else
               inc_linenos << linedef.to_i
             end
           end
           inc_linenos = inc_linenos.empty? ? nil : inc_linenos.sort.uniq
-        elsif parsed_attributes.key? 'tag'
-          unless (tag = parsed_attributes['tag']).empty? || tag == '!'
+        elsif parsed_attrs.key? 'tag'
+          unless (tag = parsed_attrs['tag']).empty? || tag == '!'
             inc_tags = (tag.start_with? '!') ? { (tag.slice 1, tag.length) => false } : { tag => true }
           end
-        elsif parsed_attributes.key? 'tags'
+        elsif parsed_attrs.key? 'tags'
           inc_tags = {}
-          parsed_attributes['tags'].split(DataDelimiterRx).each do |tagdef|
+          (split_delimited_value parsed_attrs['tags']).each do |tagdef|
             if tagdef.start_with? '!'
               inc_tags[tagdef.slice 1, tagdef.length] = false
             else
@@ -928,8 +952,8 @@ class PreprocessorReader < Reader
         shift
         # FIXME not accounting for skipped lines in reader line numbering
         if inc_offset
-          parsed_attributes['partial-option'] = true
-          push_include inc_lines, inc_path, relpath, inc_offset, parsed_attributes
+          parsed_attrs['partial-option'] = true
+          push_include inc_lines, inc_path, relpath, inc_offset, parsed_attrs
         end
       elsif inc_tags
         inc_lines, inc_offset, inc_lineno, tag_stack, tags_used, active_tag = [], nil, 0, [], ::Set.new, nil
@@ -995,16 +1019,16 @@ class PreprocessorReader < Reader
         end
         shift
         if inc_offset
-          parsed_attributes['partial-option'] = true unless base_select && wildcard && inc_tags.empty?
+          parsed_attrs['partial-option'] = true unless base_select && wildcard && inc_tags.empty?
           # FIXME not accounting for skipped lines in reader line numbering
-          push_include inc_lines, inc_path, relpath, inc_offset, parsed_attributes
+          push_include inc_lines, inc_path, relpath, inc_offset, parsed_attrs
         end
       else
         begin
           # NOTE read content first so that we only advance cursor if IO operation succeeds
-          inc_content = target_type == :file ? (::IO.binread inc_path) : open(inc_path, 'rb') {|f| f.read }
+          inc_content = target_type == :file ? ::File.open(inc_path, 'rb') {|f| f.read } : open(inc_path, 'rb') {|f| f.read }
           shift
-          push_include inc_content, inc_path, relpath, 1, parsed_attributes
+          push_include inc_content, inc_path, relpath, 1, parsed_attrs
         rescue
           logger.error message_with_context %(include #{target_type} not readable: #{inc_path}), :source_location => cursor
           return replace_next_line %(Unresolved directive in #{@path} - include::#{expanded_target}[#{attrlist}])
@@ -1182,19 +1206,24 @@ class PreprocessorReader < Reader
   def shift
     if @unescape_next_line
       @unescape_next_line = false
-      super[1..-1]
+      (line = super).slice 1, line.length
     else
       super
     end
+  end
+
+  # Private: Split delimited value on comma (if found), otherwise semi-colon
+  def split_delimited_value val
+    (val.include? ',') ? (val.split ',') : (val.split ';')
   end
 
   # Private: Ignore front-matter, commonly used in static site generators
   def skip_front_matter! data, increment_linenos = true
     front_matter = nil
     if data[0] == '---'
-      original_data = data.dup
-      front_matter = []
+      original_data = data.drop 0
       data.shift
+      front_matter = []
       @lineno += 1 if increment_linenos
       while !data.empty? && data[0] != '---'
         front_matter << data.shift
@@ -1248,7 +1277,7 @@ class PreprocessorReader < Reader
     if ((val.start_with? '"') && (val.end_with? '"')) ||
         ((val.start_with? '\'') && (val.end_with? '\''))
       quoted = true
-      val = val[1...-1]
+      val = val.slice 1, (val.length - 1)
     else
       quoted = false
     end
@@ -1289,7 +1318,7 @@ class PreprocessorReader < Reader
   end
 
   def to_s
-    %(#<#{self.class}@#{object_id} {path: #{@path.inspect}, line #: #{@lineno}, include depth: #{@include_stack.size}, include stack: [#{@include_stack.map {|inc| inc.to_s } * ', '}]}>)
+    %(#<#{self.class}@#{object_id} {path: #{@path.inspect}, line #: #{@lineno}, include depth: #{@include_stack.size}, include stack: [#{@include_stack.map {|inc| inc.to_s }.join ', '}]}>)
   end
 end
 end

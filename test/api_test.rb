@@ -576,6 +576,90 @@ content
       assert_equal 'Section', result[0].title
     end
 
+    test 'find_by should skip node and its children if block returns :skip' do
+      input = <<-EOS
+paragraph 1
+
+====
+paragraph 2
+
+term::
++
+paragraph 3
+====
+
+paragraph 4
+      EOS
+      doc = Asciidoctor.load input
+      result = doc.find_by do |candidate|
+        ctx = candidate.context
+        if ctx == :example
+          :skip
+        elsif ctx == :paragraph
+          true
+        end
+      end
+      refute_nil result
+      assert_equal 2, result.size
+      assert_equal :paragraph, result[0].context
+      assert_equal :paragraph, result[1].context
+    end
+
+    test 'find_by should accept node but skip its children if block returns :skip_children' do
+      input = <<-EOS
+====
+paragraph 2
+
+term::
++
+paragraph 3
+====
+      EOS
+      doc = Asciidoctor.load input
+      result = doc.find_by do |candidate|
+        if candidate.context == :example
+          :skip_children
+        end
+      end
+      refute_nil result
+      assert_equal 1, result.size
+      assert_equal :example, result[0].context
+    end
+
+    test 'find_by should stop looking for blocks when StopIteration is raised' do
+      input = <<-EOS
+paragraph 1
+
+====
+paragraph 2
+
+****
+paragraph 3
+****
+====
+
+paragraph 4
+
+* item
++
+paragraph 5
+      EOS
+      doc = Asciidoctor.load input
+
+      stop_at_next = false
+      result = doc.find_by do |candidate|
+        raise StopIteration if stop_at_next
+        if candidate.context == :paragraph
+          candidate.parent.context == :sidebar ? (stop_at_next = true) : true
+        end
+      end
+      refute_nil result
+      assert_equal 3, result.size
+      assert_equal 'paragraph 1', result[0].content
+      assert_equal 'paragraph 2', result[1].content
+      assert_equal 'paragraph 3', result[2].content
+    end
+
     test 'find_by should only return one result when matching by id' do
       input = <<-EOS
 == Section
@@ -593,6 +677,29 @@ content
       assert_equal 1, result.size
       assert_equal :section, result[0].context
       assert_equal 'Subsection', result[0].title
+    end
+
+    test 'find_by should stop seeking once match is found' do
+      input = <<-EOS
+== Section
+
+content
+
+[#subsection]
+=== Subsection
+
+[#last]
+content
+      EOS
+      doc = Asciidoctor.load input
+      visited_last = false
+      result = doc.find_by(:id => 'subsection') do |candidate|
+        visited_last = true if candidate.id == 'last'
+        true
+      end
+      refute_nil result
+      assert_equal 1, result.size
+      refute visited_last
     end
 
     test 'find_by should return an empty Array if the id criteria matches but the block argument yields false' do
@@ -988,6 +1095,94 @@ text
   end
 
   context 'AST' do
+    test 'with no author' do
+      input = <<-EOS
+= Getting Real: The Smarter, Faster, Easier Way to Build a Successful Web Application
+
+Getting Real details the business, design, programming, and marketing principles of 37signals.
+      EOS
+
+      doc = document_from_string input
+      assert_equal 0, doc.authors.size
+    end
+
+    test 'with one author' do
+      input = <<-EOS
+= Getting Real: The Smarter, Faster, Easier Way to Build a Successful Web Application
+David Heinemeier Hansson <david@37signals.com>
+
+Getting Real details the business, design, programming, and marketing principles of 37signals.
+      EOS
+
+      doc = document_from_string input
+      authors = doc.authors
+      assert_equal 1, authors.size
+      author_1 = authors[0]
+      assert_equal 'david@37signals.com', author_1.email
+      assert_equal 'David Heinemeier Hansson', author_1.name
+      assert_equal 'David', author_1.firstname
+      assert_equal 'Heinemeier', author_1.middlename
+      assert_equal 'Hansson', author_1.lastname
+      assert_equal 'DHH', author_1.initials
+    end
+
+    test 'with two authors' do
+      input = <<-EOS
+= Getting Real: The Smarter, Faster, Easier Way to Build a Successful Web Application
+David Heinemeier Hansson <david@37signals.com>; Jason Fried <jason@37signals.com>
+
+Getting Real details the business, design, programming, and marketing principles of 37signals.
+      EOS
+
+      doc = document_from_string input
+      authors = doc.authors
+      assert_equal 2, authors.size
+      author_1 = authors[0]
+      assert_equal 'david@37signals.com', author_1.email
+      assert_equal 'David Heinemeier Hansson', author_1.name
+      assert_equal 'David', author_1.firstname
+      assert_equal 'Heinemeier', author_1.middlename
+      assert_equal 'Hansson', author_1.lastname
+      assert_equal 'DHH', author_1.initials
+      author_2 = authors[1]
+      assert_equal 'jason@37signals.com', author_2.email
+      assert_equal 'Jason Fried', author_2.name
+      assert_equal 'Jason', author_2.firstname
+      assert_nil author_2.middlename
+      assert_equal 'Fried', author_2.lastname
+      assert_equal 'JF', author_2.initials
+    end
+
+    test 'with authors as attributes' do
+      input = <<-EOS
+= Getting Real: The Smarter, Faster, Easier Way to Build a Successful Web Application
+:author_1: David Heinemeier Hansson
+:email_1: david@37signals.com
+:author_2: Jason Fried
+:email_2: jason@37signals.com
+
+Getting Real details the business, design, programming, and marketing principles of 37signals.
+      EOS
+
+      doc = document_from_string input
+      authors = doc.authors
+      assert_equal 2, authors.size
+      author_1 = authors[0]
+      assert_equal 'david@37signals.com', author_1.email
+      assert_equal 'David Heinemeier Hansson', author_1.name
+      assert_equal 'David', author_1.firstname
+      assert_equal 'Heinemeier', author_1.middlename
+      assert_equal 'Hansson', author_1.lastname
+      assert_equal 'DHH', author_1.initials
+      author_2 = authors[1]
+      assert_equal 'jason@37signals.com', author_2.email
+      assert_equal 'Jason Fried', author_2.name
+      assert_equal 'Jason', author_2.firstname
+      assert_nil author_2.middlename
+      assert_equal 'Fried', author_2.lastname
+      assert_equal 'JF', author_2.initials
+    end
+
     test 'should not crash if nil cell text is passed to Cell constructor' do
       input = <<-EOS
 |===
@@ -999,6 +1194,47 @@ text
       refute cell.style
       assert_same Asciidoctor::AbstractNode::NORMAL_SUBS, cell.subs
       assert_equal '', cell.text
+    end
+
+    test 'should set option on node when set_option is called' do
+      input = <<-EOS
+. three
+. two
+. one
+      EOS
+
+      block = (document_from_string input).blocks[0]
+      assert block.set_option('reversed')
+      refute block.set_option('reversed')
+      assert block.option?('reversed')
+      assert_equal '', block.attributes['reversed-option']
+      assert_equal 'reversed', block.attributes['options']
+    end
+
+    test 'should append option to existing options' do
+      input = <<-EOS
+[%fancy]
+. three
+. two
+. one
+      EOS
+
+      block = (document_from_string input).blocks[0]
+      assert block.set_option('reversed')
+      assert_equal 'fancy,reversed', block.attributes['options']
+    end
+
+    test 'should not append option if option is already set' do
+      input = <<-EOS
+[%reversed]
+. three
+. two
+. one
+      EOS
+
+      block = (document_from_string input).blocks[0]
+      refute block.set_option('reversed')
+      assert_equal 'reversed', block.attributes['options']
     end
   end
 end

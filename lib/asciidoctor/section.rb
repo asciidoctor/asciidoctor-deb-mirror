@@ -30,7 +30,8 @@ class Section < AbstractBlock
   # Public: Get/Set the flag to indicate whether this is a special section or a child of one
   attr_accessor :special
 
-  # Public: Get the state of the numbered attribute at this section (need to preserve for creating TOC)
+  # Public: Get/Set the flag to indicate whether this section should be numbered.
+  # The sectnum method should only be called if this flag is true.
   attr_accessor :numbered
 
   # Public: Get the caption for this section (only relevant for appendices)
@@ -111,11 +112,12 @@ class Section < AbstractBlock
   def sectnum(delimiter = '.', append = nil)
     append ||= (append == false ? '' : delimiter)
     if @level == 1
-      %(#{@number}#{append})
+      %(#{@numeral}#{append})
     elsif @level > 1
-      Section === @parent ? %(#{@parent.sectnum(delimiter)}#{@number}#{append}) : %(#{@number}#{append})
+      Section === @parent ? %(#{@parent.sectnum(delimiter, delimiter)}#{@numeral}#{append}) : %(#{@numeral}#{append})
     else # @level == 0
-      %(#{Helpers.int_to_roman @number}#{append})
+      # NOTE coerce @numeral to int just in case not set; can happen if section nesting is out of sequence
+      %(#{Helpers.int_to_roman @numeral.to_i}#{append})
     end
   end
 

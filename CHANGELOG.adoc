@@ -13,6 +13,96 @@ endif::[]
 This document provides a high-level view of the changes introduced in Asciidoctor by release.
 For a detailed view of what has changed, refer to the {uri-repo}/commits/master[commit history] on GitHub.
 
+== 1.5.8 (2018-10-28) - @mojavelinux
+
+Enhancements::
+
+  * if set, add value of part-signifier and chapter-signifier attributes to part and chapter titles (#2738)
+  * allow position (float) and alignment (align) to be set on video block (#2425)
+  * substitute attribute references in attrlist of include directive (#2761)
+  * add Document#set_header_attribute method for adding method directly to document header during parsing (#2820)
+  * add helper method to extension processor classes to create lists and list items
+  * allow ordered and unordered lists to be nested to an arbitrary / unlimited depth (#2854)
+  * add `prefer` DSL method to extension registry and document processor to flag extension as preferred (#2848)
+  * allow manname and manpurpose to be set using document attributes; don't look for NAME section in this case (#2810)
+  * substitute attribute references in target of custom block macro (honoring attribute-missing setting) (#2839)
+  * interpret `<.>` as an auto-numbered callout in verbatim blocks and callout lists (#2871)
+  * require marker for items in callout list to have circumfix brackets (e.g., `<1>` instead of `1>`) (#2871)
+  * preserve comment guard in front of callout number in verbatim block if icons is not enabled (#1360)
+  * add more conventional styles to quote block when it has the excerpt role (#2092)
+  * colspecs can be separated by semi-colon instead of comma (#2798)
+  * change AbstractBlock#find_by to respond to StopIteration exception; stop traversal after matching ID (#2900)
+  * change AbstractBlock#find_by to honor return values :skip and :skip_children from filter block to skip node and its descendants or just its descendants, respectively (#2067)
+  * add API to retrieve authors as array; use API in converters (#1042) (*@mogztter*)
+  * add support for start attribute on source block to set starting line number when converting to DocBook (#2915)
+  * track imagesdir for image on node and in catalog (#2779)
+  * allow starting line number to be set using start attribute when highighting source block with Pygments or CodeRay (#1742)
+  * upgrade highlight.js to 9.13.1
+
+Fixes::
+
+  * don't hang on description list item that begins with /// (#2888)
+  * don't crash when using AsciiDoc table cell style on column in CSV table (#2817)
+  * show friendly error if CSV data for table contains unclosed quote (#2878) (*@zelivans*)
+  * don't crash when attribute entry continuation is used on last line of file (#2880) (*@zelivans*)
+  * treat empty/missing value of named block attribute followed by other attributes (e.g., caption=,cols=2*) as empty string
+  * AbstractNode#set_option does nothing if option is already set (PR #2778)
+  * allow revnumber to be an attribute reference in revision info line (#2785)
+  * use ::File.open instead of ::IO.binread in Reader for Asciidoctor.js compatibility
+  * add fallback for timezone when setting doctime
+  * preserve UNC path that begins with a double backslash (Windows) (#2869)
+  * fix formatting of quote block (indentation) in manpage output (#2792)
+  * catalog inline anchors in ordered list items (#2812)
+  * detect closing tag on last line with no trailing newline (#2830)
+  * process `!name@` attribute syntax property; follow-up to #642
+  * change document extension processor DSL methods to return registered extension instance instead of array of instances
+  * use fallback value for manname-title to prevent crash in manpage converter
+  * consolidate inner whitespace in prose in manpage output (#2890)
+  * only apply subs to node attribute value if enclosed in single quotes (#2905)
+  * don't hide URI scheme if target of link macro is a bare URI scheme
+  * fix crash when child section of part is out of sequence and section numbering is enabled (#2931)
+  * fix crash when restoring passthroughs if passthrough role is enclosed in single quotes (#2882, #2883)
+  * don't eagerly apply subs to inline attributes in general
+  * make sure encoding of output file is UTF-8
+  * prevent warning about invalid `:asciidoc` option when using custom templates with Slim 4 (#2928)
+  * use Pathname#relative_path_from to compute relative path to file outside of base directory (#2108)
+
+Improvements::
+
+  * change trailing delimiter on part number to colon (:) (#2738)
+  * interpret open line range as infinite (#2914)
+  * rename number property on AbstractBlock to numeral, but keep number as deprecated alias
+  * use CSS class instead of hard-coded inline float style on tables and images (#2753)
+  * use CSS class instead of hard-coded inline text-align style on block images (#2753)
+  * allow hyphen to be used custom block macro name as long as it's not the first character (#2620)
+  * use shorthands %F and %T instead of %Y-%m-%d and %H:%M:%S to format time
+  * read file in binary mode whenever contents are being normalized
+  * use .drop(0) to duplicate arrays (roughly 1.5x as fast as .dup)
+  * only recognize a bullet glyph which is non-repeating as an unordered list marker
+  * rename SyntaxDsl module to SyntaxProcessorDsl (internal)
+  * fail if name given to block macro contains illegal characters
+  * normalize all whitespace in value of manpurpose attribute
+  * make space before callout number after custom line comment character optional
+  * parse attrlist on inline passthrough as a shorthand attribute syntax or literal role (#2910)
+  * add support for range syntax (.. delimiter) to highlight attribute on source block (#2918)
+  * add support for unbounded range to highlight attribute on source block (#2918)
+  * automatically assign title and caption on image block if title is set on custom block source (#2926)
+  * use OS independent timezone (UTC or time offset) in doctime and localtime attributes (#2770)
+  * report correct line number for inline anchor with id already in use (#2769)
+  * generate manpage even if input is non-conforming or malformed (#1639)
+  * allow authorinitials for single author to be overridden (#669)
+
+Documentation::
+
+  * translate README into German (#2829) (*@jwehmschulte*)
+  * sync French translation of README (*@mogztter*)
+  * add Swedish translation of built-in attributes (PR #2930) (*@jonasbjork*)
+
+Build / Infrastructure::
+
+  * replace thread_safe with concurrent-ruby (PR #2822) (*@junaruga*)
+
+// tag::compact[]
 == 1.5.7.1 (2018-05-10) - @mojavelinux
 
 Fixes::
@@ -22,9 +112,9 @@ Fixes::
 
 Build / Infrastructure::
 
-  * drop obsolete logic in rake build
-  * allow lib dir to be overridden for tests using an environment variable (PR #2758)
-  * load asciidoctor/version from LOAD_PATH in gemspec if not found locally (PR #2760)
+  * drop obsolete logic in rake build (*@aerostitch*)
+  * allow lib dir to be overridden for tests using an environment variable (PR #2758) (*@aerostitch*)
+  * load asciidoctor/version from LOAD_PATH in gemspec if not found locally (PR #2760) (*@aerostitch*)
 
 == 1.5.7 (2018-05-02) - @mojavelinux
 
@@ -33,6 +123,7 @@ Enhancements::
   * BREAKING: drop XML tags, character refs, and non-word characters (except hyphen, dot, and space) when auto-generating section IDs (#794)
    ** hyphen, dot, and space are replaced with value of idseparator, if set; otherwise, spaces are dropped
   * allow attribute names to contain any word character defined by Unicode (#2376, PR #2393)
+  * do not recognize attribute entry line if name contains a colon (PR #2377)
   * route all processor messages through a logger instead of using Kernel#warn (#44, PR #2660)
   * add MemoryLogger for capturing messages sent to logger into memory (#44, PR #2660)
   * add NullLogger to prevent messages from being logged (#44, PR #2660)
@@ -202,8 +293,8 @@ Distribution Packages::
   * https://packages.ubuntu.com/search?keywords=asciidoctor[Ubuntu (asciidoctor)]
   * https://pkgs.alpinelinux.org/packages?name=asciidoctor[Alpine Linux (asciidoctor)]
   * https://software.opensuse.org/package/rubygem-asciidoctor[OpenSUSE (rubygem-asciidoctor)]
+// end::compact[]
 
-// tag::compact[]
 == 1.5.6.2 (2018-03-20) - @mojavelinux
 
 Bug fixes::
@@ -238,7 +329,6 @@ Distribution Packages::
 https://github.com/asciidoctor/asciidoctor/issues?q=milestone%3Av1.5.6.2[issues resolved] |
 https://github.com/asciidoctor/asciidoctor/releases/tag/v1.5.6.2[git tag] |
 https://github.com/asciidoctor/asciidoctor/compare/v1.5.6.1...v1.5.6.2[full diff]
-// end::compact[]
 
 == 1.5.6.1 (2017-07-23) - @mojavelinux
 

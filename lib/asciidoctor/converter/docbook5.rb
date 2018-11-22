@@ -38,8 +38,7 @@ module Asciidoctor
         result << footer_docinfo
       end
       result << %(</#{root_tag_name}>)
-
-      result * LF
+      result.join LF
     end
 
     alias embedded content
@@ -77,7 +76,7 @@ module Asciidoctor
         result << '</callout>'
       end
       result << %(</calloutlist>)
-      result * LF
+      result.join LF
     end
 
     (DLIST_TAGS = {
@@ -160,7 +159,7 @@ module Asciidoctor
         result << %(</#{list_tag}>) if list_tag
       end
 
-      result * LF
+      result.join LF
     end
 
     def example node
@@ -221,9 +220,17 @@ module Asciidoctor
     def listing node
       informal = !node.title?
       listing_attributes = (common_attributes node.id, node.role, node.reftext)
-      if node.style == 'source' && (node.attr? 'language')
-        numbering = (node.attr? 'linenums', nil, false) ? 'numbered' : 'unnumbered'
-        listing_content = %(<programlisting#{informal ? listing_attributes : ''} language="#{node.attr 'language', '', false}" linenumbering="#{numbering}">#{node.content}</programlisting>)
+      if node.style == 'source' && ((attrs = node.attributes).key? 'language')
+        if attrs.key? 'linenums'
+          if attrs.key? 'start'
+            numbering_attributes = %( linenumbering="numbered" startinglinenumber="#{attrs['start'].to_i}")
+          else
+            numbering_attributes = ' linenumbering="numbered"'
+          end
+        else
+          numbering_attributes = ' linenumbering="unnumbered"'
+        end
+        listing_content = %(<programlisting#{informal ? listing_attributes : ''} language="#{attrs['language']}"#{numbering_attributes}>#{node.content}</programlisting>)
       else
         listing_content = %(<screen#{informal ? listing_attributes : ''}>#{node.content}</screen>)
       end
@@ -298,7 +305,7 @@ module Asciidoctor
         result << '</listitem>'
       end
       result << %(</orderedlist>)
-      result * LF
+      result.join LF
     end
 
     def open node
@@ -434,9 +441,9 @@ module Asciidoctor
               when :literal
                 cell_content = %(<literallayout class="monospaced">#{cell.text}</literallayout>)
               when :header
-                cell_content = (cell_content = cell.content).empty? ? '' : %(<simpara><emphasis role="strong">#{cell_content * '</emphasis></simpara><simpara><emphasis role="strong">'}</emphasis></simpara>)
+                cell_content = (cell_content = cell.content).empty? ? '' : %(<simpara><emphasis role="strong">#{cell_content.join '</emphasis></simpara><simpara><emphasis role="strong">'}</emphasis></simpara>)
               else
-                cell_content = (cell_content = cell.content).empty? ? '' : %(<simpara>#{cell_content * '</simpara><simpara>'}</simpara>)
+                cell_content = (cell_content = cell.content).empty? ? '' : %(<simpara>#{cell_content.join '</simpara><simpara>'}</simpara>)
               end
             end
             entry_end = (node.document.attr? 'cellbgcolor') ? %(<?dbfo bgcolor="#{node.document.attr 'cellbgcolor'}"?></entry>) : '</entry>'
@@ -450,7 +457,7 @@ module Asciidoctor
       result << %(</#{tag_name}>)
 
       logger.warn 'tables must have at least one body row' unless has_body
-      result * LF
+      result.join LF
     end
 
     alias toc skip
@@ -486,7 +493,7 @@ module Asciidoctor
         result << '</itemizedlist>'
       end
 
-      result * LF
+      result.join LF
     end
 
     def verse node
@@ -568,7 +575,7 @@ module Asciidoctor
         result << %(<indexterm>
 <primary>#{terms[-1]}</primary>
 </indexterm>)
-        result * LF
+        result.join LF
       end
     end
 
@@ -576,7 +583,7 @@ module Asciidoctor
       if (keys = node.attr 'keys').size == 1
         %(<keycap>#{keys[0]}</keycap>)
       else
-        %(<keycombo><keycap>#{keys * '</keycap><keycap>'}</keycap></keycombo>)
+        %(<keycombo><keycap>#{keys.join '</keycap><keycap>'}</keycap></keycombo>)
       end
     end
 
@@ -589,7 +596,7 @@ module Asciidoctor
           %(<guimenu>#{menu}</guimenu>)
         end
       else
-        %(<menuchoice><guimenu>#{menu}</guimenu> <guisubmenu>#{submenus * '</guisubmenu> <guisubmenu>'}</guisubmenu> <guimenuitem>#{node.attr 'menuitem'}</guimenuitem></menuchoice>)
+        %(<menuchoice><guimenu>#{menu}</guimenu> <guisubmenu>#{submenus.join '</guisubmenu> <guisubmenu>'}</guisubmenu> <guimenuitem>#{node.attr 'menuitem'}</guimenuitem></menuchoice>)
       end
     end
 
@@ -649,23 +656,17 @@ module Asciidoctor
       nil
     end
 
-    def author_tag doc, index = nil
-      firstname_key = index ? %(firstname_#{index}) : 'firstname'
-      middlename_key = index ? %(middlename_#{index}) : 'middlename'
-      lastname_key = index ? %(lastname_#{index}) : 'lastname'
-      email_key = index ? %(email_#{index}) : 'email'
-
+    def author_tag author
       result = []
       result << '<author>'
       result << '<personname>'
-      result << %(<firstname>#{doc.attr firstname_key}</firstname>) if doc.attr? firstname_key
-      result << %(<othername>#{doc.attr middlename_key}</othername>) if doc.attr? middlename_key
-      result << %(<surname>#{doc.attr lastname_key}</surname>) if doc.attr? lastname_key
+      result << %(<firstname>#{author.firstname}</firstname>) if author.firstname
+      result << %(<othername>#{author.middlename}</othername>) if author.middlename
+      result << %(<surname>#{author.lastname}</surname>) if author.lastname
       result << '</personname>'
-      result << %(<email>#{doc.attr email_key}</email>) if doc.attr? email_key
+      result << %(<email>#{author.email}</email>) if author.email
       result << '</author>'
-
-      result * LF
+      result.join LF
     end
 
     def document_info_tag doc, info_tag_prefix, use_info_tag_prefix = false
@@ -684,16 +685,14 @@ module Asciidoctor
         result << '</copyright>'
       end
       if doc.has_header?
-        if doc.attr? 'author'
-          if (authorcount = (doc.attr 'authorcount').to_i) < 2
-            result << (author_tag doc)
-            result << %(<authorinitials>#{doc.attr 'authorinitials'}</authorinitials>) if doc.attr? 'authorinitials'
-          else
+        unless (authors = doc.authors).empty?
+          if authors.size > 1
             result << '<authorgroup>'
-            authorcount.times do |index|
-              result << (author_tag doc, index + 1)
-            end
+            authors.each {|author| result << (author_tag author) }
             result << '</authorgroup>'
+          else
+            result << author_tag(author = authors[0])
+            result << %(<authorinitials>#{author.initials}</authorinitials>) if author.initials
           end
         end
         if (doc.attr? 'revdate') && ((doc.attr? 'revnumber') || (doc.attr? 'revremark'))
@@ -736,7 +735,7 @@ module Asciidoctor
         result << '</refnamediv>'
       end
 
-      result * LF
+      result.join LF
     end
 
     def document_ns_attributes doc
@@ -810,7 +809,7 @@ module Asciidoctor
       end
       result << yield
       result << end_tag
-      result * LF
+      result.join LF
     end
   end
 end

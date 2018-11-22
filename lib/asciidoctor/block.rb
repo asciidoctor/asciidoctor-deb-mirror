@@ -61,7 +61,7 @@ class Block < AbstractBlock
         # e.g., :subs => [:quotes]
         # subs attribute is not honored
         elsif ::Array === subs
-          @default_subs = subs.dup
+          @default_subs = subs.drop 0
           @attributes.delete 'subs'
         # e.g., :subs => :normal or :subs => 'normal'
         # subs attribute is not honored
@@ -90,7 +90,7 @@ class Block < AbstractBlock
     elsif ::String === raw_source
       @lines = Helpers.normalize_lines_from_string raw_source
     else
-      @lines = raw_source.dup
+      @lines = raw_source.drop 0
     end
   end
 
@@ -109,10 +109,8 @@ class Block < AbstractBlock
     when :compound
       super
     when :simple
-      apply_subs @lines * LF, @subs
+      apply_subs((@lines.join LF), @subs)
     when :verbatim, :raw
-      #((apply_subs @lines * LF, @subs).sub StripLineWiseRx, '\1')
-
       # QUESTION could we use strip here instead of popping empty lines?
       # maybe apply_subs can know how to strip whitespace?
       result = apply_subs @lines, @subs
@@ -121,7 +119,7 @@ class Block < AbstractBlock
       else
         result.shift while (first = result[0]) && first.rstrip.empty?
         result.pop while (last = result[-1]) && last.rstrip.empty?
-        result * LF
+        result.join LF
       end
     else
       logger.warn %(Unknown content model '#{@content_model}' for block: #{to_s}) unless @content_model == :empty
@@ -134,7 +132,7 @@ class Block < AbstractBlock
   # Returns the a String containing the lines joined together or empty string
   # if there are no lines
   def source
-    @lines * LF
+    @lines.join LF
   end
 
   def to_s

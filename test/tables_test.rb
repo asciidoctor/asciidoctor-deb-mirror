@@ -7,7 +7,7 @@ end
 context 'Tables' do
 
   context 'PSV' do
-    test 'renders simple psv table' do
+    test 'converts simple psv table' do
       input = <<-EOS
 |=======
 |A |B |C
@@ -37,6 +37,20 @@ context 'Tables' do
       }
     end
 
+    test 'should add direction CSS class if float attribute is set on table' do
+      input = <<-EOS
+[float=left]
+|=======
+|A |B |C
+|a |b |c
+|1 |2 |3
+|=======
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_css 'table.left', output, 1
+    end
+
     test 'should set stripes class if stripes option is set' do
       input = <<-EOS
 [stripes=odd]
@@ -47,11 +61,11 @@ context 'Tables' do
 |=======
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table.stripes-odd', output, 1
     end
 
-    test 'renders caption on simple psv table' do
+    test 'outputs a caption on simple psv table' do
       input = <<-EOS
 .Simple psv table
 |=======
@@ -60,7 +74,7 @@ context 'Tables' do
 |1 |2 |3
 |=======
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '/table/caption[@class="title"][text()="Table 1. Simple psv table"]', output, 1
       assert_xpath '/table/caption/following-sibling::colgroup', output, 1
     end
@@ -81,7 +95,7 @@ context 'Tables' do
 |7 |8 |9
 |=======
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table:root', output, 3
       assert_xpath '(/table)[1]/caption', output, 1
       assert_xpath '(/table)[1]/caption[text()="Table 1. First numbered table"]', output, 1
@@ -90,7 +104,7 @@ context 'Tables' do
       assert_xpath '(/table)[3]/caption[text()="Table 2. Second numbered table"]', output, 1
     end
 
-    test 'renders explicit caption on simple psv table' do
+    test 'uses explicit caption in front of title in place of default caption and number' do
       input = <<-EOS
 [caption="All the Data. "]
 .Simple psv table
@@ -100,8 +114,54 @@ context 'Tables' do
 |1 |2 |3
 |=======
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '/table/caption[@class="title"][text()="All the Data. Simple psv table"]', output, 1
+      assert_xpath '/table/caption/following-sibling::colgroup', output, 1
+    end
+
+    test 'disables caption when caption attribute on table is empty' do
+      input = <<-EOS
+[caption=]
+.Simple psv table
+|=======
+|A |B |C
+|a |b |c
+|1 |2 |3
+|=======
+      EOS
+      output = convert_string_to_embedded input
+      assert_xpath '/table/caption[@class="title"][text()="Simple psv table"]', output, 1
+      assert_xpath '/table/caption/following-sibling::colgroup', output, 1
+    end
+
+    test 'disables caption when caption attribute on table is empty string' do
+      input = <<-EOS
+[caption=""]
+.Simple psv table
+|=======
+|A |B |C
+|a |b |c
+|1 |2 |3
+|=======
+      EOS
+      output = convert_string_to_embedded input
+      assert_xpath '/table/caption[@class="title"][text()="Simple psv table"]', output, 1
+      assert_xpath '/table/caption/following-sibling::colgroup', output, 1
+    end
+
+    test 'disables caption on table when table-caption document attribute is unset' do
+      input = <<-EOS
+:!table-caption:
+
+.Simple psv table
+|=======
+|A |B |C
+|a |b |c
+|1 |2 |3
+|=======
+      EOS
+      output = convert_string_to_embedded input
+      assert_xpath '/table/caption[@class="title"][text()="Simple psv table"]', output, 1
       assert_xpath '/table/caption/following-sibling::colgroup', output, 1
     end
 
@@ -111,7 +171,7 @@ context 'Tables' do
 |A \\| here| a \\| there
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 2
       assert_css 'table > tbody > tr', output, 1
@@ -129,7 +189,7 @@ context 'Tables' do
 |A2 |B2\\|
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 2
       assert_css 'table > thead > tr', output, 1
@@ -150,7 +210,7 @@ context 'Tables' do
 |C1 |C2
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 2
       assert_css 'table > tbody > tr', output, 3
@@ -171,7 +231,7 @@ A | here| a | there
 |===
       EOS
       using_memory_logger do |logger|
-        output = render_embedded_string input
+        output = convert_string_to_embedded input
         assert_css 'table', output, 1
         assert_css 'table > tbody > tr', output, 2
         assert_css 'table > tbody > tr > td', output, 8
@@ -190,7 +250,7 @@ A | here| a | there
 |{show_title} |Coming soon...
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '//tbody/tr/td[1]/p[text()="Cool new show"]', output, 1
       assert_xpath %(//tbody/tr/td[2]/p[text()='Coming soon#{decode_char 8230}#{decode_char 8203}']), output, 1
     end
@@ -204,7 +264,7 @@ three
 <four>
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       result = xmlnodes_at_xpath('/table//pre', output, 1)
       assert_equal %(<pre>one\n*two*\nthree\n&lt;four&gt;</pre>), result.to_s
     end
@@ -221,7 +281,7 @@ three
   | normal
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       result = xmlnodes_at_xpath('/table//pre', output, 1)
       assert_equal %(<pre>  one\n  two\nthree</pre>), result.to_s
     end
@@ -238,7 +298,7 @@ three
   | normal
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       result = xmlnodes_at_xpath('/table//div[@class="verse"]', output, 1)
       assert_equal %(<div class="verse">  one\n  two\nthree</div>), result.to_s
     end
@@ -252,7 +312,7 @@ three
 |1 |2 |3
 |=======
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table.fit-content', output, 1
       assert_css 'table[style*="width"]', output, 0
@@ -319,7 +379,7 @@ three
 |1 |2 |3 |4
 |=======
       EOS
-      output = render_embedded_string input, :backend => 'docbook5'
+      output = convert_string_to_embedded input, :backend => 'docbook5'
       assert_css 'tgroup[cols="4"]', output, 1
       assert_css 'tgroup colspec', output, 4
       assert_css 'tgroup colspec[colwidth]', output, 4
@@ -337,7 +397,7 @@ three
 |1 |2 |3
 |=======
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table[style*="width"]', output, 1
       assert_css 'table colgroup col', output, 3
@@ -352,7 +412,7 @@ three
 |4
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 4
       assert_css 'table > tbody > tr', output, 2
@@ -367,7 +427,7 @@ three
 |A |B |C |a |b |c |1 |2 |3
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > tbody > tr', output, 3
     end
@@ -380,7 +440,7 @@ three
 |1 |2 |a |b
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 3
       assert_css 'table > tbody > tr', output, 2
@@ -394,7 +454,7 @@ three
 |1 |2 |a |b
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 3
       assert_css 'table > tbody > tr', output, 2
@@ -408,10 +468,27 @@ three
 |1 |2 |a |b
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 2
       assert_css 'table > tbody > tr', output, 3
+    end
+
+    test 'cols may be separated by semi-colon instead of comma' do
+      input = <<-EOS
+[cols="1s;3m"]
+|===
+| strong
+| mono
+|===
+      EOS
+      output = convert_string_to_embedded input
+      assert_css 'table', output, 1
+      assert_css 'table > colgroup > col', output, 2
+      assert_css 'col[style="width: 25%;"]', output, 1
+      assert_css 'col[style="width: 75%;"]', output, 1
+      assert_xpath '(//td)[1]//strong', output, 1
+      assert_xpath '(//td)[2]//code', output, 1
     end
 
     test 'cols attribute may include spaces' do
@@ -421,7 +498,7 @@ three
 |one |two |1 |2 |a |b
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 2
       assert_css 'col[style="width: 50%;"]', output, 2
@@ -436,7 +513,7 @@ three
 |1 |2 |a |b
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 2
       assert_css 'col[style="width: 50%;"]', output, 2
@@ -451,7 +528,7 @@ three
 |1 |2 |a |b
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 2
       assert_css 'col[style="width: 50%;"]', output, 2
@@ -469,7 +546,7 @@ three
 |Total      |6
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 2
       assert_css 'table > thead', output, 1
@@ -496,7 +573,7 @@ three
 |Total      |6
 |===
       EOS
-      output = render_embedded_string input, :backend => 'docbook'
+      output = convert_string_to_embedded input, :backend => 'docbook'
       assert_css 'table', output, 1
       assert_css 'table[frame="topbot"]', output, 1
       assert_css 'table > title', output, 1
@@ -526,7 +603,7 @@ three
 |A |B |C
 |===
       EOS
-      output = render_embedded_string input, :backend => 'docbook'
+      output = convert_string_to_embedded input, :backend => 'docbook'
       assert_css 'informaltable[frame="topbot"]', output, 1
     end
 
@@ -539,7 +616,7 @@ three
 |===
         EOS
 
-        output = render_embedded_string input, :backend => 'docbook'
+        output = convert_string_to_embedded input, :backend => 'docbook'
         assert_css 'informaltable', output, 1
         assert_css 'informaltable[orient="land"]', output, 1
       end
@@ -557,7 +634,7 @@ three
 |Data B2
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 2
       assert_css 'table > thead', output, 1
@@ -574,7 +651,7 @@ three
 
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 2
       assert_css 'table > thead', output, 1
@@ -593,7 +670,7 @@ three
 |Data B1
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table[style*="width"]', output, 0
       assert_css 'table > colgroup > col', output, 2
@@ -615,7 +692,7 @@ three
 |Data B2
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 2
       assert_css 'table > thead', output, 0
@@ -636,7 +713,7 @@ A1 continued|B1
 |B2
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 2
       assert_css 'table > thead', output, 0
@@ -661,7 +738,7 @@ just text
 |B2
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 2
       assert_css 'table > thead', output, 0
@@ -684,7 +761,7 @@ just text
 
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 2
       assert_css 'table > thead', output, 0
@@ -705,7 +782,7 @@ just text
 |Data B2
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 2
       assert_css 'table > thead', output, 0
@@ -722,7 +799,7 @@ just text
 |Name |Occupation| Website
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > thead > tr > th', output, 3
       assert_css 'table > thead > tr > th > *', output, 0
@@ -752,7 +829,7 @@ just text
 
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > tbody > tr > th', output, 3
       assert_css 'table > tbody > tr > td', output, 6
@@ -784,7 +861,7 @@ I am getting in shape!
 
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table[style*="width: 80%"]', output, 1
       assert_xpath '/table/caption[@class="title"][text()="Table 1. Horizontal and vertical source data"]', output, 1
@@ -813,7 +890,7 @@ I am getting in shape!
 |===
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '/table/colgroup/col', output, 2
       assert_xpath '(/table/colgroup/col)[1][@style="width: 10%;"]', output, 1
       assert_xpath '(/table/colgroup/col)[2][@style="width: 90%;"]', output, 1
@@ -829,7 +906,7 @@ I am getting in shape!
 d|9 2+>|10
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col[style*="width: 25%"]', output, 4
       assert_css 'table > tbody > tr', output, 4
@@ -864,7 +941,7 @@ d|9 2+>|10
 |AAA |BBB |CCC
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table > tbody > tr:nth-child(1) > td', output, 2
       assert_css 'table > tbody > tr:nth-child(1) > td:nth-child(1)[colspan="2"]', output, 1
       assert_css 'table > tbody > tr:nth-child(1) > td:nth-child(2):not([colspan])', output, 1
@@ -880,7 +957,7 @@ d|9 2+>|10
 |b |c
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 3
       assert_css 'table > tbody > tr', output, 3
@@ -909,7 +986,7 @@ d|9 2+>|10
 |===
       EOS
 
-      output = render_embedded_string input, :backend => 'docbook'
+      output = convert_string_to_embedded input, :backend => 'docbook'
       assert_xpath '//colspec', output, 2
       assert_xpath '(//colspec)[1][@colname="col_1"]', output, 1
       assert_xpath '(//colspec)[2][@colname="col_2"]', output, 1
@@ -926,7 +1003,7 @@ d|9 2+>|10
 |===
       EOS
 
-      output = render_embedded_string input, :backend => 'docbook'
+      output = convert_string_to_embedded input, :backend => 'docbook'
       assert_xpath '//colspec', output, 3
       assert_xpath '(//colspec)[1][@colname="col_1"]', output, 1
       assert_xpath '(//colspec)[2][@colname="col_2"]', output, 1
@@ -948,7 +1025,7 @@ d|9 2+>|10
 |===
       EOS
 
-      output = render_embedded_string input, :backend => 'docbook'
+      output = convert_string_to_embedded input, :backend => 'docbook'
       assert_xpath '//colspec', output, 5
       (1..5).each do |n|
         assert_xpath %((//colspec)[#{n}][@colname="col_#{n}"]), output, 1
@@ -972,7 +1049,7 @@ more C
 |===
       EOS
       using_memory_logger do |logger|
-        output = render_embedded_string input
+        output = convert_string_to_embedded input
         assert_css 'table', output, 1
         assert_css 'table *', output, 0
         assert_message logger, :ERROR, '<stdin>: line 5: dropping cell because it exceeds specified number of columns', Hash
@@ -1012,7 +1089,7 @@ of a potentially great harvest of future knowledge and wisdom.
 I wouldn't have it any other way.
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 3
       assert_css 'table > thead', output, 1
@@ -1042,7 +1119,7 @@ third paragraph
 |===
       EOS
 
-      result = render_embedded_string input
+      result = convert_string_to_embedded input
       assert_xpath %((//p[@class="tableblock"])[1][text()="first wrapped\nparagraph"]), result, 1
       assert_xpath %((//p[@class="tableblock"])[2][text()="second paragraph"]), result, 1
       assert_xpath %((//p[@class="tableblock"])[3][text()="third paragraph"]), result, 1
@@ -1059,7 +1136,7 @@ content
 |===
       EOS
 
-      result = render_embedded_string input
+      result = convert_string_to_embedded input
       assert_css 'table.tableblock', result, 1
       assert_css 'table.tableblock td.tableblock', result, 1
       assert_css 'table.tableblock td.tableblock .openblock', result, 1
@@ -1074,7 +1151,7 @@ a|AsciiDoc table cell
 |===
       EOS
 
-      result = render_embedded_string input
+      result = convert_string_to_embedded input
       assert_css 'table.tableblock td.tableblock > div.content', result, 1
       assert_css 'table.tableblock td.tableblock > div.content > div.paragraph', result, 1
     end
@@ -1089,7 +1166,7 @@ content
 |===
       EOS
 
-      result = render_embedded_string input
+      result = convert_string_to_embedded input
       assert_css 'table.tableblock', result, 1
       assert_css 'table.tableblock .paragraph', result, 0
     end
@@ -1111,7 +1188,7 @@ doctype={doctype}
 |===
       EOS
 
-      result = render_embedded_string input, :attributes => { 'attribute-missing' => 'skip' }
+      result = convert_string_to_embedded input, :attributes => { 'attribute-missing' => 'skip' }
       assert_includes result, 'doctype=article'
       refute_includes result, '{backend-html5-doctype-article}'
       assert_includes result, '{backend-html5-doctype-book}'
@@ -1135,7 +1212,7 @@ doctype={doctype}
 |===
       EOS
 
-      result = render_embedded_string input, :attributes => { 'attribute-missing' => 'skip' }
+      result = convert_string_to_embedded input, :attributes => { 'attribute-missing' => 'skip' }
       assert_includes result, 'doctype=book'
       refute_includes result, '{backend-html5-doctype-book}'
       assert_includes result, '{backend-html5-doctype-article}'
@@ -1222,7 +1299,7 @@ a|include::fixtures/include-file.asciidoc[]
 |===
       EOS
 
-      output = render_embedded_string input, :safe => :safe, :base_dir => testdir
+      output = convert_string_to_embedded input, :safe => :safe, :base_dir => testdir
       assert_match(/included content/, output)
     end
 
@@ -1239,7 +1316,7 @@ a|See <<_more>>
 content
       EOS
 
-      result = render_string input
+      result = convert_string input
       assert_xpath '//a[@href="#_more"]', result, 1
       assert_xpath '//a[@href="#_more"][text()="More"]', result, 1
     end
@@ -1276,7 +1353,7 @@ a|AsciiDoc footnote:[A lightweight markup language.]
 |===
       EOS
 
-      result = render_string input
+      result = convert_string input
       assert_css '#_footnotedef_1', result, 1
     end
 
@@ -1315,7 +1392,7 @@ key: value <1>
 <1> Third callout
       EOS
 
-      result = render_string input, :backend => 'docbook'
+      result = convert_string input, :backend => 'docbook'
       conums = xmlnodes_at_xpath '//co', result
       assert_equal 3, conums.size
       ['CO1-1', 'CO2-1', 'CO3-1'].each_with_index do |conum, idx|
@@ -1338,7 +1415,7 @@ The word 'italic' is emphasized.
 |===
       EOS
 
-      result = render_embedded_string input
+      result = convert_string_to_embedded input
       assert_xpath '//em[text()="italic"]', result, 1
     end
 
@@ -1358,7 +1435,7 @@ The word 'slanted' is emphasized.
 The word 'askew' is emphasized.
       EOS
 
-      result = render_embedded_string input
+      result = convert_string_to_embedded input
       assert_xpath '//em[text()="italic"]', result, 1
       assert_xpath '//em[text()="oblique"]', result, 1
       assert_xpath '//em[text()="slanted"]', result, 1
@@ -1383,7 +1460,7 @@ The word 'slanted' is not emphasized.
 The word 'askew' is emphasized.
       EOS
 
-      result = render_embedded_string input
+      result = convert_string_to_embedded input
       assert_xpath '//em[text()="italic"]', result, 1
       assert_xpath '//em[text()="oblique"]', result, 1
       assert_xpath '//em[text()="slanted"]', result, 0
@@ -1402,7 +1479,7 @@ The word 'askew' is emphasized.
 !===
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 2
       assert_css 'table table', output, 1
       assert_css 'table > tbody > tr > td:nth-child(2) table', output, 1
@@ -1422,7 +1499,7 @@ a|
 |===
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 2
       assert_css 'table table', output, 1
       assert_css 'table > tbody > tr > td:nth-child(2) table', output, 1
@@ -1441,7 +1518,7 @@ a|AsciiDoc content
 |===
       EOS
 
-      output = render_string input
+      output = convert_string input
       assert_css '.toc', output, 1
       assert_css 'table .toc', output, 0
     end
@@ -1463,7 +1540,7 @@ content
 |===
       EOS
 
-      output = render_string input
+      output = convert_string input
       assert_css '.toc', output, 1
       assert_css 'table .toc', output, 1
     end
@@ -1489,7 +1566,7 @@ content
 |===
       EOS
 
-      output = render_string input
+      output = convert_string input
       assert_css '.toc', output, 2
       assert_css '#toc', output, 1
       assert_css 'table .toc', output, 1
@@ -1506,7 +1583,7 @@ content
 |===
       EOS
 
-      output = render_string input
+      output = convert_string input
       assert_css 'table', output, 1
       assert_css 'table > tbody > tr > td', output, 1
       assert_css 'table > tbody > tr > td #preamble', output, 0
@@ -1526,7 +1603,7 @@ plain
 |===
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_xpath '(/table/thead/tr/th)[1][@style="background-color: green;"]', output, 1
       assert_xpath '(/table/thead/tr/th)[2][@style="background-color: green;"]', output, 0
       assert_xpath '(/table/tbody/tr/td)[1][@style="background-color: red;"]', output, 1
@@ -1547,7 +1624,7 @@ eof
       EOS
 
       using_memory_logger do |logger|
-        output = render_embedded_string input
+        output = convert_string_to_embedded input
         assert_xpath '/table', output, 1
         assert_message logger, :WARN, '<stdin>: line 3: unterminated table block', Hash
       end
@@ -1571,16 +1648,107 @@ eof
       EOS
 
       using_memory_logger do |logger|
-        output = render_embedded_string input
+        output = convert_string_to_embedded input
         assert_xpath '//ul//table', output, 1
         assert_message logger, :WARN, '<stdin>: line 9: unterminated example block', Hash
       end
+    end
+
+    test 'custom separator for an AsciiDoc table cell' do
+      input = <<-EOS
+[cols=2,separator=!]
+|===
+!Pipe output to vim
+a!
+----
+asciidoctor -o - -s test.adoc | view -
+----
+|===
+      EOS
+      output = convert_string_to_embedded input
+      assert_css 'table', output, 1
+      assert_css 'table > colgroup > col', output, 2
+      assert_css 'table > tbody > tr', output, 1
+      assert_css 'table > tbody > tr:nth-child(1) > td', output, 2
+      assert_css 'table > tbody > tr:nth-child(1) > td:nth-child(1) p', output, 1
+      assert_css 'table > tbody > tr:nth-child(1) > td:nth-child(2) .listingblock', output, 1
+    end
+
+    test 'table with breakable option docbook 4.5' do
+      input = <<-EOS
+.Table with breakable
+[%breakable]
+|===
+|Item       |Quantity
+|Item 1     |1
+|===
+      EOS
+      output = convert_string_to_embedded input, :backend => 'docbook45'
+      assert_includes output, '<?dbfo keep-together="auto"?>'
+    end
+
+    test 'table with breakable option docbook 5' do
+      input = <<-EOS
+.Table with breakable
+[%breakable]
+|===
+|Item       |Quantity
+|Item 1     |1
+|===
+      EOS
+      output = convert_string_to_embedded input, :backend => 'docbook5'
+      assert_includes output, '<?dbfo keep-together="auto"?>'
+    end
+
+    test 'table with unbreakable option docbook 5' do
+      input = <<-EOS
+.Table with unbreakable
+[%unbreakable]
+|===
+|Item       |Quantity
+|Item 1     |1
+|===
+      EOS
+      output = convert_string_to_embedded input, :backend => 'docbook5'
+      assert_includes output, '<?dbfo keep-together="always"?>'
+    end
+
+    test 'table with unbreakable option docbook 4.5' do
+      input = <<-EOS
+.Table with unbreakable
+[%unbreakable]
+|===
+|Item       |Quantity
+|Item 1     |1
+|===
+      EOS
+      output = convert_string_to_embedded input, :backend => 'docbook45'
+      assert_includes output, '<?dbfo keep-together="always"?>'
+    end
+
+    test 'no implicit header row if cell in first line is quoted and spans multiple lines' do
+      input = <<-EOS
+[cols=2*l]
+,===
+"A1
+
+A1 continued",B1
+A2,B2
+,===
+      EOS
+      output = convert_string_to_embedded input
+      assert_css 'table', output, 1
+      assert_css 'table > colgroup > col', output, 2
+      assert_css 'table > thead', output, 0
+      assert_css 'table > tbody', output, 1
+      assert_css 'table > tbody > tr', output, 2
+      assert_xpath %((//td)[1]//pre[text()="A1\n\nA1 continued"]), output, 1
     end
   end
 
   context 'DSV' do
 
-    test 'renders simple dsv table' do
+    test 'converts simple dsv table' do
       input = <<-EOS
 [width="75%",format="dsv"]
 |===
@@ -1611,7 +1779,7 @@ a:b:c
 1:2:3
 :===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 3
       assert_css 'table > tbody > tr', output, 2
@@ -1626,7 +1794,7 @@ single cell
 :===
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table td', output, 1
     end
 
@@ -1638,7 +1806,7 @@ B1:B2
 C1:C2
 :===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 2
       assert_css 'table > tbody > tr', output, 3
@@ -1659,7 +1827,7 @@ B1,B2
 C1,C2
 ,===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 2
       assert_css 'table > tbody > tr', output, 3
@@ -1667,6 +1835,22 @@ C1,C2
       assert_xpath '/table/tbody/tr[1]/td[1]/p[text()="A1"]', output, 1
       assert_xpath '/table/tbody/tr[1]/td[2]/p', output, 0
       assert_xpath '/table/tbody/tr[2]/td[1]/p[text()="B1"]', output, 1
+    end
+
+    test 'should log error but not crash if cell data has unclosed quote' do
+      input = <<-EOS
+,===
+a,b
+c,"
+,===
+      EOS
+      using_memory_logger do |logger|
+        output = convert_string_to_embedded input
+        assert_css 'table', output, 1
+        assert_css 'table td', output, 4
+        assert_xpath '(/table/td)[4]/p', output, 0
+        assert_message logger, :ERROR, '<stdin>: line 3: unclosed quote in CSV data; setting cell to empty', Hash
+      end
     end
 
     test 'should preserve newlines in quoted CSV values' do
@@ -1686,7 +1870,7 @@ re
 me"
 ,===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 3
       assert_css 'table > tbody > tr', output, 1
@@ -1713,7 +1897,7 @@ air, moon roof, loaded",4799.00
 2000,Toyota,Tundra,"Check it, ""this one's gonna to blow you're socks off"", per the sticker",10000.00
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col[style*="width: 20%"]', output, 5
       assert_css 'table > thead > tr', output, 1
@@ -1736,7 +1920,7 @@ B
 "
 ,===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 2
       assert_css 'table > tbody > tr', output, 1
@@ -1752,7 +1936,7 @@ a,b,c
 1,2,3
 ,===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 3
       assert_css 'table > tbody > tr', output, 2
@@ -1768,7 +1952,7 @@ a\tb\tc
 1\t2\t3
 ,===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 3
       assert_css 'table > tbody > tr', output, 2
@@ -1784,7 +1968,7 @@ a;b;c
 1;2;3
 |===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 3
       assert_css 'table > tbody > tr', output, 2
@@ -1800,32 +1984,12 @@ a\tb\tc
 1\t2\t3
 ,===
       EOS
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col', output, 3
       assert_css 'table > tbody > tr', output, 2
       assert_css 'table > tbody > tr:nth-child(1) > td', output, 3
       assert_css 'table > tbody > tr:nth-child(2) > td', output, 3
-    end
-
-    test 'custom separator for an AsciiDoc table cell' do
-      input = <<-EOS
-[cols=2,separator=!]
-|===
-!Pipe output to vim
-a!
-----
-asciidoctor -o - -s test.adoc | view -
-----
-|===
-      EOS
-      output = render_embedded_string input
-      assert_css 'table', output, 1
-      assert_css 'table > colgroup > col', output, 2
-      assert_css 'table > tbody > tr', output, 1
-      assert_css 'table > tbody > tr:nth-child(1) > td', output, 2
-      assert_css 'table > tbody > tr:nth-child(1) > td:nth-child(1) p', output, 1
-      assert_css 'table > tbody > tr:nth-child(1) > td:nth-child(2) .listingblock', output, 1
     end
 
     test 'single cell in CSV table should only produce single row' do
@@ -1835,79 +1999,38 @@ single cell
 ,===
       EOS
 
-      output = render_embedded_string input
+      output = convert_string_to_embedded input
       assert_css 'table td', output, 1
     end
 
-    test 'table with breakable db45' do
+    test 'cell formatted with AsciiDoc style' do
       input = <<-EOS
-.Table with breakable
-[options="breakable"]
-|===
-|Item       |Quantity
-|Item 1     |1
-|===
-      EOS
-      output = render_embedded_string input, :backend => 'docbook45'
-      assert_includes output, '<?dbfo keep-together="auto"?>'
-    end
-
-    test 'table with breakable db5' do
-      input = <<-EOS
-.Table with breakable
-[options="breakable"]
-|===
-|Item       |Quantity
-|Item 1     |1
-|===
-      EOS
-      output = render_embedded_string input, :backend => 'docbook5'
-      assert_includes output, '<?dbfo keep-together="auto"?>'
-    end
-
-    test 'table with unbreakable db5' do
-      input = <<-EOS
-.Table with unbreakable
-[options="unbreakable"]
-|===
-|Item       |Quantity
-|Item 1     |1
-|===
-      EOS
-      output = render_embedded_string input, :backend => 'docbook5'
-      assert_includes output, '<?dbfo keep-together="always"?>'
-    end
-
-    test 'table with unbreakable db45' do
-      input = <<-EOS
-.Table with unbreakable
-[options="unbreakable"]
-|===
-|Item       |Quantity
-|Item 1     |1
-|===
-      EOS
-      output = render_embedded_string input, :backend => 'docbook45'
-      assert_includes output, '<?dbfo keep-together="always"?>'
-    end
-
-    test 'no implicit header row if cell in first line is quoted and spans multiple lines' do
-      input = <<-EOS
-[cols=2*l]
+[cols="1,1,1a",separator=;]
 ,===
-"A1
+element;description;example
 
-A1 continued",B1
-A2,B2
+thematic break,a visible break; also known as a horizontal rule;---
 ,===
       EOS
-      output = render_embedded_string input
-      assert_css 'table', output, 1
-      assert_css 'table > colgroup > col', output, 2
-      assert_css 'table > thead', output, 0
-      assert_css 'table > tbody', output, 1
-      assert_css 'table > tbody > tr', output, 2
-      assert_xpath %((//td)[1]//pre[text()="A1\n\nA1 continued"]), output, 1
+
+      output = convert_string_to_embedded input
+      assert_css 'table tbody hr', output, 1
+    end
+
+    test 'should strip whitespace around contents of AsciiDoc cell' do
+      input = <<-EOS
+[cols="1,1,1a",separator=;]
+,===
+element;description;example
+
+paragraph;contiguous lines of words and phrases;"
+  one sentence, one line
+  "
+,===
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_xpath '/table/tbody//*[@class="paragraph"]/p[text()="one sentence, one line"]', output, 1
     end
   end
 end

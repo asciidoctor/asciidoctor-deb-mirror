@@ -25,7 +25,7 @@ module Asciidoctor
   #       when 'document'
   #         node.content
   #       when 'section'
-  #         [node.title, node.content] * "\n\n"
+  #         [node.title, node.content].join "\n\n"
   #       when 'paragraph'
   #         node.content.tr("\n", ' ') << "\n"
   #       else
@@ -77,7 +77,7 @@ module Asciidoctor
         raise ::ArgumentError, %(Cannot determine backend for converter: #{self.class}) unless @backend
         base = @backend.sub TrailingDigitsRx, ''
         if (ext = DEFAULT_EXTENSIONS[base])
-          type = ext[1..-1]
+          type = ext.slice 1, ext.length
         else
           # QUESTION should we be forcing the basebackend to html if unknown?
           base = 'html'

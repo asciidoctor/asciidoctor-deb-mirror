@@ -1,3 +1,19 @@
+asciidoctor (1.5.8-1) unstable; urgency=medium
+
+  * New upstream version 1.5.8 (Closes: #913892)
+  * Refresh patches for new version
+  * Fix Timezone tests when SOURCE_DATE_EPOCH is set.
+  * d/control: bump standrards to 4.2.1
+  * d/control: ruby-thread-safe has been dropped from upstream
+    in favor of ruby-concurrent
+  * d/control: add dependency version from ruby-asciidoctor to the ruby pkg
+  * Switch the architecture of asciidoctor back to all (Closes: #909105)
+  * Set asciidoctor-doc Multi-Arch: foreign
+  * Update my email to my new debian one
+  * Use the new debhelper-compat(=11) notation and drop d/compat.
+
+ -- Joseph Herlant <aerostitch@debian.org>  Thu, 22 Nov 2018 21:43:15 -0800
+
 asciidoctor (1.5.7.1-1) unstable; urgency=low
 
   * New upstream version 1.5.7.1

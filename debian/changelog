@@ -3,7 +3,7 @@ asciidoctor (1.5.8-1) unstable; urgency=medium
   * New upstream version 1.5.8 (Closes: #913892)
   * Refresh patches for new version
   * Fix Timezone tests when SOURCE_DATE_EPOCH is set.
-  * d/control: bump standrards to 4.2.1
+  * d/control: bump standards to 4.2.1
   * d/control: ruby-thread-safe has been dropped from upstream
     in favor of ruby-concurrent
   * d/control: add dependency version from ruby-asciidoctor to the ruby pkg

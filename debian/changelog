@@ -1,6 +1,7 @@
 asciidoctor (1.5.8-1) unstable; urgency=medium
 
-  * New upstream version 1.5.8 (Closes: #913892)
+  * New upstream version 1.5.8
+    + CVE-2018-18385: fix infinite loop in Parser#next_block (Closes: #913892)
   * Refresh patches for new version
   * Fix Timezone tests when SOURCE_DATE_EPOCH is set.
   * d/control: bump standards to 4.2.1

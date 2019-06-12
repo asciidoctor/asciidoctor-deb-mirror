@@ -15,6 +15,7 @@ Build-Depends: coderay,
                ruby-htmlentities,
                ruby-mocha,
                ruby-nokogiri (>= 1.5.10),
+               ruby-rouge,
                ruby-slim,
                ruby-concurrent,
                ruby-tilt

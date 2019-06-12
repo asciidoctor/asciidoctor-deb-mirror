@@ -1,25 +1,26 @@
-# encoding: UTF-8
-ASCIIDOCTOR_TEST_DIR = File.expand_path File.dirname __FILE__
-ASCIIDOCTOR_PROJECT_DIR = File.dirname ASCIIDOCTOR_TEST_DIR
-ASCIIDOCTOR_LIB_DIR = ENV['ASCIIDOCTOR_LIB_DIR'] || File.join(ASCIIDOCTOR_PROJECT_DIR, 'lib')
-Dir.chdir ASCIIDOCTOR_PROJECT_DIR
-
-if RUBY_VERSION < '1.9'
-  require 'rubygems'
-end
+# frozen_string_literal: true
+ASCIIDOCTOR_TEST_DIR = File.absolute_path __dir__
+ASCIIDOCTOR_LIB_DIR = ENV['ASCIIDOCTOR_LIB_DIR'] || (File.join ASCIIDOCTOR_TEST_DIR, '../lib')
 
 require 'simplecov' if ENV['COVERAGE'] == 'true'
 
-require File.join(ASCIIDOCTOR_LIB_DIR, 'asciidoctor')
+require File.join ASCIIDOCTOR_LIB_DIR, 'asciidoctor'
+Dir.chdir Asciidoctor::ROOT_DIR
 
-require 'socket'
 require 'nokogiri'
+proc do
+  old_verbose, $VERBOSE = $VERBOSE, nil
+  require 'rouge'
+  Rouge::Lexer.disable_debug!
+  $VERBOSE = old_verbose
+end.call
+require 'socket'
 require 'tempfile'
 require 'tmpdir'
 
 autoload :FileUtils, 'fileutils'
-autoload :Pathname,  'pathname'
 autoload :Open3, 'open3'
+autoload :Pathname,  'pathname'
 
 RE_XMLNS_ATTRIBUTE = / xmlns="[^"]+"/
 RE_DOCTYPE = /\s*<!DOCTYPE (.*)/
@@ -30,38 +31,51 @@ require 'minitest/autorun'
 Minitest::Test = MiniTest::Unit::TestCase unless defined? Minitest::Test
 
 class Minitest::Test
+  def jruby?
+    RUBY_ENGINE == 'jruby'
+  end
+
   def windows?
     RbConfig::CONFIG['host_os'] =~ /win|ming/
   end
 
   def disk_root
-    %(#{windows? ? ASCIIDOCTOR_PROJECT_DIR.split('/')[0] : ''}/)
+    %(#{windows? ? (Asciidoctor::ROOT_DIR.partition '/')[0] : ''}/)
   end
 
   def empty_document options = {}
-    if options[:parse]
-      (Asciidoctor::Document.new [], options).parse
-    else
-      Asciidoctor::Document.new [], options
-    end
+    options[:parse] ? (Asciidoctor::Document.new [], options).parse : (Asciidoctor::Document.new [], options)
   end
 
   def empty_safe_document options = {}
-    options[:safe] = :safe
-    Asciidoctor::Document.new [], options
+    Asciidoctor::Document.new [], (options.merge safe: :safe)
   end
 
-  def sample_doc_path(name)
-    name = name.to_s
-    unless name.include?('.')
-      ['asciidoc', 'txt'].each do |ext|
-        if File.exist?(fixture_path("#{name}.#{ext}"))
-          name = "#{name}.#{ext}"
+  def sample_doc_path name
+    unless (name = name.to_s).include? '.'
+      %w(adoc asciidoc txt).each do |ext|
+        if File.exist? fixture_path %(#{name}.#{ext})
+          name = %(#{name}.#{ext})
           break
         end
       end
     end
-    fixture_path(name)
+    fixture_path name
+  end
+
+  def bindir
+    File.join Asciidoctor::ROOT_DIR, 'bin'
+  end
+
+  def asciidoctor_cmd use_ruby = true, ruby_opts = nil
+    executable = File.join bindir, 'asciidoctor'
+    if use_ruby
+      ruby = File.join RbConfig::CONFIG['bindir'], RbConfig::CONFIG['ruby_install_name']
+      ruby = %(#{ruby} #{ruby_opts}) if ruby_opts
+      %(#{ruby} #{executable})
+    else
+      executable
+    end
   end
 
   def testdir
@@ -76,44 +90,44 @@ class Minitest::Test
     File.join fixturedir, name
   end
 
-  def example_document(name, opts = {})
-    document_from_string IO.read(sample_doc_path(name)), opts
+  def example_document name, opts = {}
+    document_from_string (File.read (sample_doc_path name), mode: Asciidoctor::FILE_READ_MODE), opts
   end
 
-  def xmlnodes_at_css(css, content, count = nil)
-    xmlnodes_at_path(:css, css, content, count)
+  def xmlnodes_at_css css, content, count = nil
+    xmlnodes_at_path :css, css, content, count
   end
 
-  def xmlnodes_at_xpath(xpath, content, count = nil)
-    xmlnodes_at_path(:xpath, xpath, content, count)
+  def xmlnodes_at_xpath xpath, content, count = nil
+    xmlnodes_at_path :xpath, xpath, content, count
   end
 
-  def xmlnodes_at_path(type, path, content, count = nil)
+  def xmlnodes_at_path type, path, content, count = nil
     doc = xmldoc_from_string content
     case type
-      when :xpath
-        namespaces = doc.respond_to?(:root) ? doc.root.namespaces : {}
-        results = doc.xpath("#{path.sub('/', './')}", namespaces)
-      when :css
-        results = doc.css(path)
+    when :xpath
+      namespaces = (doc.respond_to? :root) ? doc.root.namespaces : {}
+      results = doc.xpath %(#{path.sub '/', './'}), namespaces
+    when :css
+      results = doc.css path
     end
     count == 1 ? results.first : results
   end
 
   # Generate an xpath attribute matcher that matches a name in the class attribute
-  def contains_class(name)
+  def contains_class name
     %(contains(concat(' ', normalize-space(@class), ' '), ' #{name} '))
   end
 
-  def assert_css(css, content, count = nil)
-    assert_path(:css, css, content, count)
+  def assert_css css, content, count = nil
+    assert_path :css, css, content, count
   end
 
-  def assert_xpath(xpath, content, count = nil)
-    assert_path(:xpath, xpath, content, count)
+  def assert_xpath xpath, content, count = nil
+    assert_path :xpath, xpath, content, count
   end
 
-  def assert_path(type, path, content, count = nil)
+  def assert_path type, path, content, count = nil
     case type
     when :xpath
       type_name = 'XPath'
@@ -123,19 +137,27 @@ class Minitest::Test
 
     results = xmlnodes_at_path type, path, content
 
-    if (count == true || count == false)
-      if (count != results)
-        flunk "#{type_name} #{path} yielded #{results} rather than #{count} for:\n#{content}"
-      else
+    if count == true || count == false
+      if count == results
         assert true
+      else
+        flunk %(#{type_name} #{path} yielded #{results} rather than #{count} for:\n#{content})
       end
-    elsif (count && results.size != count)
-      flunk "#{type_name} #{path} yielded #{results.size} elements rather than #{count} for:\n#{content}"
-    elsif (count.nil? && results.empty?)
-      flunk "#{type_name} #{path} not found in:\n#{content}"
+    elsif count && results.size != count
+      flunk %(#{type_name} #{path} yielded #{results.size} elements rather than #{count} for:\n#{content})
+    elsif count.nil? && results.empty?
+      flunk %(#{type_name} #{path} not found in:\n#{content})
     else
       assert true
     end
+  end
+
+  def assert_include expected, actual
+    assert_includes actual, expected
+  end
+
+  def refute_include not_expected, actual
+    refute_includes actual, not_expected
   end
 
   def assert_message logger, severity, expected_message, kind = String, idx = nil
@@ -167,74 +189,65 @@ class Minitest::Test
     end
   end
 
-  def xmldoc_from_string(content)
-    if content.match(RE_XMLNS_ATTRIBUTE)
-      Nokogiri::XML::Document.parse(content)
-    elsif !(doctype_match = content.match(RE_DOCTYPE))
-      Nokogiri::HTML::DocumentFragment.parse(content)
+  def xmldoc_from_string content
+    if (content.start_with? '<?xml ') || RE_XMLNS_ATTRIBUTE =~ content
+      Nokogiri::XML::Document.parse content
+    elsif !(doctype_match = content.match RE_DOCTYPE)
+      Nokogiri::HTML::DocumentFragment.parse content
     elsif doctype_match[1].start_with? 'html'
-      Nokogiri::HTML::Document.parse(content)
+      Nokogiri::HTML::Document.parse content
     else
-      Nokogiri::XML::Document.parse(content)
+      Nokogiri::XML::Document.parse content
     end
   end
 
-  def document_from_string(src, opts = {})
+  def document_from_string src, opts = {}
     assign_default_test_options opts
-    if opts[:parse]
-      (Asciidoctor::Document.new src.lines.entries, opts).parse
-    else
-      Asciidoctor::Document.new src.lines.entries, opts
-    end
+    opts[:parse] ? (Asciidoctor::Document.new src.lines, opts).parse : (Asciidoctor::Document.new src.lines, opts)
   end
 
-  def block_from_string(src, opts = {})
-    opts[:header_footer] = false
-    doc = document_from_string src, opts
-    doc.blocks.first
+  def block_from_string src, opts = {}
+    (document_from_string src, (opts.merge standalone: false)).blocks.first
   end
 
-  def convert_string(src, opts = {})
-    keep_namespaces = opts.delete(:keep_namespaces)
+  def convert_string src, opts = {}
+    keep_namespaces = opts.delete :keep_namespaces
     if keep_namespaces
-      document_from_string(src, opts).convert
+      (document_from_string src, opts).convert
     else
-      # this is required because nokogiri is ignorant
-      result = document_from_string(src, opts).convert
-      result = result.sub(RE_XMLNS_ATTRIBUTE, '') if result
-      result
+      # this is required because nokogiri is easily confused by namespaces
+      result = (document_from_string src, opts).convert
+      result ? (result.sub RE_XMLNS_ATTRIBUTE, '') : result
     end
   end
 
-  def convert_string_to_embedded(src, opts = {})
-    opts[:header_footer] = false
-    document_from_string(src, opts).convert
+  def convert_string_to_embedded src, opts = {}
+    (document_from_string src, (opts.merge standalone: false)).convert
   end
 
-  def convert_inline_string(src, opts = {})
-    opts[:doctype] = :inline
-    document_from_string(src, opts).convert
+  def convert_inline_string src, opts = {}
+    (document_from_string src, (opts.merge doctype: :inline)).convert
   end
 
-  def parse_header_metadata(source, doc = nil)
-    reader = Asciidoctor::Reader.new source.split ::Asciidoctor::LF
-    [::Asciidoctor::Parser.parse_header_metadata(reader, doc), reader]
+  def parse_header_metadata source, doc = nil
+    reader = Asciidoctor::Reader.new source.split Asciidoctor::LF
+    [(Asciidoctor::Parser.parse_header_metadata reader, doc), reader]
   end
 
-  def assign_default_test_options(opts)
-    opts[:header_footer] = true unless opts.key? :header_footer
+  def assign_default_test_options opts
+    opts[:standalone] = true unless opts.key? :standalone
     opts[:parse] = true unless opts.key? :parse
-    if opts[:header_footer]
+    if opts[:standalone]
       # don't embed stylesheet unless test requests the default behavior
-      if opts.has_key? :linkcss_default
-        opts.delete(:linkcss_default)
+      if opts.key? :linkcss_default
+        opts.delete :linkcss_default
       else
         opts[:attributes] ||= {}
         opts[:attributes]['linkcss'] = ''
       end
     end
     if (template_dir = ENV['TEMPLATE_DIR'])
-      opts[:template_dir] = template_dir unless opts.has_key? :template_dir
+      opts[:template_dir] = template_dir unless opts.key? :template_dir
     end
     nil
   end
@@ -252,62 +265,59 @@ class Minitest::Test
     [number].pack 'U1'
   end
 
-  def invoke_cli_with_filenames(argv = [], filenames = [], &block)
-    filepaths = Array.new
+  def invoke_cli_with_filenames argv = [], filenames = [], &block
+    filepaths = []
 
-    filenames.each {|filename|
-      if filenames.nil? || ::Pathname.new(filename).absolute?
+    filenames.each do |filename|
+      if filenames.nil? || (Pathname.new filename).absolute?
         filepaths << filename
       else
         filepaths << (fixture_path filename)
       end
-    }
+    end
 
-    invoker = Asciidoctor::Cli::Invoker.new(argv + filepaths)
-
+    invoker = Asciidoctor::Cli::Invoker.new argv + filepaths
     invoker.invoke!(&block)
     invoker
   end
 
-  def invoke_cli_to_buffer(argv = [], filename = 'sample.asciidoc', &block)
-    invoke_cli(argv, filename, [StringIO.new, StringIO.new], &block)
+  def invoke_cli_to_buffer argv = [], filename = 'sample.adoc', &block
+    invoke_cli argv, filename, [StringIO.new, StringIO.new], &block
   end
 
-  def invoke_cli(argv = [], filename = 'sample.asciidoc', buffers = nil, &block)
-    if filename.nil? || filename == '-' || ::Pathname.new(filename).absolute?
+  def invoke_cli argv = [], filename = 'sample.adoc', buffers = nil, &block
+    if filename.nil? || filename == '-' || (Pathname.new filename).absolute?
       filepath = filename
     else
       filepath = fixture_path filename
     end
-    invoker = Asciidoctor::Cli::Invoker.new(argv + [filepath])
-    if buffers
-      invoker.redirect_streams(*buffers)
-    end
+    invoker = Asciidoctor::Cli::Invoker.new argv + [filepath]
+    invoker.redirect_streams(*buffers) if buffers
     invoker.invoke!(&block)
     invoker
   end
 
   def redirect_streams
-    old_stdout, $stdout = $stdout, (tmp_stdout = ::StringIO.new)
-    old_stderr, $stderr = $stderr, (tmp_stderr = ::StringIO.new)
+    old_stdout, $stdout = $stdout, StringIO.new
+    old_stderr, $stderr = $stderr, StringIO.new
     old_logger = Asciidoctor::LoggerManager.logger
     old_logger_level = old_logger.level
     new_logger = (Asciidoctor::LoggerManager.logger = Asciidoctor::Logger.new $stderr)
     new_logger.level = old_logger_level
-    yield tmp_stdout, tmp_stderr
+    yield $stdout, $stderr
   ensure
     $stdout, $stderr = old_stdout, old_stderr
     Asciidoctor::LoggerManager.logger = old_logger
   end
 
   def resolve_localhost
-    (RUBY_VERSION < '1.9' || RUBY_ENGINE == 'rbx') ? Socket.gethostname :
-        Socket.ip_address_list.find {|addr| addr.ipv4? }.ip_address
+    Socket.ip_address_list.find(&:ipv4?).ip_address
   end
 
-  def using_memory_logger
+  def using_memory_logger level = nil
     old_logger = Asciidoctor::LoggerManager.logger
     memory_logger = Asciidoctor::MemoryLogger.new
+    memory_logger.level = level if level
     begin
       Asciidoctor::LoggerManager.logger = memory_logger
       yield memory_logger
@@ -318,40 +328,70 @@ class Minitest::Test
 
   def in_verbose_mode
     begin
-      old_verbose, $VERBOSE = $VERBOSE, true
+      old_logger_level, Asciidoctor::LoggerManager.logger.level = Asciidoctor::LoggerManager.logger.level, Logger::Severity::DEBUG
       yield
     ensure
-      $VERBOSE = old_verbose
+      Asciidoctor::LoggerManager.logger.level = old_logger_level
+    end
+  end
+
+  def run_command *args, &block
+    if Hash === (env = args[0])
+      cmd = args[1]
+    else
+      cmd, env = env, nil
+    end
+    opts = { err: [:child, :out] }
+    if env
+      # NOTE remove workaround once https://github.com/jruby/jruby/issues/3428 is resolved
+      if jruby?
+        begin
+          old_env, env = ENV, (ENV.merge env)
+          env.each {|key, val| env.delete key if val.nil? } if env.value? nil
+          ENV.replace env
+          IO.popen cmd, opts, &block
+        ensure
+          ENV.replace old_env
+        end
+      elsif env.value? nil
+        env = env.inject(ENV.to_h) do |acc, (key, val)|
+          val.nil? ? (acc.delete key) : (acc[key] = val)
+          acc
+        end
+        IO.popen env, cmd, (opts.merge unsetenv_others: true), &block
+      else
+        IO.popen env, cmd, opts, &block
+      end
+    else
+      IO.popen cmd, opts, &block
     end
   end
 
   def using_test_webserver host = resolve_localhost, port = 9876
-    server = TCPServer.new host, port
     base_dir = testdir
-    t = Thread.new do
+    server = TCPServer.new host, port
+    server_thread = Thread.start do
       while (session = server.accept)
         request = session.gets
-        resource = nil
-        if (m = /GET (\S+) HTTP\/1\.1$/.match(request.chomp))
-          resource = (resource = m[1]) == '' ? '.' : resource
+        if /^GET (\S+) HTTP\/1\.1$/ =~ request.chomp
+          resource = (resource = $1) == '' ? '.' : resource
         else
           session.print %(HTTP/1.1 405 Method Not Allowed\r\nContent-Type: text/plain\r\n\r\n)
           session.print %(405 - Method not allowed\n)
           session.close
-          break
+          next
         end
-
         if resource == '/name/asciidoctor'
           session.print %(HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n)
           session.print %({"name": "asciidoctor"}\n)
         elsif File.file?(resource_file = (File.join base_dir, resource))
-          mimetype = if (ext = ::File.extname(resource_file)[1..-1])
+          mimetype = if (ext = File.extname(resource_file)[1..-1])
             ext == 'adoc' ? 'text/plain' : %(image/#{ext})
           else
             'text/plain'
           end
           session.print %(HTTP/1.1 200 OK\r\nContent-Type: #{mimetype}\r\n\r\n)
-          File.open resource_file, 'rb' do |fd|
+          File.open resource_file, Asciidoctor::FILE_READ_MODE do |fd|
             until fd.eof? do
               buffer = fd.read 256
               session.write buffer
@@ -367,13 +407,9 @@ class Minitest::Test
     begin
       yield
     ensure
-      begin
-        server.shutdown
-      # "Errno::ENOTCONN: Socket is not connected' is reported on some platforms; call #close instead of #shutdown
-      rescue Errno::ENOTCONN
-        server.close
-      end
-      t.exit
+      server_thread.exit
+      server_thread.value
+      server.close
     end
   end
 end
@@ -391,57 +427,57 @@ end
 # block syntax. Adding setup or teardown instance methods defeats the purpose
 # of this library.
 class Minitest::Test
-  def self.setup(&block)
-    define_method :setup do
-      super(&block)
-      instance_eval(&block)
-    end
-  end
-
-  def self.teardown(&block)
-    define_method :teardown do
-      instance_eval(&block)
-      super(&block)
-    end
-  end
-
-  def self.context(*name, &block)
-    subclass = Class.new(self)
-    remove_tests(subclass)
-    subclass.class_eval(&block) if block_given?
-    const_set(context_name(name.join(" ")), subclass)
-  end
-
-  def self.test(name, &block)
-    define_method(test_name(name), &block)
-  end
-
   class << self
-    alias_method :should, :test
-    alias_method :describe, :context
-  end
+    def setup &block
+      define_method :setup do
+        super(&block)
+        instance_eval(&block)
+      end
+    end
 
-private
+    def teardown &block
+      define_method :teardown do
+        instance_eval(&block)
+        super(&block)
+      end
+    end
 
-  def self.context_name(name)
-    "Test#{sanitize_name(name).gsub(/(^| )(\w)/) { $2.upcase }}".to_sym
-  end
+    def context *name, &block
+      subclass = Class.new self
+      remove_tests subclass
+      subclass.class_eval(&block) if block_given?
+      const_set (context_name name.join(' ')), subclass
+    end
 
-  def self.test_name(name)
-    "test_#{sanitize_name(name).gsub(/\s+/,'_')}".to_sym
-  end
+    def test name, &block
+      define_method (test_name name), &block
+    end
 
-  def self.sanitize_name(name)
-    name.gsub(/\W+/, ' ').strip
-  end
+    def remove_tests subclass
+      subclass.public_instance_methods.each do |m|
+        subclass.send :undef_method, m if m.to_s.start_with? 'test_'
+      end
+    end
 
-  def self.remove_tests(subclass)
-    subclass.public_instance_methods.grep(/^test_/).each do |meth|
-      subclass.send(:undef_method, meth.to_sym)
+    alias should test
+    alias describe context
+
+    private
+
+    def context_name name
+      %(Test#{(sanitize_name name).gsub(/(^| )(\w)/) { $2.upcase }}).to_sym
+    end
+
+    def test_name name
+      %(test_#{((sanitize_name name).gsub %r/\s+/, '_')}).to_sym
+    end
+
+    def sanitize_name name
+      (name.gsub %r/\W+/, ' ').strip
     end
   end
 end
 
-def context(*name, &block)
-  Minitest::Test.context(name, &block)
+def context *name, &block
+  Minitest::Test.context name, &block
 end

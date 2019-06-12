@@ -1,4 +1,4 @@
-# encoding: UTF-8
+# frozen_string_literal: true
 module Asciidoctor
   class Timings
     def initialize
@@ -54,7 +54,9 @@ module Asciidoctor
       to.puts %(  Total time (read, parse and convert): #{'%05.5f' % read_parse_convert.to_f})
     end
 
-    if (::Process.const_defined? :CLOCK_MONOTONIC) && (::Process.respond_to? :clock_gettime)
+    private
+
+    if (::Process.const_defined? :CLOCK_MONOTONIC, false) && (defined? ::Process.clock_gettime) == 'method'
       CLOCK_ID = ::Process::CLOCK_MONOTONIC
       def now
         ::Process.clock_gettime CLOCK_ID

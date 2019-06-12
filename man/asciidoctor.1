@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: asciidoctor
 .\"    Author: Dan Allen, Sarah White, Ryan Waldron
-.\" Generator: Asciidoctor 1.5.8
-.\"      Date: 2018-10-28
+.\" Generator: Asciidoctor 2.0.10
+.\"      Date: 2019-05-31
 .\"    Manual: Asciidoctor Manual
-.\"    Source: Asciidoctor 1.5.8
+.\"    Source: Asciidoctor 2.0.10
 .\"  Language: English
 .\"
-.TH "ASCIIDOCTOR" "1" "2018-10-28" "Asciidoctor 1.5.8" "Asciidoctor Manual"
+.TH "ASCIIDOCTOR" "1" "2019-05-31" "Asciidoctor 2.0.10" "Asciidoctor Manual"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -28,13 +28,13 @@
 .  LINKSTYLE blue R < >
 .\}
 .SH "NAME"
-asciidoctor \- converts AsciiDoc source files to HTML, DocBook and other formats
+asciidoctor \- converts AsciiDoc source files to HTML, DocBook, and other formats
 .SH "SYNOPSIS"
 .sp
 \fBasciidoctor\fP [\fIOPTION\fP]... \fIFILE\fP...
 .SH "DESCRIPTION"
 .sp
-The asciidoctor(1) command converts the AsciiDoc source file(s) \fIFILE\fP to HTML5, DocBook 5, DocBook 4.5, man(ual) page and other custom output formats.
+The asciidoctor(1) command converts the AsciiDoc source file(s) \fIFILE\fP to HTML5, DocBook 5, man(ual) page, and other custom output formats.
 .sp
 If \fIFILE\fP is \fI\-\fP then the AsciiDoc source is read from standard input.
 .SH "OPTIONS"
@@ -43,13 +43,13 @@ If \fIFILE\fP is \fI\-\fP then the AsciiDoc source is read from standard input.
 \fB\-B, \-\-base\-dir\fP=\fIDIR\fP
 .RS 4
 Base directory containing the document and resources.
-Defaults to the directory containing the source file, or the working directory if the source is read from a stream.
+Defaults to the directory containing the source file or, if the source is read from a stream, the working directory.
 When combined with the safe mode setting, can be used to chroot the execution of the program.
 .RE
 .sp
 \fB\-S, \-\-safe\-mode\fP=\fISAFE_MODE\fP
 .RS 4
-Set safe mode level: \fIunsafe\fP, \fIsafe\fP, \fIserver\fP or \fIsecure\fP.
+Set safe mode level: \fIunsafe\fP, \fIsafe\fP, \fIserver\fP, or \fIsecure\fP.
 Disables potentially dangerous macros in source files, such as \f(CRinclude::[]\fP.
 If not set, the safe mode level defaults to \fIunsafe\fP when Asciidoctor is invoked using this script.
 .RE
@@ -65,11 +65,11 @@ If not set, the safe mode level defaults to \fIunsafe\fP when Asciidoctor is inv
 .sp
 \fB\-a, \-\-attribute\fP=\fIATTRIBUTE\fP
 .RS 4
-Define, override or delete a document attribute.
-Command\-line attributes take precedence over attributes defined in the source file unless the value ends with \fI@\fP.
+Define, override, or unset a document attribute.
+Command\-line attributes take precedence over attributes defined in the source file unless either the name or value ends in \fI@\fP.
 .sp
 \fIATTRIBUTE\fP is normally formatted as a key\-value pair, in the form \fINAME=VALUE\fP.
-Alternate acceptable forms are \fINAME\fP (where the \fIVALUE\fP defaults to an empty string), \fINAME!\fP (unassigns the \fINAME\fP attribute) and \fINAME=VALUE@\fP (where \fIVALUE\fP does not override value of \fINAME\fP attribute if it\(cqs already defined in the source document).
+Alternate forms are \fINAME\fP (where the \fIVALUE\fP defaults to an empty string), \fINAME!\fP (unsets the \fINAME\fP attribute), and \fINAME=VALUE@\fP (or \fINAME@=VALUE\fP) (where \fIVALUE\fP does not override the \fINAME\fP attribute if it\(cqs already defined in the source document).
 Values containing spaces should be enclosed in quotes.
 .sp
 This option may be specified more than once.
@@ -77,7 +77,7 @@ This option may be specified more than once.
 .sp
 \fB\-b, \-\-backend\fP=\fIBACKEND\fP
 .RS 4
-Backend output file format: \fIhtml5\fP, \fIdocbook5\fP, \fIdocbook45\fP and \fImanpage\fP are supported out of the box.
+Backend output file format: \fIhtml5\fP, \fIdocbook5\fP, \fIdocbook45\fP, and \fImanpage\fP are supported out of the box.
 You can also use the backend alias names \fIhtml\fP (aliased to \fIhtml5\fP) or \fIdocbook\fP (aliased to \fIdocbook5\fP).
 Other values can be passed, but if Asciidoctor cannot resolve the backend to a converter, it will fail.
 Defaults to \fIhtml5\fP.
@@ -85,7 +85,7 @@ Defaults to \fIhtml5\fP.
 .sp
 \fB\-d, \-\-doctype\fP=\fIDOCTYPE\fP
 .RS 4
-Document type: \fIarticle\fP, \fIbook\fP, \fImanpage\fP or \fIinline\fP.
+Document type: \fIarticle\fP, \fIbook\fP, \fImanpage\fP, or \fIinline\fP.
 Sets the root element when using the \fIdocbook\fP backend and the style class on the HTML body element when using the \fIhtml\fP backend.
 The \fIbook\fP document type allows multiple level\-0 section titles in a single document.
 The \fImanpage\fP document type enables parsing of metadata necessary to produce a man page.
@@ -97,7 +97,7 @@ Defaults to \fIarticle\fP.
 \fB\-D, \-\-destination\-dir\fP=\fIDIR\fP
 .RS 4
 Destination output directory.
-Defaults to the directory containing the source file, or the working directory if the source is read from a stream.
+Defaults to the directory containing the source file or, if the source is read from a stream, the working directory.
 If specified, the directory is resolved relative to the working directory.
 .RE
 .sp
@@ -173,35 +173,39 @@ Matching templates found in subsequent directories override ones previously disc
 \fB\-\-failure\-level\fP=\fILEVEL\fP
 .RS 4
 The minimum logging level that triggers a non\-zero exit code (failure).
-If this option is not set (default: FATAL), the program exits with a status code zero even if warnings or errors have been logged.
+If this option is not set (default: FATAL), the program exits with exit code zero even if warnings or errors have been logged.
 .RE
 .sp
 \fB\-q, \-\-quiet\fP
 .RS 4
-Silence warnings.
+Silence application log messages and script warnings.
 .RE
 .sp
 \fB\-\-trace\fP
 .RS 4
-Include backtrace information on errors.
-Not enabled by default.
+Include backtrace information when reporting errors.
 .RE
 .sp
 \fB\-v, \-\-verbose\fP
 .RS 4
-Verbosely print processing information and configuration file checks to stderr.
+Verbosely print processing information to stderr, including debug\-level log messages.
+.RE
+.sp
+\fB\-w, \-\-warnings\fP
+.RS 4
+Turn on script warnings (applies to executed code).
 .RE
 .sp
 \fB\-t, \-\-timings\fP
 .RS 4
-Display timings information (time to read, parse and convert).
+Print timings report to stderr (time to read, parse, and convert).
 .RE
 .SS "Program Information"
 .sp
 \fB\-h, \-\-help\fP [\fITOPIC\fP]
 .RS 4
-Print the help message.
-Show the command usage if \fITOPIC\fP is not specified (or not recognized).
+Print a help message.
+Show the command usage if \fITOPIC\fP is not specified or recognized.
 Dump the Asciidoctor man page (in troff/groff format) if \fITOPIC\fP is \fImanpage\fP.
 .RE
 .sp
@@ -209,7 +213,7 @@ Dump the Asciidoctor man page (in troff/groff format) if \fITOPIC\fP is \fImanpa
 .RS 4
 Print program version number.
 .sp
-\f(CR\-v\fP can also be used if no other flags or arguments are present.
+\fB\-v\fP can also be used if no source files are specified.
 .RE
 .SH "ENVIRONMENT"
 .sp
@@ -235,7 +239,7 @@ Refer to the \fBAsciidoctor\fP issue tracker at \c
 .URL "https://github.com/asciidoctor/asciidoctor/issues?q=is%3Aopen" "" "."
 .SH "AUTHORS"
 .sp
-\fBAsciidoctor\fP was written by Dan Allen, Ryan Waldron, Jason Porter, Nick Hengeveld and other contributors.
+\fBAsciidoctor\fP was written by Dan Allen, Ryan Waldron, Jason Porter, Nick Hengeveld, and other contributors.
 .sp
 \fBAsciiDoc\fP was written by Stuart Rackham and has received contributions from many other individuals.
 .SH "RESOURCES"
@@ -253,7 +257,7 @@ Refer to the \fBAsciidoctor\fP issue tracker at \c
 .URL "http://discuss.asciidoctor.org" "" ""
 .SH "COPYING"
 .sp
-Copyright (C) 2012\-2018 Dan Allen, Ryan Waldron and the Asciidoctor Project.
+Copyright (C) 2012\-2019 Dan Allen, Ryan Waldron, and the Asciidoctor Project.
 Free use of this software is granted under the terms of the MIT License.
 .SH "AUTHORS"
 .sp

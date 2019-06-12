@@ -1,6 +1,6 @@
 = Asciidoctor
 Dan Allen <https://github.com/mojavelinux[@mojavelinux]>; Sarah White <https://github.com/graphitefriction[@graphitefriction]>; Ryan Waldron <https://github.com/erebor[@erebor]>
-v1.5.8, 2018-10-28
+v2.0.10, 2019-05-31
 // settings:
 :idprefix:
 :idseparator: -
@@ -17,7 +17,7 @@ ifdef::env-github[]
 :warning-caption: :warning:
 endif::[]
 // Variables:
-:release-version: 1.5.8
+:release-version: 2.0.10
 // URIs:
 :uri-org: https://github.com/asciidoctor
 :uri-repo: {uri-org}/asciidoctor
@@ -27,6 +27,7 @@ endif::[]
 :uri-maven-plugin: {uri-org}/asciidoctor-maven-plugin
 :uri-asciidoclet: {uri-org}/asciidoclet
 :uri-project: https://asciidoctor.org
+:uri-gem: https://rubygems.org/gems/asciidoctor
 ifdef::env-site[:uri-project: link:]
 :uri-docs: {uri-project}/docs
 :uri-news: {uri-project}/news
@@ -35,7 +36,7 @@ ifdef::env-site[:uri-project: link:]
 :uri-contributors: {uri-repo}/graphs/contributors
 :uri-rel-file-base: link:
 :uri-rel-tree-base: link:
-ifdef::env-site[]
+ifdef::env-site,env-yard[]
 :uri-rel-file-base: {uri-repo}/blob/master/
 :uri-rel-tree-base: {uri-repo}/tree/master/
 endif::[]
@@ -51,7 +52,7 @@ endif::[]
 :uri-install-docker: https://github.com/asciidoctor/docker-asciidoctor
 //:uri-install-doc: {uri-docs}/install-toolchain
 :uri-install-macos-doc: {uri-docs}/install-asciidoctor-macos
-:uri-render-doc: {uri-docs}/render-documents
+:uri-convert-doc: {uri-docs}/convert-documents
 :uri-themes-doc: {uri-docs}/produce-custom-themes-using-asciidoctor-stylesheet-factory
 :uri-gitscm-repo: https://github.com/git/git-scm.com
 :uri-prototype: {uri-gitscm-repo}/commits/master/lib/asciidoc.rb
@@ -64,12 +65,14 @@ endif::[]
 :image-uri-screenshot: https://raw.githubusercontent.com/asciidoctor/asciidoctor/master/screenshot.png
 
 {uri-project}[Asciidoctor] is a _fast_, {uri-license}[open source] text processor and publishing toolchain for converting {uri-what-is-asciidoc}[AsciiDoc] content to HTML5, DocBook, PDF, and other formats.
-Asciidoctor is written in Ruby and runs on all major operation systems.
-To simplify installation, Asciidoctor is packaged and distributed as a gem to {uri-rubygem}[RubyGems.org] and is packaged for popular Linux distributions and macOS.
-Asciidoctor can also be run in a JVM using {uri-asciidoctorj}[AsciidoctorJ] or in any JavaScript environment using {uri-asciidoctorjs}[Asciidoctor.js].
+Asciidoctor is written in Ruby and runs on all major operating systems.
 The Asciidoctor project is {uri-repo}[hosted on GitHub].
 
-ifndef::env-site[]
+To simplify installation, Asciidoctor is packaged and distributed as a RubyGem (aka gem) to {uri-rubygem}[RubyGems.org].
+It's also distributed as a package for popular Linux distributions and macOS.
+In addition to running on Ruby, Asciidoctor can be executed on a JVM using {uri-asciidoctorj}[AsciidoctorJ] or in any JavaScript environment (including the browser) using {uri-asciidoctorjs}[Asciidoctor.js].
+
+ifndef::env-site,env-yard[]
 This document is also available in the following languages: +
 {uri-rel-file-base}README-zh_CN.adoc[汉语]
 |
@@ -88,27 +91,28 @@ endif::[]
 * {uri-docs}/asciidoc-syntax-quick-reference[AsciiDoc Syntax Reference]
 
 ifdef::status[]
-.*Project health*
-image:https://img.shields.io/travis/asciidoctor/asciidoctor/master.svg[Build Status (Travis CI), link=https://travis-ci.org/asciidoctor/asciidoctor]
-image:https://ci.appveyor.com/api/projects/status/ifplu67oxvgn6ceq/branch/master?svg=true&amp;passingText=green%20bar&amp;failingText=%23fail&amp;pendingText=building%2E%2E%2E[Build Status (AppVeyor), link=https://ci.appveyor.com/project/asciidoctor/asciidoctor]
-//image:https://img.shields.io/coveralls/asciidoctor/asciidoctor/master.svg[Coverage Status, link=https://coveralls.io/r/asciidoctor/asciidoctor]
-//image:https://codeclimate.com/github/asciidoctor/asciidoctor/badges/gpa.svg[Code Climate, link="https://codeclimate.com/github/asciidoctor/asciidoctor"]
-image:https://inch-ci.org/github/asciidoctor/asciidoctor.svg?branch=master[Inline docs, link="https://inch-ci.org/github/asciidoctor/asciidoctor"]
+//.*Project health*
+image:https://img.shields.io/gem/v/asciidoctor.svg[Latest Release, link={uri-gem}]
+image:https://img.shields.io/badge/rubydoc.info-{release-version}-blue.svg[library (API) docs,link=https://www.rubydoc.info/gems/asciidoctor/{release-version}]
+image:https://img.shields.io/travis/asciidoctor/asciidoctor/master.svg[Build Status (Travis CI),link=https://travis-ci.org/asciidoctor/asciidoctor]
+image:https://ci.appveyor.com/api/projects/status/ifplu67oxvgn6ceq/branch/master?svg=true&amp;passingText=green%20bar&amp;failingText=%23fail&amp;pendingText=building%2E%2E%2E[Build Status (AppVeyor),link=https://ci.appveyor.com/project/asciidoctor/asciidoctor]
+//image:https://img.shields.io/coveralls/asciidoctor/asciidoctor/master.svg[Coverage Status,link=https://coveralls.io/r/asciidoctor/asciidoctor]
+//image:https://codeclimate.com/github/asciidoctor/asciidoctor/badges/gpa.svg[Code Climate,link=https://codeclimate.com/github/asciidoctor/asciidoctor]
+image:https://inch-ci.org/github/asciidoctor/asciidoctor.svg?branch=master[Inline docs,link=https://inch-ci.org/github/asciidoctor/asciidoctor]
 endif::[]
 
 == Sponsors
 
-We want to recognize our generous sponsors, without whose support Asciidoctor would not be possible.
-Thank you sponsors for your dedication to improving the state of technical documentation!
+We want to recognize our {uri-project}/supporters[sponsors] for their commitment to improving the state of technical documentation by supporting this project.
+Thank you sponsors!
+Without your generous support, Asciidoctor would not be possible.
 
-image:https://www.okta.com/sites/all/themes/Okta/images/blog/Logos/Okta_Logo_BrightBlue_Medium.png[Okta,280,link=https://developer.okta.com/signup?utm_source=asciidoctor&utm_medium=logo&utm_campaign=sponsor,title="Add User Auth to Your Apps in Minutes with Okta"]
-&nbsp; &nbsp; &nbsp;
-image:https://secure.gravatar.com/avatar/823717a797dbd78ceff7b26aa397f383.png?size=200[OpenDevise,100,link=https://opendevise.com,title="Let the Creators of Asciidoctor and Antora Help You to Accelerate Your Docs"]
+ifndef::env-site,env-yard[]
+Major funding for Asciidoctor is provided by our *Change Maker*, https://opendevise.com[OpenDevise], our *Strategy Sponsors*, https://www.khronos.org/[Khronos Group] and Linda Roberts, and our *Pull Request Backers*, Brian Dominick, Guillaume Grossetie, and Abel Salgado Romero.
+Additional funding is provided by the supporters listed on our {uri-project}/supporters[Community Backers] page.
+endif::[]
 
-Major funding for Asciidoctor is provided by our *Change Makers*, https://developer.okta.com/signup?utm_source=asciidoctor&utm_medium=text-link&utm_campaign=sponsor[Okta] and https://opendevise.com[OpenDevise], and our *Strategy Sponsors*, https://www.khronos.org/[Khronos Group] and Linda Roberts.
-Additional funding is provided by our https://asciidoctor.org/supporters[Community Backers].
-
-You can support this project by becoming a sponsor on https://opencollective.com/asciidoctor[OpenCollective].
+You can support this project by becoming a sponsor through https://opencollective.com/asciidoctor[OpenCollective].
 
 == The Big Picture
 
@@ -122,8 +126,8 @@ image::{image-uri-screenshot}[Preview of AsciiDoc source and corresponding rende
 Asciidoctor reads and parses text written in the AsciiDoc syntax, then feeds the parse tree to a set of built-in converters to produce HTML5, DocBook 5, and man(ual) page output.
 You have the option of using your own converter or loading {uri-tilt}[Tilt]-supported templates to customize the generated output or produce additional formats.
 
-Asciidoctor is a drop-in replacement for the original AsciiDoc Python processor (`asciidoc.py`).
-The Asciidoctor test suite has {uri-tests}[> 2,000 tests] to ensure compatibility with the AsciiDoc syntax.
+Asciidoctor is a drop-in replacement for its predecessor, AsciiDoc Python (`asciidoc.py`).
+The Asciidoctor test suite has {uri-tests}[> 2,350 tests] to ensure compatibility with the AsciiDoc syntax.
 
 In addition to the classic AsciiDoc syntax, Asciidoctor recognizes additional markup and formatting options, such as font-based icons (e.g., `+icon:fire[]+`) and UI elements (e.g., `+button:[Save]+`).
 Asciidoctor also offers a modern, responsive theme based on {uri-foundation}[Foundation] to style the HTML5 output.
@@ -143,9 +147,9 @@ It's used to power the AsciiDoc preview extensions for Chrome, Atom, Brackets an
 
 Asciidoctor works on Linux, macOS and Windows and requires one of the following implementations of {uri-ruby}[Ruby]:
 
-* Ruby (MRI/CRuby 1.8.7 - 2.5)
-* JRuby (1.7 in Ruby 1.8 and 1.9 modes, 9000)
-* Rubinius 2.2.x
+* CRuby (aka MRI) 2.3 - 2.6
+* JRuby 9.1 - 9.2
+* TruffleRuby (GraalVM)
 * Opal (JavaScript)
 
 [CAUTION]
@@ -329,7 +333,7 @@ You should see information about the Asciidoctor version and your Ruby environme
 [.output,subs=attributes+]
 ....
 Asciidoctor {release-version} [https://asciidoctor.org]
-Runtime Environment (ruby 2.5.1p57 [x86_64-linux]) (lc:UTF-8 fs:UTF-8 in:- ex:UTF-8)
+Runtime Environment (ruby 2.6.0p0 [x86_64-linux]) (lc:UTF-8 fs:UTF-8 in:- ex:UTF-8)
 ....
 
 Asciidoctor also provides an API.
@@ -356,7 +360,7 @@ The `asciidoctor` {uri-manpage}[man page] provides a complete reference of the c
 
 Refer to the following resources to learn more about how to use the `asciidoctor` command.
 
-* {uri-render-doc}[How do I convert a document?]
+* {uri-convert-doc}[How do I convert a document?]
 * {uri-themes-doc}[How do I use the Asciidoctor stylesheet factory to produce custom themes?]
 
 === Ruby API
@@ -456,7 +460,7 @@ Asciidoctor organization on GitHub:: {uri-org}
 
 == License
 
-Copyright (C) 2012-2018 Dan Allen, Sarah White and the individual contributors to Asciidoctor.
+Copyright (C) 2012-2019 Dan Allen, Sarah White, Ryan Waldron, and the individual contributors to Asciidoctor.
 Use of this software is granted under the terms of the MIT License.
 
 See the {uri-license}[LICENSE] for the full license text.

@@ -1,9 +1,9 @@
-# encoding: UTF-8
+# frozen_string_literal: true
 module Asciidoctor
 # Public: Methods for managing inline elements in AsciiDoc block
 class Inline < AbstractNode
   # Public: Get the text of this inline element
-  attr_reader :text
+  attr_accessor :text
 
   # Public: Get the type (qualifier) of this inline element
   attr_reader :type
@@ -12,19 +12,12 @@ class Inline < AbstractNode
   attr_accessor :target
 
   def initialize(parent, context, text = nil, opts = {})
-    super(parent, context)
+    super(parent, context, opts)
     @node_name = %(inline_#{context})
-
     @text = text
-
     @id = opts[:id]
     @type = opts[:type]
     @target = opts[:target]
-
-    # value of attributes option for inline nodes may be nil
-    if (attrs = opts[:attributes])
-      @attributes = attrs.dup
-    end
   end
 
   def block?
@@ -39,21 +32,25 @@ class Inline < AbstractNode
     converter.convert self
   end
 
-  # Alias render to convert to maintain backwards compatibility
+  # Deprecated: Use {Inline#convert} instead.
   alias render convert
 
   # Public: Returns the converted alt text for this inline image.
   #
   # Returns the [String] value of the alt attribute.
   def alt
-    attr 'alt'
+    (attr 'alt') || ''
   end
 
+  # For a reference node (:ref or :bibref), the text is the reftext (and the reftext attribute is not set).
+  #
   # (see AbstractNode#reftext?)
   def reftext?
     @text && (@type == :ref || @type == :bibref)
   end
 
+  # For a reference node (:ref or :bibref), the text is the reftext (and the reftext attribute is not set).
+  #
   # (see AbstractNode#reftext)
   def reftext
     (val = @text) ? (apply_reftext_subs val) : nil

@@ -1,4 +1,4 @@
-# encoding: UTF-8
+# frozen_string_literal: true
 module Asciidoctor
 # Public: Handles all operations for resolving, cleaning and joining paths.
 # This class includes operations for handling both web paths (request URIs) and
@@ -84,7 +84,7 @@ module Asciidoctor
 #     => 'C:/data/docs/css'
 #
 #     begin
-#       resolver.system_path('../../../css', '../../..', '/path/to/docs', :recover => false)
+#       resolver.system_path('../../../css', '../../..', '/path/to/docs', recover: false)
 #     rescue SecurityError => e
 #       puts e.message
 #     end
@@ -206,8 +206,9 @@ class PathResolver
 
   # Public: Calculate the relative path to this absolute path from the specified base directory
   #
-  # If neither path or base are absolute paths, or the path is not contained
-  # within the base directory, no work is done.
+  # If neither path or base are absolute paths, the path is not contained
+  # within the base directory, or the relative path cannot be computed, the
+  # original path is returned work is done.
   #
   # path - [String] an absolute filename.
   # base - [String] an absolute base directory.
@@ -218,7 +219,11 @@ class PathResolver
       if (offset = descends_from? path, base)
         path.slice offset, path.length
       else
-        (Pathname.new path).relative_path_from(Pathname.new base).to_s
+        begin
+          (Pathname.new path).relative_path_from(Pathname.new base).to_s
+        rescue
+          path
+        end
       end
     else
       path
@@ -471,25 +476,15 @@ class PathResolver
   def web_path target, start = nil
     target = posixify target
     start = posixify start
-    uri_prefix = nil
 
     unless start.nil_or_empty? || (web_root? target)
-      target = (start.end_with? SLASH) ? %(#{start}#{target}) : %(#{start}#{SLASH}#{target})
-      if (uri_prefix = Helpers.uri_prefix target)
-        target = target[uri_prefix.length..-1]
-      end
+      target, uri_prefix = extract_uri_prefix %(#{start}#{(start.end_with? SLASH) ? '' : SLASH}#{target})
     end
 
     # use this logic instead if we want to normalize target if it contains a URI
     #unless web_root? target
-    #  if preserve_uri_target && (uri_prefix = Helpers.uri_prefix target)
-    #    target = target[uri_prefix.length..-1]
-    #  elsif !start.nil_or_empty?
-    #    target = %(#{start}#{SLASH}#{target})
-    #    if (uri_prefix = Helpers.uri_prefix target)
-    #      target = target[uri_prefix.length..-1]
-    #    end
-    #  end
+    #  target, uri_prefix = extract_uri_prefix target if preserve_uri_target
+    #  target, uri_prefix = extract_uri_prefix %(#{start}#{SLASH}#{target}) unless uri_prefix || start.nil_or_empty?
     #end
 
     target_segments, target_root = partition_path target, true
@@ -515,6 +510,24 @@ class PathResolver
     end
 
     uri_prefix ? %(#{uri_prefix}#{resolved_path}) : resolved_path
+  end
+
+  private
+
+  # Internal: Efficiently extracts the URI prefix from the specified String if the String is a URI
+  #
+  # Uses the Asciidoctor::UriSniffRx regex to match the URI prefix in the specified String (e.g., http://). If present,
+  # the prefix is removed.
+  #
+  # str - the String to check
+  #
+  # returns a tuple containing the specified string without the URI prefix, if present, and the extracted URI prefix.
+  def extract_uri_prefix str
+    if (str.include? ':') && UriSniffRx =~ str
+      [(str.slice $&.length, str.length), $&]
+    else
+      str
+    end
   end
 end
 end

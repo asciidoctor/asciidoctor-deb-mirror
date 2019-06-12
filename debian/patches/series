@@ -1,4 +1,3 @@
 data_path.patch
 skip-unreadable-file.patch
 privacy_breach.patch
-timezone-tests.patch

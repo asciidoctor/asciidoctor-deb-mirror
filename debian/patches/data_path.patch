@@ -1,14 +1,15 @@
 From: Guillaume Grossetie <ggrossetie@gmail.com>
 Subject: Load data from /usr/share/asciidoctor path
 Bug-Debian: https://bugs.debian.org/788052
+Last-update: 2019-06-11
 --- a/lib/asciidoctor.rb
 +++ b/lib/asciidoctor.rb
-@@ -197,7 +197,7 @@
-   #LIB_PATH = ::File.join ROOT_PATH, 'lib'
+@@ -182,7 +182,7 @@
+   LIB_DIR = ::File.join ROOT_DIR, 'lib'
  
-   # The absolute data path of the Asciidoctor RubyGem
--  DATA_PATH = ::File.join ROOT_PATH, 'data'
-+  DATA_PATH = ::File.exist?(asciidoctor_lib_path = ::File.join(ROOT_PATH, 'data')) ? asciidoctor_lib_path : ::File.join(ROOT_PATH, '../../share/ruby-asciidoctor')
+   # The absolute data directory of the Asciidoctor RubyGem
+-  DATA_DIR = ::File.join ROOT_DIR, 'data'
++  DATA_DIR = ::File.exist?(asciidoctor_lib_path = ::File.join(ROOT_DIR, 'data')) ? asciidoctor_lib_path : ::File.join(ROOT_DIR, '../../share/ruby-asciidoctor')
  
    # The user's home directory, as best we can determine it
-   # NOTE not using infix rescue for performance reasons, see: https://github.com/jruby/jruby/issues/1816
+   # IMPORTANT this rescue is required for running Asciidoctor on GitHub.com

@@ -1,8 +1,9 @@
-# encoding: UTF-8
+# frozen_string_literal: true
 module Asciidoctor
   module Cli
     # Public Invocation class for starting Asciidoctor via CLI
     class Invoker
+      include Logging
 
       attr_reader :options
       attr_reader :documents
@@ -32,8 +33,8 @@ module Asciidoctor
       def invoke!
         return unless @options
 
-        old_verbose = $VERBOSE
         old_logger = old_logger_level = nil
+        old_verbose, $VERBOSE = $VERBOSE, @options[:warnings]
         opts = {}
         infiles = []
         outfile = nil
@@ -61,18 +62,14 @@ module Asciidoctor
           when :timings
             show_timings = val
           when :trace
-            # currently does nothing
+            # no assignment
           when :verbose
             case val
             when 0
               $VERBOSE = nil
-              old_logger = LoggerManager.logger
-              LoggerManager.logger = NullLogger.new
-            when 1
-              $VERBOSE = false
+              old_logger, LoggerManager.logger = logger, NullLogger.new
             when 2
-              $VERBOSE = true
-              old_logger_level, LoggerManager.logger.level = LoggerManager.logger.level, ::Logger::Severity::DEBUG
+              old_logger_level, logger.level = logger.level, ::Logger::Severity::DEBUG
             end
           else
             opts[key] = val unless val.nil?
@@ -89,7 +86,8 @@ module Asciidoctor
         end
 
         if outfile == '-'
-          tofile = @out || $stdout
+          # NOTE set_encoding returns nil on JRuby 9.1
+          (tofile = @out) || ((tofile = $stdout).set_encoding UTF_8)
         elsif outfile
           opts[:mkdirs] = true
           tofile = outfile
@@ -100,17 +98,18 @@ module Asciidoctor
 
         if stdin
           # allows use of block to supply stdin, particularly useful for tests
-          input = block_given? ? yield : STDIN
-          input_opts = opts.merge :to_file => tofile
+          # NOTE set_encoding returns nil on JRuby 9.1
+          block_given? ? (input = yield) : ((input = $stdin).set_encoding UTF_8, UTF_8)
+          input_opts = opts.merge to_file: tofile
           if show_timings
-            @documents << (::Asciidoctor.convert input, (input_opts.merge :timings => (timings = Timings.new)))
+            @documents << (::Asciidoctor.convert input, (input_opts.merge timings: (timings = Timings.new)))
             timings.print_report err, '-'
           else
             @documents << (::Asciidoctor.convert input, input_opts)
           end
         else
           infiles.each do |infile|
-            input_opts = opts.merge :to_file => tofile
+            input_opts = opts.merge to_file: tofile
             if abs_srcdir_posix && (input_opts.key? :to_dir)
               abs_indir = ::File.dirname ::File.expand_path infile
               if non_posix_env
@@ -123,29 +122,25 @@ module Asciidoctor
               end
             end
             if show_timings
-              @documents << (::Asciidoctor.convert_file infile, (input_opts.merge :timings => (timings = Timings.new)))
+              @documents << (::Asciidoctor.convert_file infile, (input_opts.merge timings: (timings = Timings.new)))
               timings.print_report err, infile
             else
               @documents << (::Asciidoctor.convert_file infile, input_opts)
             end
           end
         end
-        @code = 1 if ((logger = LoggerManager.logger).respond_to? :max_severity) && logger.max_severity && logger.max_severity >= opts[:failure_level]
+        @code = 1 if (logger.respond_to? :max_severity) && logger.max_severity && logger.max_severity >= opts[:failure_level]
       rescue ::Exception => e
         if ::SignalException === e
           @code = e.signo
-          # add extra endline if Ctrl+C is used
+          # add extra newline if Ctrl+C is used
           err.puts if ::Interrupt === e
         else
           @code = (e.respond_to? :status) ? e.status : 1
           if @options[:trace]
             raise e
           else
-            if ::RuntimeError === e
-              err.puts %(#{e.message} (#{e.class}))
-            else
-              err.puts e.message
-            end
+            err.puts ::RuntimeError === e ? %(#{e.message} (#{e.class})) : e.message
             err.puts '  Use --trace for backtrace'
           end
         end
@@ -155,7 +150,7 @@ module Asciidoctor
         if old_logger
           LoggerManager.logger = old_logger
         elsif old_logger_level
-          LoggerManager.logger.level = old_logger_level
+          logger.level = old_logger_level
         end
       end
 

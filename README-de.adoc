@@ -1,6 +1,6 @@
 = Asciidoctor
 Dan Allen <https://github.com/mojavelinux[@mojavelinux]>; Sarah White <https://github.com/graphitefriction[@graphitefriction]>; Ryan Waldron <https://github.com/erebor[@erebor]>
-v1.5.8, 2018-10-28
+v2.0.10, 2019-05-31
 // settings:
 :idprefix:
 :idseparator: -
@@ -17,13 +17,13 @@ ifdef::env-github[]
 :warning-caption: :warning:
 endif::[]
 // Variables:
-:release-version: 1.5.8
+:release-version: 2.0.10
 // URIs:
 :uri-org: https://github.com/asciidoctor
 :uri-repo: {uri-org}/asciidoctor
 :uri-asciidoctorj: {uri-org}/asciidoctorj
 :uri-asciidoctorjs: {uri-org}/asciidoctor.js
-:uri-project: http://asciidoctor.org
+:uri-project: https://asciidoctor.org
 ifdef::env-site[:uri-project: link:]
 :uri-docs: {uri-project}/docs
 :uri-news: {uri-project}/news
@@ -60,11 +60,11 @@ endif::[]
 // images:
 :image-uri-screenshot: https://raw.githubusercontent.com/asciidoctor/asciidoctor/master/screenshot.png
 
-{uri-project}[Asciidoctor] ist ein _schneller_, {uri-license}[Open Source] Textverarbeitungs- und Publishing-Toolchain für die Konvertierung von {uri-what-is-asciidoc}[AsciiDoc]-Inhalten in HTML5, DocBook, PDF und andere Formate.
+{uri-project}[Asciidoctor] ist ein _schneller_, {uri-license}[Open Source] Textverarbeitungs- und Publishing-Toolchain für die Konvertierung von {uri-what-is-asciidoc}[AsciiDoc]-Inhalten in HTML 5, DocBook 5, PDF und andere Formate.
 Asciidoctor ist in Ruby geschrieben und läuft auf allen gängigen Betriebsystemen.
 Um die Installation zu vereinfachen wird Asciidoctor als Gem auf {uri-rubygem}[RubyGems.org] verpackt und ist als Paket für gängige Linux-Distributionen und MacOS erhältlich.
 Asciidoctor kann auch in einer JVM mit {uri-asciidoctorj}[AsciidoctorJ] oder einer beliebigen Javascript-Umgebung mit {uri-asciidoctorjs}[Asciidoctor.js] ausgeführt werden.
-Das Asciidoctor-Projekt wird {uri-repo}[auf Github] gehostet.
+Das Asciidoctor-Projekt wird {uri-repo}[auf GitHub] gehostet.
 
 ifndef::env-site[]
 Dieses Dokument ist auch in folgenden Sprachen erhältlich: +
@@ -97,33 +97,27 @@ endif::[]
 
 Wir möchten unseren großzügigen Sponsoren danken, ohne deren Unterstützung Asciidoctor nicht möglich wäre.
 Vielen Dank an die Sponsoren für ihr Engagement zur Verbesserung der technischen Dokumentation!
-
-image:https://www.okta.com/sites/all/themes/Okta/images/blog/Logos/Okta_Logo_BrightBlue_Medium.png[Okta,280,link=https://developer.okta.com/signup?utm_source=asciidoctor&utm_medium=logo&utm_campaign=sponsor,title="Add User Auth to Your Apps in Minutes with Okta"]
-&nbsp; &nbsp; &nbsp;
-image:https://secure.gravatar.com/avatar/823717a797dbd78ceff7b26aa397f383.png?size=200[OpenDevise,100,link=https://opendevise.com,title="Let the Creators of Asciidoctor and Antora Help You to Accelerate Your Docs"]
-
-Unsere Change Makers, https://developer.okta.com/signup?utm_source=asciidoctor&utm_medium=text-link&utm_campaign=sponsor[Okta] und https://opendevise.com[OpenDevise], sowie unsere Strategiesponsoren https://www.khronos.org/[Khronos Group] und Linda Roberts finanzieren Asciidoctor maßgeblich.
 Zusätzliche Mittel werden von unseren https://asciidoctor.org/supporters[Community Backers] zur Verfügung gestellt.
 
 Sie können dieses Projekt unterstützen, indem Sie Sponsor bei https://opencollective.com/asciidoctor[OpenCollective] werden.
 
 == Das große Ganze
 
-Asciidoctor liest Inhalte, die im Klartext geschrieben wurden, wie im Feld links im Bild unten gezeigt, und wandelt Sie in HTML5 um, wie im rechten Feld dargestellt.
-Asciidoctor wendet ein Standard-Stylesheet auf das HTML5-Dokument an, um ein angenehmes Out-of-the-Box-Erlebnis zu bieten.
+Asciidoctor liest Inhalte, die im Klartext geschrieben wurden, wie im Feld links im Bild unten gezeigt, und wandelt Sie in HTML 5 um, wie im rechten Feld dargestellt.
+Asciidoctor wendet ein Standard-Stylesheet auf das HTML 5-Dokument an, um ein angenehmes Out-of-the-Box-Erlebnis zu bieten.
 
 image::{image-uri-screenshot}[Preview of AsciiDoc source and corresponding rendered HTML]
 
 == AsciiDoc Verarbeitung
 
-Asciidoctor liest und analysiert Text, der in der AsciiDoc-Syntax geschrieben wurde, und leitet dann den Parse-Tree durch eine Reihe von eingebauten Konvertern, um HTML5, DocBook 5 und man-pages zu erzeugen.
+Asciidoctor liest und analysiert Text, der in der AsciiDoc-Syntax geschrieben wurde, und leitet dann den Parse-Tree durch eine Reihe von eingebauten Konvertern, um HTML 5, DocBook 5 und man-pages zu erzeugen.
 Sie haben die Möglichkeit, eigene Konverter zu verwenden oder {uri-tilt}[Tilt]-gestützte Vorlagen zu laden, um die generierte Ausgabe anzupassen oder zusätzliche Formate zu erzeugen.
 
 Asciidoctor ist ein Ersatz für den Original AsciiDoc Python Prozessor (`asciidoc.py`).
 Die Asciidoctor-Testsuite verfügt über {uri-tests}[mehr als 2,000 Tests], um die Kompatibilität mit der AsciiDoc-Syntax sicherzustellen.
 
 Neben der klassischen AsciiDoc-Syntax erkennt Asciidoctor zusätzliche Markup- und Formatierungsoptionen, wie z.B. fontbasierte Icons (z.B. `+icon:fire[]+`) und UI-Elemente (z.B. `+button:[Save]+`).
-Asciidoctor bietet auch ein modernes, __responsive Theme__, das auf {uri-foundation}[Foundation] basiert, um die HTML5-Ausgabe zu gestalten.
+Asciidoctor bietet auch ein modernes, __responsive Theme__, das auf {uri-foundation}[Foundation] basiert, um die HTML 5-Ausgabe zu gestalten.
 
 == Wo Ruby hingeht, folgt Asciidoctor
 
@@ -140,9 +134,9 @@ Es wird für die AsciiDoc Vorschau-Erweiterungen für Chrome, Atom, Brackets und
 
 Asciidoctor arbeitet unter Linux, MacOS und Windows und benötigt eine der folgenden Implementierungen von {uri-ruby}[Ruby]:
 
-* Ruby (MRI/CRuby 1.8.7 - 2.5)
-* JRuby (1.7 in Ruby 1.8 und 1.9 modes, 9000)
-* Rubinius 2.2.x
+* CRuby (aka MRI) 2.3 - 2.6
+* JRuby 9.1 - 9.2
+* TruffleRuby (GraalVM)
 * Opal (JavaScript)
 
 [CAUTION]
@@ -328,7 +322,7 @@ Sie sollten Informationen über die Asciidoctor-Version und Ihre Ruby-Umgebung i
 [.output,subs=attributes+]
 ....
 Asciidoctor 1.5.7 [https://asciidoctor.org]
-Laufzeitumgebung (ruby 2.5.1p57 [x86_64-linux]) (lc:UTF-8 fs:UTF-8 in:- ex:UTF-8)
+Laufzeitumgebung (ruby 2.6.0p0 [x86_64-linux]) (lc:UTF-8 fs:UTF-8 in:- ex:UTF-8)
 ....
 
 Asciidoctor bietet auch eine API.
@@ -459,14 +453,14 @@ Asciidoctor Organization auf GitHub:: {uri-org}
 
 == Lizenz
 
-Copyright (C) 2012-2018 Dan Allen, Sarah White und die einzelnen Mitarbeiter von Asciidoctor.
+Copyright (C) 2012-2019 Dan Allen, Sarah White, Ryan Waldron, und die einzelnen Mitarbeiter von Asciidoctor.
 Die Nutzung dieser Software wird unter den Bedingungen der MIT-Lizenz gewährt.
 
 Siehe die {uri-license}[LIZENZ] für den vollen Lizenztext.
 
 == Authoren
 
-*Asciidoctor* wird von https://github.com/mojavelinux[Dan Allen] und https://github.com/graphitefriction[Sarah White] geleitet und hat Beiträge von {uri-contributors}[vielen Personen} in Asciidoctors großartiger Gemeinschaft erhalten.
+*Asciidoctor* wird von https://github.com/mojavelinux[Dan Allen] und https://github.com/graphitefriction[Sarah White] geleitet und hat Beiträge von {uri-contributors}[vielen Personen] in Asciidoctors großartiger Gemeinschaft erhalten.
 Das Projekt wurde 2012 von https://github.com/erebor[Ryan Waldron] initiiert und basiert auf einem {uri-prototype}[Prototyp] von https://github.com/nickh[Nick Hengeveld].
 
 *AsciiDoc* wurde von Stuart Rackham gegründet und hat Beiträge von vielen Personen aus der AsciiDoc-Community erhalten.

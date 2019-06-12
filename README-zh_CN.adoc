@@ -1,6 +1,6 @@
 = Asciidoctor
 Dan Allen <https://github.com/mojavelinux[@mojavelinux]>; Sarah White <https://github.com/graphitefriction[@graphitefriction]>; Ryan Waldron <https://github.com/erebor[@erebor]>
-v1.5.8, 2018-10-28
+v2.0.10, 2019-05-31
 // settings:
 :page-layout: base
 :idprefix:
@@ -18,13 +18,13 @@ ifdef::env-github[]
 :warning-caption: :warning:
 endif::[]
 // Variables:
-:release-version: 1.5.8
+:release-version: 2.0.10
 // URIs:
 :uri-org: https://github.com/asciidoctor
 :uri-repo: {uri-org}/asciidoctor
 :uri-asciidoctorj: {uri-org}/asciidoctorj
 :uri-asciidoctorjs: {uri-org}/asciidoctor.js
-:uri-project: http://asciidoctor.org
+:uri-project: https://asciidoctor.org
 ifdef::env-site[:uri-project: link:]
 :uri-docs: {uri-project}/docs
 :uri-news: {uri-project}/news
@@ -54,13 +54,13 @@ endif::[]
 :uri-gitscm-repo: https://github.com/git/git-scm.com
 :uri-prototype: {uri-gitscm-repo}/commits/master/lib/asciidoc.rb
 :uri-freesoftware: https://www.gnu.org/philosophy/free-sw.html
-:uri-foundation: http://foundation.zurb.com
+:uri-foundation: https://foundation.zurb.com
 :uri-tilt: https://github.com/rtomayko/tilt
 :uri-ruby: https://ruby-lang.org
 // images:
 :image-uri-screenshot: https://raw.githubusercontent.com/asciidoctor/asciidoctor/master/screenshot.png
 
-{uri-project}/[Asciidoctor] 是一个 _快速_ 文本处理器和发布工具链，它可以将 {uri-what-is-asciidoc}[AsciiDoc] 文档转化成 HTML5、 DocBook 5 (或 4.5) 以及其他格式。
+{uri-project}/[Asciidoctor] 是一个 _快速_ 文本处理器和发布工具链，它可以将 {uri-what-is-asciidoc}[AsciiDoc] 文档转化成 HTML 5、 DocBook 5 以及其他格式。
 Asciidoctor 由 Ruby 编写，打包成 RubyGem，然后发布到 {uri-rubygem}[RubyGems.org] 上。
 这个 gem 还被包含道几个 Linux 发行版中，其中包括 Fedora、Debian 和 Ubuntu。
 Asciidoctor 是开源的，{uri-repo}[代码]托管在 GitHub，遵从 {uri-license}[MIT] 协议。
@@ -85,7 +85,7 @@ Asciidoctor 是开源的，{uri-repo}[代码]托管在 GitHub，遵从 {uri-lice
 基于 AsciidoctorJ 有好多插件可用，这些插件可以将 Asciidoctor 整合到 Apache Maven，Gradle 或 Javadoc 构建中。
 
 Asciidoctor 也可以运行在 JavaScript 上。
-我们可以使用 http://opalrb.org[Opal] 将 Ruby 源码编译成 JavaScript 生成 {uri-asciidoctorjs}[Asciidoctor.js] 文件，这是一个全功能版的 Asciidoctor，可以运行在任意的 JavaScript 环境中，比如 Web 浏览器 或 Node.js。
+我们可以使用 https://opalrb.com[Opal] 将 Ruby 源码编译成 JavaScript 生成 {uri-asciidoctorjs}[Asciidoctor.js] 文件，这是一个全功能版的 Asciidoctor，可以运行在任意的 JavaScript 环境中，比如 Web 浏览器 或 Node.js。
 Asciidoctor.js 被用于预览 AsciiDoc，支持 Chrome 扩展，Atom，Brackets 或其他基于 Web 的工具。
 ****
 
@@ -101,31 +101,31 @@ endif::[]
 [#the-big-picture]
 == 整体概况
 
-Asciidoctor 以纯文本格式读取内容，见下图左边的面板，并将它转换成 HTML5 呈现在右侧面板中。
-Asciidoctor 将默认的样式表应用到 HTML5 文档上，提供一个愉快的开箱即用的体验。
+Asciidoctor 以纯文本格式读取内容，见下图左边的面板，并将它转换成 HTML 5 呈现在右侧面板中。
+Asciidoctor 将默认的样式表应用到 HTML 5 文档上，提供一个愉快的开箱即用的体验。
 
 image::{image-uri-screenshot}[AsciiDoc 源文预览和相应的 HTML 渲染]
 
 [#asciidoc-processing]
 == AsciiDoc Processing
 
-Asciidoctor 会读取并处理用 AsciiDoc 语法写的文件，然后将解析出来的解析树参数交给内置的转化器去生成 HTML5，DocBook 5 (或 4.5) 或帮助手册页面输出。
+Asciidoctor 会读取并处理用 AsciiDoc 语法写的文件，然后将解析出来的解析树参数交给内置的转化器去生成 HTML 5，DocBook 5 或帮助手册页面输出。
 你可以选择使用你自己的转化器或者加载 {uri-tilt}[Tilt] - 支持通过模板来自定义输出或产生附加的格式。
 
 NOTE: Asciidoctor是为了直接替换原 AsciiDoc Python 处理器（`asciidoc.py`）。
 Asciidoctor 测试套件含有 {uri-tests}[> 1,600 测试示例] 来确保和 AsciiDoc 语法的兼容性。
 
 除了传统的 AsciiDoc 语法，Asciidoctor 还添加额外的标记和格式设置选项，例如 font-based 图标（例如： `+icon:fire[]+`）和 UI 元素（例如： `+button:[Save]+`）。
-Asciidoctor 还提供了一个基于 {uri-foundation}[Foundation] 的现代化的、响应式主题来美化 HTML5 输出。
+Asciidoctor 还提供了一个基于 {uri-foundation}[Foundation] 的现代化的、响应式主题来美化 HTML 5 输出。
 
 [#requirements]
 == 要求
 
 Asciidoctor 可以运行在 Linux，OSX (Mac) 和 Windows 系统，但需要安装下面任意一个 {uri-ruby}[Ruby] 环境去实现：
 
-* MRI (Ruby 1.8.7, 1.9.3, 2.0, 2.1, 2.2 & 2.3)
-* JRuby (1.7 in Ruby 1.8 and 1.9 modes, 9000)
-* Rubinius 2.2.x
+* CRuby (aka MRI) 2.3 - 2.6
+* JRuby 9.1 - 9.2
+* TruffleRuby (GraalVM)
 * Opal (JavaScript)
 
 我们欢迎你来帮助在这些以及其他平台测试 Asciidoctor。
@@ -232,7 +232,7 @@ TIP: 如果你的 Debian 或 Ubuntu 系统配置的是自动升级包，在这�
 请查看发行版的包库，来确定每个发行版是打包的哪个版本。
 
 * https://packages.debian.org/search?keywords=asciidoctor&searchon=names&exact=1&suite=all&section=all[Debian 发行版中的 asciidoctor]
-* http://packages.ubuntu.com/search?keywords=asciidoctor&searchon=names&exact=1&suite=all&section=all[Ubuntu 发行版中的 asciidoctor]
+* https://packages.ubuntu.com/search?keywords=asciidoctor&searchon=names&exact=1&suite=all&section=all[Ubuntu 发行版中的 asciidoctor]
 * https://community.linuxmint.com/software/view/asciidoctor[Mint 发行版中的 asciidoctor]
 
 [CAUTION]
@@ -241,7 +241,7 @@ TIP: 如果你的 Debian 或 Ubuntu 系统配置的是自动升级包，在这�
 这样做会使系统进入不一致的状态，包管理工具将不再跟踪相关文件（通常安装在 /usr/local 下。）
 简单地说，系统的 gem 只能由包管理器进行管理。
 
-如果你想使用一个比包管理器安装的更新版本的 Asciidoctor，你应该使用 http://rvm.io[RVM] 在你的用户家目录（比如：用户空间）下安装 Ruby。
+如果你想使用一个比包管理器安装的更新版本的 Asciidoctor，你应该使用 https://rvm.io[RVM] 在你的用户家目录（比如：用户空间）下安装 Ruby。
 然后，你就可以放心地使用 `gem` 命令来安装或者更新 Asciidoctor gem。
 当使用 RVM 时，gem 将被安装到与系统隔离的位置。
 ====
@@ -277,12 +277,12 @@ TIP: 如果你的 Alpine Linux 系统配置的是自动升级包，在这种情�
 
 [.output,subs=attributes+]
 ....
-Asciidoctor {release-version} [http://asciidoctor.org]
+Asciidoctor {release-version} [https://asciidoctor.org]
 Runtime Environment (ruby 2.4.1p111 [x86_64-linux]) (lc:UTF-8 fs:UTF-8 in:- ex:UTF-8)
 ....
 
 Asciidoctor 还提供了一套 API。
-这套 API 是为了整合其他的 Ruby 软件，例如 Rails、Sinatra、Github，甚至其他语言，比如 Java （通过 {uri-asciidoctorj}[AsciidoctorJ]） 和 JavaScript （通过 {uri-asciidoctorjs}[Asciidoctor.js]）。
+这套 API 是为了整合其他的 Ruby 软件，例如 Rails、Sinatra、GitHub，甚至其他语言，比如 Java （通过 {uri-asciidoctorj}[AsciidoctorJ]） 和 JavaScript （通过 {uri-asciidoctorjs}[Asciidoctor.js]）。
 
 [#command-line-interface-cli]
 === 命令行（CLI）
@@ -330,7 +330,7 @@ WARNING: 当你通过 API 使用 Asciidoctor 时，默认的安全模式是 `:se
 
 [source]
 ----
-content = '_Zen_ in the art of writing http://asciidoctor.org[AsciiDoc].'
+content = '_Zen_ in the art of writing https://asciidoctor.org[AsciiDoc].'
 Asciidoctor.convert content, safe: :safe
 ----
 
@@ -338,7 +338,7 @@ Asciidoctor.convert content, safe: :safe
 
 [source]
 ----
-content = '_Zen_ in the art of writing http://asciidoctor.org[AsciiDoc].'
+content = '_Zen_ in the art of writing https://asciidoctor.org[AsciiDoc].'
 html = Asciidoctor.convert content, header_footer: true, safe: :safe
 ----
 
@@ -346,7 +346,7 @@ html = Asciidoctor.convert content, header_footer: true, safe: :safe
 
 [source]
 ----
-content = '_Zen_ in the art of writing http://asciidoctor.org[AsciiDoc].'
+content = '_Zen_ in the art of writing https://asciidoctor.org[AsciiDoc].'
 document = Asciidoctor.load content, header_footer: true, safe: :safe
 puts document.doctitle
 html = document.convert
@@ -403,7 +403,7 @@ Further information and documentation about Asciidoctor can be found on the proj
 {uri-project}/[Home] | {uri-news}[News] | {uri-docs}[Docs]
 endif::[]
 
-Asciidoctor 组织在 Github 托管代码、议案跟踪和相关子项目。
+Asciidoctor 组织在 GitHub 托管代码、议案跟踪和相关子项目。
 
 代码库 (git):: {uri-repo}
 议案跟踪:: {uri-issues}
@@ -412,7 +412,7 @@ Asciidoctor 组织在 Github 托管代码、议案跟踪和相关子项目。
 [#copyright-and-licensing]
 == 版权和协议
 
-Copyright (C) 2012-2018 Dan Allen, Ryan Waldron and the Asciidoctor Project.
+Copyright (C) 2012-2019 Dan Allen, Sarah White, Ryan Waldron, and the individual contributors to Asciidoctor.
 这个软件的免费使用是在MIT许可条款授予的。
 
 请看 {uri-license}[版权声明] 文件来获取更多详细信息。

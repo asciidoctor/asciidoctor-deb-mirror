@@ -1,26 +1,26 @@
-# encoding: UTF-8
+# frozen_string_literal: true
 module Asciidoctor
-# Public: Methods for managing blocks of Asciidoc content in a section.
+# Public: Methods for managing AsciiDoc content blocks.
 #
 # Examples
 #
-#   block = Asciidoctor::Block.new(parent, :paragraph, :source => '_This_ is a <test>')
+#   block = Asciidoctor::Block.new(parent, :paragraph, source: '_This_ is a <test>')
 #   block.content
 #   => "<em>This</em> is a &lt;test&gt;"
 class Block < AbstractBlock
 
   (DEFAULT_CONTENT_MODEL = {
     # TODO should probably fill in all known blocks
-    :audio => :empty,
-    :image => :empty,
-    :listing => :verbatim,
-    :literal => :verbatim,
-    :stem => :raw,
-    :open => :compound,
-    :page_break => :empty,
-    :pass => :raw,
-    :thematic_break => :empty,
-    :video => :empty
+    audio: :empty,
+    image: :empty,
+    listing: :verbatim,
+    literal: :verbatim,
+    stem: :raw,
+    open: :compound,
+    page_break: :empty,
+    pass: :raw,
+    thematic_break: :empty,
+    video: :empty,
   }).default = :simple
 
   # Public: Create alias for context to be consistent w/ AsciiDoc
@@ -40,10 +40,10 @@ class Block < AbstractBlock
   #                 * :source a String or Array of raw source for this Block. (default: nil)
   #
   # IMPORTANT: If you don't specify the `:subs` option, you must explicitly call
-  # the `lock_in_subs` method to resolve and assign the substitutions to this
+  # the `commit_subs` method to resolve and assign the substitutions to this
   # block (which are resolved from the `subs` attribute, if specified, or the
   # default substitutions based on this block's context). If you want to use the
-  # default subs for a block, pass the option `:subs => :default`. You can
+  # default subs for a block, pass the option `subs: :default`. You can
   # override the default subs using the `:default_subs` option.
   #--
   # QUESTION should we store source_data as lines for blocks that have compound content models?
@@ -51,19 +51,19 @@ class Block < AbstractBlock
     super
     @content_model = opts[:content_model] || DEFAULT_CONTENT_MODEL[context]
     if opts.key? :subs
-      # FIXME feels funky; we have to be defensive to get lock_in_subs to honor override
+      # FIXME feels funky; we have to be defensive to get commit_subs to honor override
       # FIXME does not resolve substitution groups inside Array (e.g., [:normal])
       if (subs = opts[:subs])
-        # e.g., :subs => :defult
+        # e.g., subs: :defult
         # subs attribute is honored; falls back to opts[:default_subs], then built-in defaults based on context
         if subs == :default
           @default_subs = opts[:default_subs]
-        # e.g., :subs => [:quotes]
+        # e.g., subs: [:quotes]
         # subs attribute is not honored
         elsif ::Array === subs
           @default_subs = subs.drop 0
           @attributes.delete 'subs'
-        # e.g., :subs => :normal or :subs => 'normal'
+        # e.g., subs: :normal or subs: 'normal'
         # subs attribute is not honored
         else
           @default_subs = nil
@@ -71,8 +71,9 @@ class Block < AbstractBlock
           @attributes['subs'] = %(#{subs})
         end
         # resolve the subs eagerly only if subs option is specified
-        lock_in_subs
-      # e.g., :subs => nil
+        # QUESTION should we skip subsequent calls to commit_subs?
+        commit_subs
+      # e.g., subs: nil
       else
         # NOTE @subs is initialized as empty array by super constructor
         # prevent subs from being resolved
@@ -88,7 +89,7 @@ class Block < AbstractBlock
     if (raw_source = opts[:source]).nil_or_empty?
       @lines = []
     elsif ::String === raw_source
-      @lines = Helpers.normalize_lines_from_string raw_source
+      @lines = Helpers.prepare_source_string raw_source
     else
       @lines = raw_source.drop 0
     end
@@ -101,7 +102,7 @@ class Block < AbstractBlock
   #
   #   doc = Asciidoctor::Document.new
   #   block = Asciidoctor::Block.new(doc, :paragraph,
-  #       :source => '_This_ is what happens when you <meet> a stranger in the <alps>!')
+  #       source: '_This_ is what happens when you <meet> a stranger in the <alps>!')
   #   block.content
   #   => "<em>This</em> is what happens when you &lt;meet&gt; a stranger in the &lt;alps&gt;!"
   def content

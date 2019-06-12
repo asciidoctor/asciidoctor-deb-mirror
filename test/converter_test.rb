@@ -1,15 +1,11 @@
-# encoding: UTF-8
-unless defined? ASCIIDOCTOR_PROJECT_DIR
-  $: << File.dirname(__FILE__); $:.uniq!
-  require 'test_helper'
-end
-require 'tilt' unless defined? ::Tilt
+# frozen_string_literal: true
+require_relative 'test_helper'
+require 'tilt' unless defined? ::Tilt.new
 
 context 'Converter' do
-
   context 'View options' do
     test 'should set Haml format to html5 for html5 backend' do
-      doc = Asciidoctor::Document.new [], :template_dir => (fixture_path 'custom-backends/haml'), :template_cache => false
+      doc = Asciidoctor::Document.new [], template_dir: (fixture_path 'custom-backends/haml'), template_cache: false
       assert_kind_of Asciidoctor::Converter::CompositeConverter, doc.converter
       selected = doc.converter.find_converter('paragraph')
       assert_kind_of Asciidoctor::Converter::TemplateConverter, selected
@@ -18,7 +14,7 @@ context 'Converter' do
     end
 
     test 'should set Haml format to xhtml for docbook backend' do
-      doc = Asciidoctor::Document.new [], :backend => 'docbook45', :template_dir => (fixture_path 'custom-backends/haml'), :template_cache => false
+      doc = Asciidoctor::Document.new [], backend: 'docbook5', template_dir: (fixture_path 'custom-backends/haml'), template_cache: false
       assert_kind_of Asciidoctor::Converter::CompositeConverter, doc.converter
       selected = doc.converter.find_converter('paragraph')
       assert_kind_of Asciidoctor::Converter::TemplateConverter, selected
@@ -28,7 +24,7 @@ context 'Converter' do
 
     test 'should configure Slim to resolve includes in specified template dirs' do
       template_dirs = [(fixture_path 'custom-backends/slim'), (fixture_path 'custom-backends/slim-overrides')]
-      doc = Asciidoctor::Document.new [], :template_dirs => template_dirs, :template_cache => false
+      doc = Asciidoctor::Document.new [], template_dirs: template_dirs, template_cache: false
       assert_kind_of Asciidoctor::Converter::CompositeConverter, doc.converter
       selected = doc.converter.find_converter('paragraph')
       assert_kind_of Asciidoctor::Converter::TemplateConverter, selected
@@ -38,7 +34,7 @@ context 'Converter' do
 
     test 'should coerce template_dirs option to an Array' do
       template_dirs = fixture_path 'custom-backends/slim'
-      doc = Asciidoctor::Document.new [], :template_dirs => template_dirs, :template_cache => false
+      doc = Asciidoctor::Document.new [], template_dirs: template_dirs, template_cache: false
       assert_kind_of Asciidoctor::Converter::CompositeConverter, doc.converter
       selected = doc.converter.find_converter('paragraph')
       assert_kind_of Asciidoctor::Converter::TemplateConverter, selected
@@ -46,7 +42,7 @@ context 'Converter' do
     end
 
     test 'should set Slim format to html for html5 backend' do
-      doc = Asciidoctor::Document.new [], :template_dir => (fixture_path 'custom-backends/slim'), :template_cache => false
+      doc = Asciidoctor::Document.new [], template_dir: (fixture_path 'custom-backends/slim'), template_cache: false
       assert_kind_of Asciidoctor::Converter::CompositeConverter, doc.converter
       selected = doc.converter.find_converter('paragraph')
       assert_kind_of Asciidoctor::Converter::TemplateConverter, selected
@@ -55,7 +51,7 @@ context 'Converter' do
     end
 
     test 'should set Slim format to nil for docbook backend' do
-      doc = Asciidoctor::Document.new [], :backend => 'docbook45', :template_dir => (fixture_path 'custom-backends/slim'), :template_cache => false
+      doc = Asciidoctor::Document.new [], backend: 'docbook5', template_dir: (fixture_path 'custom-backends/slim'), template_cache: false
       assert_kind_of Asciidoctor::Converter::CompositeConverter, doc.converter
       selected = doc.converter.find_converter('paragraph')
       assert_kind_of Asciidoctor::Converter::TemplateConverter, selected
@@ -64,20 +60,16 @@ context 'Converter' do
     end
 
     test 'should set safe mode of Slim AsciiDoc engine to match document safe mode when Slim >= 3' do
-      doc = Asciidoctor::Document.new [], :template_dir => (fixture_path 'custom-backends/slim'), :template_cache => false, :safe => :unsafe
+      doc = Asciidoctor::Document.new [], template_dir: (fixture_path 'custom-backends/slim'), template_cache: false, safe: :unsafe
       assert_kind_of Asciidoctor::Converter::CompositeConverter, doc.converter
       selected = doc.converter.find_converter('paragraph')
       assert_kind_of Asciidoctor::Converter::TemplateConverter, selected
       slim_asciidoc_opts = selected.instance_variable_get(:@engine_options)[:slim][:asciidoc]
-      if ::Slim::VERSION >= '3.0'
-        assert_equal({ :safe => Asciidoctor::SafeMode::UNSAFE }, slim_asciidoc_opts)
-      else
-        assert_nil slim_asciidoc_opts
-      end
+      assert_equal({ safe: Asciidoctor::SafeMode::UNSAFE }, slim_asciidoc_opts)
     end
 
     test 'should support custom template engine options for known engine' do
-      doc = Asciidoctor::Document.new [], :template_dir => (fixture_path 'custom-backends/slim'), :template_cache => false, :template_engine_options => { :slim => { :pretty => true } }
+      doc = Asciidoctor::Document.new [], template_dir: (fixture_path 'custom-backends/slim'), template_cache: false, template_engine_options: { slim: { pretty: true } }
       assert_kind_of Asciidoctor::Converter::CompositeConverter, doc.converter
       selected = doc.converter.find_converter('paragraph')
       assert_kind_of Asciidoctor::Converter::TemplateConverter, selected
@@ -86,7 +78,7 @@ context 'Converter' do
     end
 
     test 'should support custom template engine options' do
-      doc = Asciidoctor::Document.new [], :template_dir => (fixture_path 'custom-backends/slim'), :template_cache => false, :template_engine_options => { :slim => { :pretty => true } }
+      doc = Asciidoctor::Document.new [], template_dir: (fixture_path 'custom-backends/slim'), template_cache: false, template_engine_options: { slim: { pretty: true } }
       assert_kind_of Asciidoctor::Converter::CompositeConverter, doc.converter
       selected = doc.converter.find_converter('paragraph')
       assert_kind_of Asciidoctor::Converter::TemplateConverter, selected
@@ -98,9 +90,9 @@ context 'Converter' do
 
   context 'Custom backends' do
     test 'should load Haml templates for default backend' do
-      doc = Asciidoctor::Document.new [], :template_dir => (fixture_path 'custom-backends/haml'), :template_cache => false
+      doc = Asciidoctor::Document.new [], template_dir: (fixture_path 'custom-backends/haml'), template_cache: false
       assert_kind_of Asciidoctor::Converter::CompositeConverter, doc.converter
-      ['paragraph', 'sidebar'].each do |node_name|
+      %w(paragraph sidebar).each do |node_name|
         selected = doc.converter.find_converter node_name
         assert_kind_of Asciidoctor::Converter::TemplateConverter, selected
         assert_kind_of Tilt::HamlTemplate, selected.templates[node_name]
@@ -113,25 +105,25 @@ context 'Converter' do
       doc.convert
       assert_equal '.html', doc.attributes['outfilesuffix']
 
-      doc = Asciidoctor.load 'content', :template_dir => (fixture_path 'custom-backends/haml'), :template_cache => false
+      doc = Asciidoctor.load 'content', template_dir: (fixture_path 'custom-backends/haml'), template_cache: false
       doc.convert
       assert_equal '.html', doc.attributes['outfilesuffix']
     end
 
     test 'should not override outfilesuffix attribute if locked' do
-      doc = Asciidoctor.load 'content', :attributes => {'outfilesuffix' => '.foo'}
+      doc = Asciidoctor.load 'content', attributes: { 'outfilesuffix' => '.foo' }
       doc.convert
       assert_equal '.foo', doc.attributes['outfilesuffix']
 
-      doc = Asciidoctor.load 'content', :template_dir => (fixture_path 'custom-backends/haml'), :template_cache => false, :attributes => {'outfilesuffix' => '.foo'}
+      doc = Asciidoctor.load 'content', template_dir: (fixture_path 'custom-backends/haml'), template_cache: false, attributes: { 'outfilesuffix' => '.foo' }
       doc.convert
       assert_equal '.foo', doc.attributes['outfilesuffix']
     end
 
-    test 'should load Haml templates for docbook45 backend' do
-      doc = Asciidoctor::Document.new [], :backend => 'docbook45', :template_dir => (fixture_path 'custom-backends/haml'), :template_cache => false
+    test 'should load Haml templates for docbook5 backend' do
+      doc = Asciidoctor::Document.new [], backend: 'docbook5', template_dir: (fixture_path 'custom-backends/haml'), template_cache: false
       assert_kind_of Asciidoctor::Converter::CompositeConverter, doc.converter
-      ['paragraph'].each do |node_name|
+      %w(paragraph).each do |node_name|
         selected = doc.converter.find_converter node_name
         assert_kind_of Asciidoctor::Converter::TemplateConverter, selected
         assert_kind_of Tilt::HamlTemplate, selected.templates[node_name]
@@ -140,21 +132,21 @@ context 'Converter' do
     end
 
     test 'should use Haml templates in place of built-in templates' do
-      input = <<-EOS
-= Document Title
-Author Name
+      input = <<~'EOS'
+      = Document Title
+      Author Name
 
-== Section One
+      == Section One
 
-Sample paragraph
+      Sample paragraph
 
-.Related
-****
-Sidebar content
-****
+      .Related
+      ****
+      Sidebar content
+      ****
       EOS
 
-      output = convert_string_to_embedded input, :template_dir => (fixture_path 'custom-backends/haml'), :template_cache => false
+      output = convert_string_to_embedded input, template_dir: (fixture_path 'custom-backends/haml'), template_cache: false
       assert_xpath '/*[@class="sect1"]/*[@class="sectionbody"]/p', output, 1
       assert_xpath '//aside', output, 1
       assert_xpath '/*[@class="sect1"]/*[@class="sectionbody"]/p/following-sibling::aside', output, 1
@@ -162,30 +154,44 @@ Sidebar content
       assert_xpath '//aside/header/following-sibling::p[text()="Sidebar content"]', output, 1
     end
 
+    test 'should allow custom backend to emulate a known backend' do
+      doc = Asciidoctor.load 'content', backend: 'html5-tweaks:html', template_dir: (fixture_path 'custom-backends/haml'), template_cache: false
+      assert doc.basebackend? 'html'
+      assert_equal 'html5-tweaks', doc.backend
+      converter = doc.converter
+      assert_kind_of Asciidoctor::Converter::TemplateConverter, (converter.find_converter 'embedded')
+      refute_kind_of Asciidoctor::Converter::TemplateConverter, (converter.find_converter 'admonition')
+      assert_equal '<p>content</p>', doc.convert
+    end
+
+    test 'should create template converter even when a converter is not registered for the specified backend' do
+      input = 'paragraph content'
+      output = convert_string_to_embedded input, backend: :unknown, template_dir: (fixture_path 'custom-backends/haml/html5-tweaks'), template_cache: false
+      assert_equal '<p>paragraph content</p>', output
+    end
+
     test 'should use built-in global cache to cache templates' do
       begin
-        # clear out any cache, just to be sure
         Asciidoctor::Converter::TemplateConverter.clear_caches if defined? Asciidoctor::Converter::TemplateConverter
-
         template_dir = fixture_path 'custom-backends/haml'
-        doc = Asciidoctor::Document.new [], :template_dir => template_dir
+        doc = Asciidoctor::Document.new [], template_dir: template_dir
         doc.converter
         caches = Asciidoctor::Converter::TemplateConverter.caches
-        if defined? ::Concurrent::Hash
-          assert_kind_of ::Concurrent::Hash, caches[:templates]
+        if defined? ::Concurrent::Map
+          assert_kind_of ::Concurrent::Map, caches[:templates]
           refute_empty caches[:templates]
           paragraph_template_before = caches[:templates].values.find {|t| File.basename(t.file) == 'block_paragraph.html.haml' }
           refute_nil paragraph_template_before
 
           # should use cache
-          doc = Asciidoctor::Document.new [], :template_dir => template_dir
+          doc = Asciidoctor::Document.new [], template_dir: template_dir
           template_converter = doc.converter.find_converter('paragraph')
           paragraph_template_after = template_converter.templates['paragraph']
           refute_nil paragraph_template_after
           assert paragraph_template_before.eql?(paragraph_template_after)
 
           # should not use cache
-          doc = Asciidoctor::Document.new [], :template_dir => template_dir, :template_cache => false
+          doc = Asciidoctor::Document.new [], template_dir: template_dir, template_cache: false
           template_converter = doc.converter.find_converter('paragraph')
           paragraph_template_after = template_converter.templates['paragraph']
           refute_nil paragraph_template_after
@@ -202,8 +208,8 @@ Sidebar content
     test 'should use custom cache to cache templates' do
       template_dir = fixture_path 'custom-backends/haml'
       Asciidoctor::PathResolver.new.system_path(File.join(template_dir, 'html5', 'block_paragraph.html.haml'), nil)
-      caches = { :scans => {}, :templates => {} }
-      doc = Asciidoctor::Document.new [], :template_dir => template_dir, :template_cache => caches
+      caches = { scans: {}, templates: {} }
+      doc = Asciidoctor::Document.new [], template_dir: template_dir, template_cache: caches
       doc.converter
       refute_empty caches[:scans]
       refute_empty caches[:templates]
@@ -214,10 +220,8 @@ Sidebar content
 
     test 'should be able to disable template cache' do
       begin
-        # clear out any cache, just to be sure
         Asciidoctor::Converter::TemplateConverter.clear_caches if defined? Asciidoctor::Converter::TemplateConverter
-
-        doc = Asciidoctor::Document.new [], :template_dir => (fixture_path 'custom-backends/haml'), :template_cache => false
+        doc = Asciidoctor::Document.new [], template_dir: (fixture_path 'custom-backends/haml'), template_cache: false
         doc.converter
         caches = Asciidoctor::Converter::TemplateConverter.caches
         assert caches.empty? || caches[:scans].empty?
@@ -229,9 +233,10 @@ Sidebar content
     end
 
     test 'should load ERB templates using ERBTemplate if eruby is not set' do
-      doc = Asciidoctor::Document.new [], :template_dir => (fixture_path 'custom-backends/erb'), :template_cache => false
+      input = %([.wrapper]\n--\nfoobar\n--)
+      doc = Asciidoctor::Document.new input, template_dir: (fixture_path 'custom-backends/erb'), template_cache: false
       assert_kind_of Asciidoctor::Converter::CompositeConverter, doc.converter
-      ['paragraph'].each do |node_name|
+      %w(paragraph).each do |node_name|
         selected = doc.converter.find_converter node_name
         assert_kind_of Asciidoctor::Converter::TemplateConverter, selected
         template = selected.templates[node_name]
@@ -240,12 +245,23 @@ Sidebar content
         assert_kind_of ::ERB, template.instance_variable_get('@engine')
         assert_equal %(block_#{node_name}.html.erb), File.basename(selected.templates[node_name].file)
       end
+      # NOTE verify behavior of trim mode
+      expected_output = <<~'EOS'.chop
+      <div class="openblock wrapper">
+      <div class="content">
+      <div class="paragraph">
+      <p>foobar</p>
+      </div>
+      </div>
+      </div>
+      EOS
+      assert_equal expected_output, doc.convert
     end
 
     test 'should load ERB templates using ErubisTemplate if eruby is set to erubis' do
-      doc = Asciidoctor::Document.new [], :template_dir => (fixture_path 'custom-backends/erb'), :template_cache => false, :eruby => 'erubis'
+      doc = Asciidoctor::Document.new [], template_dir: (fixture_path 'custom-backends/erb'), template_cache: false, eruby: 'erubis'
       assert_kind_of Asciidoctor::Converter::CompositeConverter, doc.converter
-      ['paragraph'].each do |node_name|
+      %w(paragraph).each do |node_name|
         selected = doc.converter.find_converter node_name
         assert_kind_of Asciidoctor::Converter::TemplateConverter, selected
         template = selected.templates[node_name]
@@ -257,9 +273,9 @@ Sidebar content
     end
 
     test 'should load Slim templates for default backend' do
-      doc = Asciidoctor::Document.new [], :template_dir => (fixture_path 'custom-backends/slim'), :template_cache => false
+      doc = Asciidoctor::Document.new [], template_dir: (fixture_path 'custom-backends/slim'), template_cache: false
       assert_kind_of Asciidoctor::Converter::CompositeConverter, doc.converter
-      ['paragraph', 'sidebar'].each do |node_name|
+      %w(paragraph sidebar).each do |node_name|
         selected = doc.converter.find_converter node_name
         assert_kind_of Asciidoctor::Converter::TemplateConverter, selected
         assert_kind_of Slim::Template, selected.templates[node_name]
@@ -267,10 +283,10 @@ Sidebar content
       end
     end
 
-    test 'should load Slim templates for docbook45 backend' do
-      doc = Asciidoctor::Document.new [], :backend => 'docbook45', :template_dir => (fixture_path 'custom-backends/slim'), :template_cache => false
+    test 'should load Slim templates for docbook5 backend' do
+      doc = Asciidoctor::Document.new [], backend: 'docbook5', template_dir: (fixture_path 'custom-backends/slim'), template_cache: false
       assert_kind_of Asciidoctor::Converter::CompositeConverter, doc.converter
-      ['paragraph'].each do |node_name|
+      %w(paragraph).each do |node_name|
         selected = doc.converter.find_converter node_name
         assert_kind_of Asciidoctor::Converter::TemplateConverter, selected
         assert_kind_of Slim::Template, selected.templates[node_name]
@@ -279,106 +295,204 @@ Sidebar content
     end
 
     test 'should use Slim templates in place of built-in templates' do
-      input = <<-EOS
-= Document Title
-Author Name
+      input = <<~'EOS'
+      = Document Title
+      Author Name
 
-== Section One
+      == Section One
 
-Sample paragraph
+      Sample paragraph
 
-.Related
-****
-Sidebar content
-****
+      .Related
+      ****
+      Sidebar content
+      ****
       EOS
 
-      output = convert_string_to_embedded input, :template_dir => (fixture_path 'custom-backends/slim'), :template_cache => false
+      output = convert_string_to_embedded input, template_dir: (fixture_path 'custom-backends/slim'), template_cache: false
       assert_xpath '/*[@class="sect1"]/*[@class="sectionbody"]/p', output, 1
       assert_xpath '//aside', output, 1
       assert_xpath '/*[@class="sect1"]/*[@class="sectionbody"]/p/following-sibling::aside', output, 1
       assert_xpath '//aside/header/h1[text()="Related"]', output, 1
       assert_xpath '//aside/header/following-sibling::p[text()="Sidebar content"]', output, 1
     end
+  end
 
-    test 'should use custom converter if specified' do
-      input = <<-EOS
-= Document Title
+  context 'Custom converters' do
+    test 'should derive backend traits for the given backend' do
+      expected = { basebackend: 'dita', filetype: 'dita', outfilesuffix: '.dita' }
+      actual = Asciidoctor::Converter.derive_backend_traits 'dita2'
+      assert_equal expected, actual
+    end
 
-preamble
+    test 'should use specified converter for current backend' do
+      input = <<~'EOS'
+      = Document Title
 
-== Section
+      preamble
 
-content
+      == Section
+
+      content
       EOS
 
-      class CustomConverterA
-        def initialize backend, opts = {}
-        end
+      class CustomHtmlConverterA
+        def initialize *args; end
 
         def convert node, name = nil
           'document'
         end
+      end
 
-        def self.converts? backend
-          true
+      doc = document_from_string input, converter: CustomHtmlConverterA
+      assert_kind_of CustomHtmlConverterA, doc.converter
+      assert_equal 'html', doc.attributes['filetype']
+      assert 'document', doc.convert
+    end
+
+    test 'should use specified converter for specified backend' do
+      input = <<~'EOS'
+      = Document Title
+
+      preamble
+
+      == Section
+
+      content
+      EOS
+
+      class CustomTextConverterA
+        def initialize *args; end
+
+        def convert node, name = nil
+          'document'
         end
       end
 
-      output = convert_string input, :converter => CustomConverterA
-      assert 'document', output
+      doc = document_from_string input, backend: 'text', converter: CustomTextConverterA
+      assert_kind_of CustomTextConverterA, doc.converter
+      assert_equal 'text', doc.attributes['filetype']
+      assert 'document', doc.convert
+    end
+
+    test 'should get converter from specified converter factory' do
+      input = <<~'EOS'
+      = Document Title
+
+      preamble
+
+      == Section
+
+      content
+      EOS
+
+      my_converter_class = Class.new Asciidoctor::Converter::Base do
+        def convert_document node
+          'document'
+        end
+      end
+
+      converter_factory = Asciidoctor::Converter::CustomFactory.new 'html5' => my_converter_class
+
+      doc = document_from_string input, converter_factory: converter_factory
+      assert_kind_of my_converter_class, doc.converter
+      assert_equal 'html', doc.attributes['filetype']
+      assert 'document', doc.convert
+    end
+
+    test 'should allow converter to set htmlsyntax when basebackend is html' do
+      input = 'image::sunset.jpg[]'
+      converter = Asciidoctor::Converter.create 'html5', htmlsyntax: 'xml'
+      doc = document_from_string input, converter: converter
+      assert_equal converter, doc.converter
+      assert_equal 'xml', (doc.attr 'htmlsyntax')
+      output = doc.convert standalone: false
+      assert_includes output, '<img src="sunset.jpg" alt="sunset"/>'
     end
 
     test 'should use converter registered for backend' do
-      input = <<-EOS
-content
-      EOS
-
       begin
-        Asciidoctor::Converter::Factory.unregister_all
+        converters_before = Asciidoctor::Converter.converters
 
         class CustomConverterB
           include Asciidoctor::Converter
           register_for 'foobar'
+          def initialize *args
+            super
+            basebackend 'text'
+            filetype 'text'
+            outfilesuffix '.fb'
+          end
+
           def convert node, name = nil
             'foobar content'
           end
         end
 
-        converters = Asciidoctor::Converter::Factory.converters
-        assert converters.size == 1
+        input = 'content'
+        assert_equal CustomConverterB, (Asciidoctor::Converter.for 'foobar')
+        converters = Asciidoctor::Converter.converters
+        assert converters.size == converters_before.size + 1
         assert converters['foobar'] == CustomConverterB
-        output = convert_string input, :backend => 'foobar'
+        output = convert_string input, backend: 'foobar'
         assert 'foobar content', output
       ensure
-        Asciidoctor::Converter::Factory.unregister_all
+        Asciidoctor::Converter.unregister_all
       end
     end
 
-    test 'should map handles? method on converter to respond_to? by default' do
+    test 'should be able to register converter using symbol' do
+      begin
+        converter = Class.new Asciidoctor::Converter::Base do
+          register_for :foobaz
+          def initialize *args
+            super
+            basebackend 'text'
+            filetype 'text'
+            outfilesuffix '.fb'
+          end
+        end
+        assert_equal converter, (Asciidoctor::Converter.for 'foobaz')
+      ensure
+        Asciidoctor::Converter.unregister_all
+      end
+    end
+
+    test 'should be able to register converter from converter class itself' do
+      begin
+        assert_nil Asciidoctor::Converter.for 'foobar'
+
+        class AnotherCustomConverterB
+          include Asciidoctor::Converter
+        end
+
+        AnotherCustomConverterB.register_for 'foobar'
+        assert_equal AnotherCustomConverterB, (Asciidoctor::Converter.for 'foobar')
+      ensure
+        Asciidoctor::Converter.unregister_all
+      end
+    end
+
+    test 'should map handles? method on converter to respond_to? implementation by default' do
       class CustomConverterC
         include Asciidoctor::Converter
-        def paragraph node
+        def convert_paragraph node
           'paragraph'
         end
       end
 
       converter = CustomConverterC.new 'myhtml'
       assert_respond_to converter, :handles?
-      assert converter.handles?(:paragraph)
+      assert converter.handles?(:convert_paragraph)
     end
 
     test 'should not configure converter to support templates by default' do
-      input = <<-EOS
-paragraph
-      EOS
-
       begin
-        Asciidoctor::Converter::Factory.unregister_all
         class CustomConverterD
           include Asciidoctor::Converter
           register_for 'myhtml'
-          def convert node, transform = nil, opts = {}
+
+          def convert node, transform = nil, opts = nil
             transform ||= node.node_name
             send transform, node
           end
@@ -392,25 +506,20 @@ paragraph
           end
         end
 
-        doc = document_from_string input, :backend => 'myhtml', :template_dir => (fixture_path 'custom-backends/slim/html5'), :template_cache => false
+        input = 'paragraph'
+        doc = document_from_string input, backend: 'myhtml', template_dir: (fixture_path 'custom-backends/slim/html5'), template_cache: false
         assert_kind_of CustomConverterD, doc.converter
         refute doc.converter.supports_templates?
         output = doc.convert
         assert_xpath '//*[@class="paragraph"]/p[text()="paragraph"]', output, 1
       ensure
-        Asciidoctor::Converter::Factory.unregister_all
+        Asciidoctor::Converter.unregister_all
       end
     end
 
     test 'should wrap converter in composite converter with template converter if it declares that it supports templates' do
-      input = <<-EOS
-paragraph
-      EOS
-
       begin
-        Asciidoctor::Converter::Factory.unregister_all
-        class CustomConverterE
-          include Asciidoctor::Converter
+        class CustomConverterE < Asciidoctor::Converter::Base
           register_for 'myhtml'
 
           def initialize *args
@@ -418,10 +527,12 @@ paragraph
             supports_templates
           end
 
-          def convert node, transform = nil, opts = {}
+          def convert node, transform = nil, opts = nil
             transform ||= node.node_name
             send transform, node
           end
+
+          alias handles? respond_to?
 
           def document node
             ['<!DOCTYPE html>', '<html>', '<body>', node.content, '</body>', '</html>'] * %(\n)
@@ -432,24 +543,27 @@ paragraph
           end
         end
 
-        doc = document_from_string input, :backend => 'myhtml', :template_dir => (fixture_path 'custom-backends/slim/html5'), :template_cache => false
+        input = 'paragraph'
+        doc = document_from_string input, backend: 'myhtml', template_dir: (fixture_path 'custom-backends/slim/html5'), template_cache: false
         assert_kind_of Asciidoctor::Converter::CompositeConverter, doc.converter
         output = doc.convert
         assert_xpath '//*[@class="paragraph"]/p[text()="paragraph"]', output, 0
         assert_xpath '//body/p[text()="paragraph"]', output, 1
       ensure
-        Asciidoctor::Converter::Factory.unregister_all
+        Asciidoctor::Converter.unregister_all
       end
     end
 
-    test 'should fall back to catch all converter' do
-      input = <<-EOS
-content
-      EOS
+    test 'should map Factory.new to DefaultFactoryProxy constructor by default' do
+      assert_equal (Asciidoctor::Converter.for 'html5'), (Asciidoctor::Converter::Factory.new.for 'html5')
+    end
 
+    test 'should map Factory.new to CustomFactory constructor if proxy keyword arg is false' do
+      assert_nil (Asciidoctor::Converter::Factory.new proxy_default: false).for 'html5'
+    end
+
+    test 'should default to catch all converter' do
       begin
-        Asciidoctor::Converter::Factory.unregister_all
-
         class CustomConverterF
           include Asciidoctor::Converter
           register_for '*'
@@ -458,13 +572,76 @@ content
           end
         end
 
-        converters = Asciidoctor::Converter::Factory.converters
-        assert converters['*'] == CustomConverterF
-        output = convert_string input, :backend => 'foobaz'
+        input = 'content'
+        assert_equal CustomConverterF, (Asciidoctor::Converter.for 'all')
+        assert_equal CustomConverterF, (Asciidoctor::Converter.for 'whatever')
+        refute_equal CustomConverterF, (Asciidoctor::Converter.for 'html5')
+        converters = Asciidoctor::Converter.converters
+        assert_nil converters['*']
+        assert_equal CustomConverterF, (Asciidoctor::Converter.send :catch_all)
+        output = convert_string input, backend: 'foobaz'
         assert 'foobaz content', output
       ensure
-        Asciidoctor::Converter::Factory.unregister_all
+        Asciidoctor::Converter.unregister_all
       end
+    end
+
+    test 'should use catch all converter from custom factory only if no other converter matches' do
+      class FooConverter < Asciidoctor::Converter::Base; end
+      class CatchAllConverter < Asciidoctor::Converter::Base; end
+
+      factory = Asciidoctor::Converter::CustomFactory.new 'foo' => FooConverter, '*' => CatchAllConverter
+      assert_equal FooConverter, (factory.for 'foo')
+      assert_equal CatchAllConverter, (factory.for 'nada')
+      assert_equal CatchAllConverter, (factory.for 'html5')
+    end
+
+    test 'should prefer catch all converter from proxy over statically registered catch all converter' do
+      begin
+        class StaticCatchAllConverter < Asciidoctor::Converter::Base
+          register_for '*'
+        end
+
+        class LocalCatchAllConverter < Asciidoctor::Converter::Base; end
+
+        factory = Asciidoctor::Converter::DefaultFactoryProxy.new '*' => LocalCatchAllConverter
+        assert_equal LocalCatchAllConverter, (factory.for 'foobar')
+        refute_equal LocalCatchAllConverter, (factory.for 'html5')
+        refute_equal StaticCatchAllConverter, (factory.for 'html5')
+      ensure
+        Asciidoctor::Converter.unregister_all
+      end
+    end
+
+    test 'should prefer converter in proxy with same name as provided converter' do
+      class MyHtml5Converter < Asciidoctor::Converter::Base; end
+      factory = Asciidoctor::Converter::DefaultFactoryProxy.new 'html5' => MyHtml5Converter
+      assert_equal MyHtml5Converter, (factory.for 'html5')
+    end
+
+    test 'should allow nil to be registered as converter' do
+      factory = Asciidoctor::Converter::DefaultFactoryProxy.new 'html5' => nil
+      assert_nil factory.for 'html5'
+    end
+
+    test 'should create a new custom factory when Converter::Factory.new is invoked' do
+      class MyConverter < Asciidoctor::Converter::Base; end
+      factory = Asciidoctor::Converter::Factory.new 'mine' => MyConverter
+      assert_kind_of Asciidoctor::Converter::CustomFactory, factory
+      assert_equal MyConverter, (factory.for 'mine')
+    end
+
+    test 'should delegate to method on HTML 5 converter with convert_ prefix if called without prefix' do
+      doc = document_from_string 'paragraph'
+      result = doc.converter.paragraph doc.blocks[0]
+      assert_css 'p', result, 1
+    end
+
+    test 'can call read_svg_contents on built-in HTML5 converter; should remove markup prior the root svg element' do
+      doc = document_from_string 'image::circle.svg[]', base_dir: fixturedir
+      result = doc.converter.read_svg_contents doc.blocks[0], 'circle.svg'
+      refute_nil result
+      assert result.start_with? '<svg'
     end
   end
 end

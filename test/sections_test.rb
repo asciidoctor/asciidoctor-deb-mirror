@@ -1,8 +1,5 @@
-# encoding: UTF-8
-unless defined? ASCIIDOCTOR_PROJECT_DIR
-  $: << File.dirname(__FILE__); $:.uniq!
-  require 'test_helper'
-end
+# frozen_string_literal: true
+require_relative 'test_helper'
 
 context 'Sections' do
   context 'Ids' do
@@ -12,10 +9,10 @@ context 'Sections' do
     end
 
     test 'duplicate synthetic id is automatically enumerated' do
-      doc = document_from_string <<-EOS
-== Section One
+      doc = document_from_string <<~'EOS'
+      == Section One
 
-== Section One
+      == Section One
       EOS
       assert_equal 2, doc.blocks.size
       assert_equal '_section_one', doc.blocks[0].id
@@ -93,10 +90,10 @@ context 'Sections' do
     end
 
     test 'synthetic id separator can only be one character' do
-      input = <<-EOS
-:idseparator: -=-
+      input = <<~'EOS'
+      :idseparator: -=-
 
-== This Section Is All You Need
+      == This Section Is All You Need
       EOS
       sec = block_from_string input
       assert_equal '_this-section-is-all-you-need', sec.id
@@ -138,10 +135,10 @@ context 'Sections' do
     end
 
     test 'should use explicit id from last block attribute line above section title that defines an explicit id' do
-      input = <<-EOS
-[#un]
-[#one]
-== Section One
+      input = <<~'EOS'
+      [#un]
+      [#one]
+      == Section One
       EOS
       sec = block_from_string input
       assert_equal 'one', sec.id
@@ -154,9 +151,9 @@ context 'Sections' do
     end
 
     test 'explicit id can be defined using an embedded anchor when using setext section titles' do
-      input = <<-EOS
-Section Title [[refid,reftext]]
--------------------------------
+      input = <<~'EOS'
+      Section Title [[refid,reftext]]
+      -------------------------------
       EOS
       sec = block_from_string input
       assert_equal 'Section Title', sec.title
@@ -203,14 +200,14 @@ Section Title [[refid,reftext]]
     end
 
     test 'synthetic ids are unique' do
-      input = <<-EOS
-== Some section
+      input = <<~'EOS'
+      == Some section
 
-text
+      text
 
-== Some section
+      == Some section
 
-text
+      text
       EOS
       doc = document_from_string input
       assert_equal '_some_section', doc.blocks[0].id
@@ -221,14 +218,14 @@ text
     test 'can set start index of synthetic ids' do
       old_unique_id_start_index = Asciidoctor::Compliance.unique_id_start_index
       begin
-        input = <<-EOS
-== Some section
+        input = <<~'EOS'
+        == Some section
 
-text
+        text
 
-== Some section
+        == Some section
 
-text
+        text
         EOS
         Asciidoctor::Compliance.unique_id_start_index = 1
         doc = document_from_string input
@@ -240,443 +237,532 @@ text
     end
 
     test 'should use specified id and reftext when registering section reference' do
-      input = <<-EOS
-[[install,Install Procedure]]
-== Install
+      input = <<~'EOS'
+      [[install,Install Procedure]]
+      == Install
 
-content
+      content
       EOS
 
       doc = document_from_string input
-      reftext = doc.catalog[:ids]['install']
-      refute_nil reftext
-      assert_equal 'Install Procedure', reftext
+      ref = doc.catalog[:refs]['install']
+      refute_nil ref
+      assert_equal 'Install Procedure', ref.reftext
+      assert_equal 'install', (doc.resolve_id 'Install Procedure')
     end
 
     test 'should use specified reftext when registering section reference' do
-      input = <<-EOS
-[reftext="Install Procedure"]
-== Install
+      input = <<~'EOS'
+      [reftext="Install Procedure"]
+      == Install
 
-content
+      content
       EOS
 
       doc = document_from_string input
-      reftext = doc.catalog[:ids]['_install']
-      refute_nil reftext
-      assert_equal 'Install Procedure', reftext
+      ref = doc.catalog[:refs]['_install']
+      refute_nil ref
+      assert_equal 'Install Procedure', ref.reftext
+      assert_equal '_install', (doc.resolve_id 'Install Procedure')
+    end
+
+    test 'should resolve attribute reference in title using attribute defined at location of section title' do
+      input = <<~'EOS'
+      :platform-id: linux
+      :platform-name: Linux
+
+      [#install-{platform-id}]
+      == Install on {platform-name}
+
+      content
+
+      :platform-id: win32
+      :platform-name: Windows
+
+      [#install-{platform-id}]
+      == Install on {platform-name}
+
+      content
+      EOS
+
+      doc = document_from_string input
+      ref = doc.catalog[:refs]['install-win32']
+      refute_nil ref
+      assert_equal 'Install on Windows', ref.title
+      assert_equal 'install-win32', (doc.resolve_id 'Install on Windows')
     end
 
     test 'should substitute attributes when registering reftext for section' do
-      input = <<-EOS
-:platform-name: Linux
+      input = <<~'EOS'
+      :platform-name: n/a
+      == Overview
 
-[[install,install on {platform-name}]]
-== Install
+      :platform-name: Linux
 
-content
+      [[install,install on {platform-name}]]
+      == Install
+
+      content
       EOS
 
       doc = document_from_string input
-      reftext = doc.catalog[:ids]['install']
-      refute_nil reftext
-      assert_equal 'install on Linux', reftext
+      ref = doc.catalog[:refs]['install']
+      refute_nil ref
+      assert_equal 'install on Linux', ref.reftext
+      assert_equal 'install', (doc.resolve_id 'install on Linux')
     end
 
     test 'duplicate section id should not overwrite existing section id entry in references table' do
-      input = <<-EOS
-[#install]
-== First Install
+      input = <<~'EOS'
+      [#install]
+      == First Install
 
-content
+      content
 
-[#install]
-== Second Install
+      [#install]
+      == Second Install
 
-content
+      content
       EOS
 
       using_memory_logger do |logger|
         doc = document_from_string input
-        reftext = doc.catalog[:ids]['install']
-        refute_nil reftext
-        assert_equal 'First Install', reftext
+        ref = doc.catalog[:refs]['install']
+        refute_nil ref
+        assert_nil ref.reftext
+        assert_equal 'First Install', ref.title
+        assert_equal 'install', (doc.resolve_id 'First Install')
         assert_message logger, :WARN, '<stdin>: line 7: id assigned to section already in use: install', Hash
       end
     end
 
     test 'should warn if explicit section ID matches auto-generated section ID' do
-      input = <<-EOS
-== Do Not Repeat Yourself
+      input = <<~'EOS'
+      == Do Not Repeat Yourself
 
-content
+      content
 
-[#_do_not_repeat_yourself]
-== Do Not Repeat Yourself
+      [#_do_not_repeat_yourself]
+      == Do Not Repeat Yourself
 
-content
+      content
       EOS
 
       using_memory_logger do |logger|
         doc = document_from_string input
-        reftext = doc.catalog[:ids]['_do_not_repeat_yourself']
-        refute_nil reftext
-        assert_equal 'Do Not Repeat Yourself', reftext
+        ref = doc.catalog[:refs]['_do_not_repeat_yourself']
+        refute_nil ref
+        assert_nil ref.reftext
+        assert_equal 'Do Not Repeat Yourself', ref.title
+        assert_equal '_do_not_repeat_yourself', (doc.resolve_id 'Do Not Repeat Yourself')
         assert_message logger, :WARN, '<stdin>: line 6: id assigned to section already in use: _do_not_repeat_yourself', Hash
         assert_equal 2, (doc.convert.scan 'id="_do_not_repeat_yourself"').size
       end
     end
 
     test 'duplicate block id should not overwrite existing section id entry in references table' do
-      input = <<-EOS
-[#install]
-== First Install
+      input = <<~'EOS'
+      [#install]
+      == First Install
 
-content
+      content
 
-[#install]
-content
+      [#install]
+      content
       EOS
 
       using_memory_logger do |logger|
         doc = document_from_string input
-        reftext = doc.catalog[:ids]['install']
-        refute_nil reftext
-        assert_equal 'First Install', reftext
+        ref = doc.catalog[:refs]['install']
+        refute_nil ref
+        assert_nil ref.reftext
+        assert_equal 'First Install', ref.title
+        assert_equal 'install', (doc.resolve_id 'First Install')
         assert_message logger, :WARN, '<stdin>: line 7: id assigned to block already in use: install', Hash
       end
     end
   end
 
-  context "document title (level 0)" do
-    test "document title with multiline syntax" do
-      title = "My Title"
-      chars = "=" * title.length
-      assert_xpath "//h1[not(@id)][text() = 'My Title']", convert_string(title + "\n" + chars)
-      assert_xpath "//h1[not(@id)][text() = 'My Title']", convert_string(title + "\n" + chars + "\n")
-    end
+  context 'Levels' do
+    context 'Document Title (Level 0)' do
+      test "document title with multiline syntax" do
+        title = "My Title"
+        chars = "=" * title.length
+        assert_xpath "//h1[not(@id)][text() = 'My Title']", convert_string(title + "\n" + chars)
+        assert_xpath "//h1[not(@id)][text() = 'My Title']", convert_string(title + "\n" + chars + "\n")
+      end
 
-    test "document title with multiline syntax, give a char" do
-      title = "My Title"
-      chars = "=" * (title.length + 1)
-      assert_xpath "//h1[not(@id)][text() = 'My Title']", convert_string(title + "\n" + chars)
-      assert_xpath "//h1[not(@id)][text() = 'My Title']", convert_string(title + "\n" + chars + "\n")
-    end
+      test "document title with multiline syntax, give a char" do
+        title = "My Title"
+        chars = "=" * (title.length + 1)
+        assert_xpath "//h1[not(@id)][text() = 'My Title']", convert_string(title + "\n" + chars)
+        assert_xpath "//h1[not(@id)][text() = 'My Title']", convert_string(title + "\n" + chars + "\n")
+      end
 
-    test "document title with multiline syntax, take a char" do
-      title = "My Title"
-      chars = "=" * (title.length - 1)
-      assert_xpath "//h1[not(@id)][text() = 'My Title']", convert_string(title + "\n" + chars)
-      assert_xpath "//h1[not(@id)][text() = 'My Title']", convert_string(title + "\n" + chars + "\n")
-    end
+      test "document title with multiline syntax, take a char" do
+        title = "My Title"
+        chars = "=" * (title.length - 1)
+        assert_xpath "//h1[not(@id)][text() = 'My Title']", convert_string(title + "\n" + chars)
+        assert_xpath "//h1[not(@id)][text() = 'My Title']", convert_string(title + "\n" + chars + "\n")
+      end
 
-    test 'document title with multiline syntax and unicode characters' do
-      input = <<-EOS
-AsciiDoc Writer’s Guide
-=======================
-Author Name
+      test 'document title with multiline syntax and unicode characters' do
+        input = <<~'EOS'
+        AsciiDoc Writer’s Guide
+        =======================
+        Author Name
 
-preamble
-      EOS
+        preamble
+        EOS
 
-      result = convert_string input
-      assert_xpath '//h1', result, 1
-      assert_xpath '//h1[text()="AsciiDoc Writer’s Guide"]', result, 1
-    end
+        result = convert_string input
+        assert_xpath '//h1', result, 1
+        assert_xpath '//h1[text()="AsciiDoc Writer’s Guide"]', result, 1
+      end
 
-    test "not enough chars for a multiline document title" do
-      title = "My Title"
-      chars = "=" * (title.length - 2)
-      using_memory_logger do |logger|
-        output = convert_string(title + "\n" + chars)
-        assert_xpath '//h1', output, 0
-        refute logger.empty?
-        logger.clear
-        output = convert_string(title + "\n" + chars + "\n")
-        assert_xpath '//h1', output, 0
-        refute logger.empty?
+      test "not enough chars for a multiline document title" do
+        title = "My Title"
+        chars = "=" * (title.length - 2)
+        using_memory_logger do |logger|
+          output = convert_string(title + "\n" + chars)
+          assert_xpath '//h1', output, 0
+          refute logger.empty?
+          logger.clear
+          output = convert_string(title + "\n" + chars + "\n")
+          assert_xpath '//h1', output, 0
+          refute logger.empty?
+        end
+      end
+
+      test "too many chars for a multiline document title" do
+        title = "My Title"
+        chars = "=" * (title.length + 2)
+        using_memory_logger do |logger|
+          output = convert_string(title + "\n" + chars)
+          assert_xpath '//h1', output, 0
+          refute logger.empty?
+          logger.clear
+          output = convert_string(title + "\n" + chars + "\n")
+          assert_xpath '//h1', output, 0
+          refute logger.empty?
+        end
+      end
+
+      test "document title with multiline syntax cannot begin with a dot" do
+        title = ".My Title"
+        chars = "=" * title.length
+        using_memory_logger do |logger|
+          output = convert_string(title + "\n" + chars)
+          assert_xpath '//h1', output, 0
+          refute logger.empty?
+        end
+      end
+
+      test "document title with atx syntax" do
+        assert_xpath "//h1[not(@id)][text() = 'My Title']", convert_string("= My Title")
+      end
+
+      test "document title with symmetric syntax" do
+        assert_xpath "//h1[not(@id)][text() = 'My Title']", convert_string("= My Title =")
+      end
+
+      test 'document title created from leveloffset shift defined in document' do
+        assert_xpath "//h1[not(@id)][text() = 'Document Title']", convert_string(%(:leveloffset: -1\n== Document Title))
+      end
+
+      test 'document title created from leveloffset shift defined in API' do
+        assert_xpath "//h1[not(@id)][text() = 'Document Title']", convert_string('== Document Title', attributes: { 'leveloffset' => '-1@' })
+      end
+
+      test 'should assign id on document title to body' do
+        input = <<~'EOS'
+        [[idname]]
+        = Document Title
+
+        content
+        EOS
+        output = convert_string input
+        assert_css 'body#idname', output, 1
+      end
+
+      test 'should assign id defined using shorthand syntax on document title to body' do
+        input = <<~'EOS'
+        [#idname]
+        = Document Title
+
+        content
+        EOS
+        output = convert_string input
+        assert_css 'body#idname', output, 1
+      end
+
+      test 'should use ID defined in block attributes instead of ID defined inline' do
+        input = <<~'EOS'
+        [#idname-block]
+        = Document Title [[idname-inline]]
+
+        content
+        EOS
+        output = convert_string input
+        assert_css 'body#idname-block', output, 1
+      end
+
+      test 'block id above document title sets id on document' do
+        input = <<~'EOS'
+        [[reference]]
+        = Reference Manual
+        :css-signature: refguide
+
+        preamble
+        EOS
+        doc = document_from_string input
+        assert_equal 'reference', doc.id
+        assert_equal 'refguide', doc.attr('css-signature')
+        output = doc.convert
+        assert_css 'body#reference', output, 1
+      end
+
+      test 'should register document in catalog if id is set' do
+        input = <<~'EOS'
+        [[manual,Manual]]
+        = Reference Manual
+
+        preamble
+        EOS
+        doc = document_from_string input
+        assert_equal 'manual', doc.id
+        assert_equal 'Manual', doc.attributes['reftext']
+        assert_equal doc, doc.catalog[:refs]['manual']
+      end
+
+      test 'should compute xreftext to document title' do
+        input = <<~'EOS'
+        [#manual]
+        = Reference Manual
+        :xrefstyle: full
+
+        This is the <<manual>>.
+        EOS
+        output = convert_string input
+        assert_xpath '//a[text()="Reference Manual"]', output, 1
+      end
+
+      test 'should discard style, role and options shorthand attributes defined on document title' do
+        input = <<~'EOS'
+        [style#idname.rolename%optionname]
+        = Document Title
+
+        content
+        EOS
+        doc = document_from_string input
+        assert_empty doc.blocks[0].attributes
+        output = doc.convert
+        assert_css '#idname', output, 1
+        assert_css 'body#idname', output, 1
+        assert_css '.rolename', output, 1
+        assert_css 'body.rolename', output, 1
       end
     end
 
-    test "too many chars for a multiline document title" do
-      title = "My Title"
-      chars = "=" * (title.length + 2)
-      using_memory_logger do |logger|
-        output = convert_string(title + "\n" + chars)
-        assert_xpath '//h1', output, 0
-        refute logger.empty?
-        logger.clear
-        output = convert_string(title + "\n" + chars + "\n")
-        assert_xpath '//h1', output, 0
-        refute logger.empty?
+    context 'Level 1' do
+      test "with multiline syntax" do
+        assert_xpath "//h2[@id='_my_section'][text() = 'My Section']", convert_string("My Section\n-----------")
       end
-    end
 
-    test "document title with multiline syntax cannot begin with a dot" do
-      title = ".My Title"
-      chars = "=" * title.length
-      using_memory_logger do |logger|
-        output = convert_string(title + "\n" + chars)
-        assert_xpath '//h1', output, 0
-        refute logger.empty?
+      test 'should not recognize underline containing a mix of characters as setext section title' do
+        input = <<~'EOS'
+        My Section
+        ----^^----
+        EOS
+
+        result = convert_string_to_embedded input
+        assert_xpath '//h2[@id="_my_section"][text() = "My Section"]', result, 0
+        assert_includes result, '----^^----'
       end
-    end
 
-    test "document title with atx syntax" do
-      assert_xpath "//h1[not(@id)][text() = 'My Title']", convert_string("= My Title")
-    end
+      test 'should not recognize section title that does not contain alphanumeric character' do
+        input = <<~'EOS'
+        !@#$
+        ----
+        EOS
 
-    test "document title with symmetric syntax" do
-      assert_xpath "//h1[not(@id)][text() = 'My Title']", convert_string("= My Title =")
-    end
-
-    test 'document title created from leveloffset shift defined in document' do
-      assert_xpath "//h1[not(@id)][text() = 'Document Title']", convert_string(%(:leveloffset: -1\n== Document Title))
-    end
-
-    test 'document title created from leveloffset shift defined in API' do
-      assert_xpath "//h1[not(@id)][text() = 'Document Title']", convert_string('== Document Title', :attributes => { 'leveloffset' => '-1@' })
-    end
-
-    test 'should assign id on document title to body' do
-      input = <<-EOS
-[[idname]]
-= Document Title
-
-content
-      EOS
-      output = convert_string input
-      assert_css 'body#idname', output, 1
-    end
-
-    test 'should assign id defined using shorthand syntax on document title to body' do
-      input = <<-EOS
-[#idname]
-= Document Title
-
-content
-      EOS
-      output = convert_string input
-      assert_css 'body#idname', output, 1
-    end
-
-    test 'should use ID defined in block attributes instead of ID defined inline' do
-      input = <<-EOS
-[#idname-block]
-= Document Title [[idname-inline]]
-
-content
-      EOS
-      output = convert_string input
-      assert_css 'body#idname-block', output, 1
-    end
-
-    test 'block id above document title sets id on document' do
-      input = <<-EOS
-[[reference]]
-= Reference Manual
-:css-signature: refguide
-
-preamble
-      EOS
-      doc = document_from_string input
-      assert_equal 'reference', doc.id
-      assert_equal 'refguide', doc.attr('css-signature')
-      output = doc.convert
-      assert_css 'body#reference', output, 1
-    end
-
-    test 'should register document in catalog if id is set' do
-      input = <<-EOS
-[[manual,Manual]]
-= Reference Manual
-
-preamble
-      EOS
-      doc = document_from_string input
-      assert_equal 'manual', doc.id
-      assert_equal 'Manual', doc.attributes['reftext']
-      assert_equal doc, doc.catalog[:refs]['manual']
-    end
-
-    test 'should discard style, role and options shorthand attributes defined on document title' do
-      input = <<-EOS
-[style#idname.rolename%optionname]
-= Document Title
-
-content
-      EOS
-      doc = document_from_string input
-      assert_empty doc.blocks[0].attributes
-      output = doc.convert
-      assert_css '#idname', output, 1
-      assert_css 'body#idname', output, 1
-      assert_css '.rolename', output, 1
-      assert_css 'body.rolename', output, 1
-    end
-  end
-
-  context "level 1" do
-    test "with multiline syntax" do
-      assert_xpath "//h2[@id='_my_section'][text() = 'My Section']", convert_string("My Section\n-----------")
-    end
-
-    test 'should not recognize underline containing a mix of characters as setext section title' do
-      input = <<-EOS
-My Section
-----^^----
-      EOS
-
-      result = convert_string_to_embedded input
-      assert_xpath '//h2[@id="_my_section"][text() = "My Section"]', result, 0
-      assert_includes result, '----^^----'
-    end
-
-    test 'should preprocess second line of setext section title' do
-      input = <<-EOS
-Section Title
-ifdef::asciidoctor[]
--------------
-endif::[]
-      EOS
-      result = convert_string_to_embedded input
-      assert_xpath '//h2', result, 1
-    end
-
-    test "heading title with multiline syntax cannot begin with a dot" do
-      title = ".My Title"
-      chars = "-" * title.length
-      using_memory_logger do |logger|
-        output = convert_string(title + "\n" + chars)
-        assert_xpath '//h2', output, 0
-        refute logger.empty?
+        using_memory_logger do |logger|
+          result = convert_string_to_embedded input
+          assert_css 'h2', result, 0
+        end
       end
-    end
 
-    test "with atx syntax" do
-      assert_xpath "//h2[@id='_my_title'][text() = 'My Title']", convert_string("== My Title")
-    end
+      test 'should not recognize section title that consists of only underscores' do
+        input = <<~'EOS'
+        ____
+        ----
+        EOS
 
-    test "with atx symmetric syntax" do
-      assert_xpath "//h2[@id='_my_title'][text() = 'My Title']", convert_string("== My Title ==")
-    end
+        using_memory_logger do |logger|
+          result = convert_string_to_embedded input
+          assert_css 'h2', result, 0
+        end
+      end
 
-    test "with atx non-matching symmetric syntax" do
-      assert_xpath "//h2[@id='_my_title'][text() = 'My Title ===']", convert_string("== My Title ===")
-    end
+      test 'should preprocess second line of setext section title' do
+        input = <<~'EOS'
+        Section Title
+        ifdef::asciidoctor[]
+        -------------
+        endif::[]
+        EOS
+        result = convert_string_to_embedded input
+        assert_xpath '//h2', result, 1
+      end
 
-    test "with XML entity" do
-      assert_xpath "//h2[@id='_whats_new'][text() = \"What#{decode_char 8217}s new?\"]", convert_string("== What's new?")
-    end
+      test "heading title with multiline syntax cannot begin with a dot" do
+        title = ".My Title"
+        chars = "-" * title.length
+        using_memory_logger do |logger|
+          output = convert_string(title + "\n" + chars)
+          assert_xpath '//h2', output, 0
+          refute logger.empty?
+        end
+      end
 
-    test "with non-word character" do
-      assert_xpath "//h2[@id='_whats_new'][text() = \"What’s new?\"]", convert_string("== What’s new?")
-    end
+      test "with atx syntax" do
+        assert_xpath "//h2[@id='_my_title'][text() = 'My Title']", convert_string("== My Title")
+      end
 
-    test "with sequential non-word characters" do
-      assert_xpath "//h2[@id='_what_the_is_this'][text() = 'What the \#@$ is this?']", convert_string('== What the #@$ is this?')
-    end
+      test "with atx symmetric syntax" do
+        assert_xpath "//h2[@id='_my_title'][text() = 'My Title']", convert_string("== My Title ==")
+      end
 
-    test "with trailing whitespace" do
-      assert_xpath "//h2[@id='_my_title'][text() = 'My Title']", convert_string("== My Title ")
-    end
+      test "with atx non-matching symmetric syntax" do
+        assert_xpath "//h2[@id='_my_title'][text() = 'My Title ===']", convert_string("== My Title ===")
+      end
 
-    test "with custom blank idprefix" do
-      assert_xpath "//h2[@id='my_title'][text() = 'My Title']", convert_string(":idprefix:\n\n== My Title ")
-    end
+      test "with XML entity" do
+        assert_xpath "//h2[@id='_whats_new'][text() = \"What#{decode_char 8217}s new?\"]", convert_string("== What's new?")
+      end
 
-    test "with custom non-blank idprefix" do
-      assert_xpath "//h2[@id='ref_my_title'][text() = 'My Title']", convert_string(":idprefix: ref_\n\n== My Title ")
-    end
+      test "with non-word character" do
+        assert_xpath "//h2[@id='_whats_new'][text() = \"What’s new?\"]", convert_string("== What’s new?")
+      end
 
-    test 'with multibyte characters' do
-      input = <<-EOS
-== Asciidoctor in 中文
-      EOS
-      output = convert_string input
-      if ::RUBY_MIN_VERSION_1_9
+      test "with sequential non-word characters" do
+        assert_xpath "//h2[@id='_what_the_is_this'][text() = 'What the \#@$ is this?']", convert_string('== What the #@$ is this?')
+      end
+
+      test "with trailing whitespace" do
+        assert_xpath "//h2[@id='_my_title'][text() = 'My Title']", convert_string("== My Title ")
+      end
+
+      test "with custom blank idprefix" do
+        assert_xpath "//h2[@id='my_title'][text() = 'My Title']", convert_string(":idprefix:\n\n== My Title ")
+      end
+
+      test "with custom non-blank idprefix" do
+        assert_xpath "//h2[@id='ref_my_title'][text() = 'My Title']", convert_string(":idprefix: ref_\n\n== My Title ")
+      end
+
+      test 'with multibyte characters' do
+        input = '== Asciidoctor in 中文'
+        output = convert_string input
         assert_xpath '//h2[@id="_asciidoctor_in_中文"][text()="Asciidoctor in 中文"]', output
-      else
-        assert_xpath '//h2[@id="_asciidoctor_in"][text()="Asciidoctor in 中文"]', output
+      end
+
+      test 'with only multibyte characters' do
+        input = '== 视图'
+        output = convert_string_to_embedded input
+        assert_xpath '//h2[@id="_视图"][text()="视图"]', output
+      end
+
+      test 'multiline syntax with only multibyte characters' do
+        input = <<~'EOS'
+        视图
+        --
+
+        content
+
+        连接器
+        ---
+
+        content
+        EOS
+        # see https://github.com/oracle/truffleruby/issues/1563
+        input = String.new input, encoding: ::Encoding::UTF_8 if RUBY_ENGINE == 'truffleruby'
+        output = convert_string_to_embedded input
+        assert_xpath '//h2[@id="_视图"][text()="视图"]', output
+        assert_xpath '//h2[@id="_连接器"][text()="连接器"]', output
       end
     end
 
-    test 'with only multibyte characters' do
-      input = <<-EOS
-== 视图
+    context 'Level 2' do
+      test "with multiline syntax" do
+        assert_xpath "//h3[@id='_my_section'][text() = 'My Section']", convert_string(":fragment:\nMy Section\n~~~~~~~~~~~")
+      end
+
+      test "with atx line syntax" do
+        assert_xpath "//h3[@id='_my_title'][text() = 'My Title']", convert_string(":fragment:\n=== My Title")
+      end
+    end
+
+    context 'Level 3' do
+      test "with multiline syntax" do
+        assert_xpath "//h4[@id='_my_section'][text() = 'My Section']", convert_string(":fragment:\nMy Section\n^^^^^^^^^^")
+      end
+
+      test 'with atx line syntax' do
+        assert_xpath "//h4[@id='_my_title'][text() = 'My Title']", convert_string(":fragment:\n==== My Title")
+      end
+    end
+
+    context 'Level 4' do
+      test "with multiline syntax" do
+        assert_xpath "//h5[@id='_my_section'][text() = 'My Section']", convert_string(":fragment:\nMy Section\n++++++++++")
+      end
+
+      test "with atx line syntax" do
+        assert_xpath "//h5[@id='_my_title'][text() = 'My Title']", convert_string(":fragment:\n===== My Title")
+      end
+    end
+
+    context 'Level 5' do
+      test "with atx line syntax" do
+        assert_xpath "//h6[@id='_my_title'][text() = 'My Title']", convert_string(":fragment:\n====== My Title")
+      end
+    end
+  end
+
+  context 'Substitutions' do
+    test 'should apply substitutions in normal order' do
+      input = <<~'EOS'
+      == {link-url}[{link-text}]{tm}
+
+      The one and only!
       EOS
-      output = convert_string_to_embedded input
-      assert_xpath '//h2[@id="_视图"][text()="视图"]', output
-    end if ::RUBY_MIN_VERSION_1_9
 
-    test 'multiline syntax with only multibyte characters' do
-      input = <<-EOS
-视图
---
-
-content
-
-连接器
----
-
-content
-      EOS
-      output = convert_string_to_embedded input
-      assert_xpath '//h2[@id="_视图"][text()="视图"]', output
-      assert_xpath '//h2[@id="_连接器"][text()="连接器"]', output
-    end if ::RUBY_MIN_VERSION_1_9
-  end
-
-  context "level 2" do
-    test "with multiline syntax" do
-      assert_xpath "//h3[@id='_my_section'][text() = 'My Section']", convert_string(":fragment:\nMy Section\n~~~~~~~~~~~")
-    end
-
-    test "with atx line syntax" do
-      assert_xpath "//h3[@id='_my_title'][text() = 'My Title']", convert_string(":fragment:\n=== My Title")
-    end
-  end
-
-  context "level 3" do
-    test "with multiline syntax" do
-      assert_xpath "//h4[@id='_my_section'][text() = 'My Section']", convert_string(":fragment:\nMy Section\n^^^^^^^^^^")
-    end
-
-    test "with atx line syntax" do
-      assert_xpath "//h4[@id='_my_title'][text() = 'My Title']", convert_string(":fragment:\n==== My Title")
-    end
-  end
-
-  context "level 4" do
-    test "with multiline syntax" do
-      assert_xpath "//h5[@id='_my_section'][text() = 'My Section']", convert_string(":fragment:\nMy Section\n++++++++++")
-    end
-
-    test "with atx line syntax" do
-      assert_xpath "//h5[@id='_my_title'][text() = 'My Title']", convert_string(":fragment:\n===== My Title")
-    end
-  end
-
-  context "level 5" do
-    test "with atx line syntax" do
-      assert_xpath "//h6[@id='_my_title'][text() = 'My Title']", convert_string(":fragment:\n====== My Title")
+      output = convert_string_to_embedded input, attributes: {
+        'link-url' => 'https://acme.com',
+        'link-text' => 'ACME',
+        'tm' => '(TM)',
+      }
+      assert_css 'h2', output, 1
+      assert_css 'h2 a[href="https://acme.com"]', output, 1
+      assert_xpath %(//h2[contains(text(),"#{decode_char 8482}")]), output, 1
     end
   end
 
   context 'Nesting' do
     test 'should warn if section title is out of sequence' do
-      input = <<-EOS
-= Document Title
+      input = <<~'EOS'
+      = Document Title
 
-== Section A
+      == Section A
 
-==== Nested Section
+      ==== Nested Section
 
-content
+      content
 
-== Section B
+      == Section B
 
-content
+      content
       EOS
 
       using_memory_logger do |logger|
@@ -687,13 +773,13 @@ content
     end
 
     test 'should warn if chapter title is out of sequence' do
-      input = <<-EOS
-= Document Title
-:doctype: book
+      input = <<~'EOS'
+      = Document Title
+      :doctype: book
 
-=== Not a Chapter
+      === Not a Chapter
 
-content
+      content
       EOS
 
       using_memory_logger do |logger|
@@ -704,64 +790,64 @@ content
     end
 
     test 'should not warn if top-level section title is out of sequence when fragment attribute is set on document' do
-      input = <<-EOS
-= Document Title
+      input = <<~'EOS'
+      = Document Title
 
-=== First Section
+      === First Section
 
-content
+      content
       EOS
 
       using_memory_logger do |logger|
-        convert_string_to_embedded input, :attributes => { 'fragment' => '' }
+        convert_string_to_embedded input, attributes: { 'fragment' => '' }
         assert logger.empty?
       end
     end
 
     test 'should warn if nested section title is out of sequence when fragment attribute is set on document' do
-      input = <<-EOS
-= Document Title
+      input = <<~'EOS'
+      = Document Title
 
-=== First Section
+      === First Section
 
-===== Nested Section
+      ===== Nested Section
       EOS
 
       using_memory_logger do |logger|
-        convert_string_to_embedded input, :attributes => { 'fragment' => '' }
+        convert_string_to_embedded input, attributes: { 'fragment' => '' }
         assert_message logger, :WARN, '<stdin>: line 5: section title out of sequence: expected level 3, got level 4', Hash
       end
     end
     test 'should log error if subsections are found in special sections in article that do not support subsections' do
-      input = <<-EOS
-= Document Title
+      input = <<~'EOS'
+      = Document Title
 
-== Section
+      == Section
 
-=== Subsection of Section
+      === Subsection of Section
 
-allowed
+      allowed
 
-[appendix]
-== Appendix
+      [appendix]
+      == Appendix
 
-=== Subsection of Appendix
+      === Subsection of Appendix
 
-allowed
+      allowed
 
-[glossary]
-== Glossary
+      [glossary]
+      == Glossary
 
-=== Subsection of Glossary
+      === Subsection of Glossary
 
-not allowed
+      not allowed
 
-[bibliography]
-== Bibliography
+      [bibliography]
+      == Bibliography
 
-=== Subsection of Bibliography
+      === Subsection of Bibliography
 
-not allowed
+      not allowed
       EOS
 
       using_memory_logger do |logger|
@@ -774,66 +860,66 @@ not allowed
     end
 
     test 'should log error if subsections are found in special sections in book that do not support subsections' do
-      input = <<-EOS
-= Document Title
-:doctype: book
+      input = <<~'EOS'
+      = Document Title
+      :doctype: book
 
-[preface]
-= Preface
+      [preface]
+      = Preface
 
-=== Subsection of Preface
+      === Subsection of Preface
 
-allowed
+      allowed
 
-[colophon]
-= Colophon
+      [colophon]
+      = Colophon
 
-=== Subsection of Colophon
+      === Subsection of Colophon
 
-not allowed
+      not allowed
 
-[dedication]
-= Dedication
+      [dedication]
+      = Dedication
 
-=== Subsection of Dedication
+      === Subsection of Dedication
 
-not allowed
+      not allowed
 
-= Part 1
+      = Part 1
 
-[abstract]
-== Abstract
+      [abstract]
+      == Abstract
 
-=== Subsection of Abstract
+      === Subsection of Abstract
 
-allowed
+      allowed
 
-== Chapter 1
+      == Chapter 1
 
-=== Subsection of Chapter
+      === Subsection of Chapter
 
-allowed
+      allowed
 
-[appendix]
-= Appendix
+      [appendix]
+      = Appendix
 
-=== Subsection of Appendix
+      === Subsection of Appendix
 
-allowed
+      allowed
 
-[glossary]
-= Glossary
+      [glossary]
+      = Glossary
 
-=== Subsection of Glossary
+      === Subsection of Glossary
 
-not allowed
+      not allowed
 
-[bibliography]
-= Bibliography
+      [bibliography]
+      = Bibliography
 
-=== Subsection of Bibliography
+      === Subsection of Bibliography
 
-not allowed
+      not allowed
       EOS
 
       using_memory_logger do |logger|
@@ -850,45 +936,39 @@ not allowed
 
   context 'Markdown-style headings' do
     test 'atx document title with leading marker' do
-      input = <<-EOS
-# Document Title
-      EOS
+      input = '# Document Title'
       output = convert_string input
       assert_xpath "//h1[not(@id)][text() = 'Document Title']", output, 1
     end
 
     test 'atx document title with symmetric markers' do
-      input = <<-EOS
-# Document Title #
-      EOS
+      input = '# Document Title #'
       output = convert_string input
       assert_xpath "//h1[not(@id)][text() = 'Document Title']", output, 1
     end
 
     test 'atx section title with leading marker' do
-      input = <<-EOS
-## Section One
+      input = <<~'EOS'
+      ## Section One
 
-blah blah
+      blah blah
       EOS
       output = convert_string input
       assert_xpath "//h2[@id='_section_one'][text() = 'Section One']", output, 1
     end
 
     test 'atx section title with symmetric markers' do
-      input = <<-EOS
-## Section One ##
+      input = <<~'EOS'
+      ## Section One ##
 
-blah blah
+      blah blah
       EOS
       output = convert_string input
       assert_xpath "//h2[@id='_section_one'][text() = 'Section One']", output, 1
     end
 
     test 'should not match atx syntax with mixed markers' do
-      input = <<-EOS
-=#= My Title
-      EOS
+      input = '=#= My Title'
       output = convert_string_to_embedded input
       assert_xpath "//h3[@id='_my_title'][text() = 'My Title']", output, 0
       assert_includes output, '<p>=#= My Title</p>'
@@ -897,11 +977,11 @@ blah blah
 
   context 'Discrete Heading' do
     test 'should create discrete heading instead of section if style is float' do
-      input = <<-EOS
-[float]
-= Independent Heading!
+      input = <<~'EOS'
+      [float]
+      = Independent Heading!
 
-not in section
+      not in section
       EOS
 
       output = convert_string_to_embedded input
@@ -914,11 +994,11 @@ not in section
     end
 
     test 'should create discrete heading instead of section if style is discrete' do
-      input = <<-EOS
-[discrete]
-=== Independent Heading!
+      input = <<~'EOS'
+      [discrete]
+      === Independent Heading!
 
-not in section
+      not in section
       EOS
 
       output = convert_string_to_embedded input
@@ -932,11 +1012,11 @@ not in section
     end
 
     test 'should generate id for discrete heading from converted title' do
-      input = <<-EOS
-[discrete]
-=== {sp}Heading{sp}
+      input = <<~'EOS'
+      [discrete]
+      === {sp}Heading{sp}
 
-not in section
+      not in section
       EOS
 
       output = convert_string_to_embedded input
@@ -946,11 +1026,11 @@ not in section
     end
 
     test 'should create discrete heading if style is float with shorthand role and id' do
-      input = <<-EOS
-[float.independent#first]
-= Independent Heading!
+      input = <<~'EOS'
+      [float.independent#first]
+      = Independent Heading!
 
-not in section
+      not in section
       EOS
 
       output = convert_string_to_embedded input
@@ -963,11 +1043,11 @@ not in section
     end
 
     test 'should create discrete heading if style is discrete with shorthand role and id' do
-      input = <<-EOS
-[discrete.independent#first]
-= Independent Heading!
+      input = <<~'EOS'
+      [discrete.independent#first]
+      = Independent Heading!
 
-not in section
+      not in section
       EOS
 
       output = convert_string_to_embedded input
@@ -980,11 +1060,11 @@ not in section
     end
 
     test 'discrete heading should be a block with context floating_title' do
-      input = <<-EOS
-[float]
-=== Independent Heading!
+      input = <<~'EOS'
+      [float]
+      === Independent Heading!
 
-not in section
+      not in section
       EOS
 
       doc = document_from_string input
@@ -992,46 +1072,46 @@ not in section
       assert_kind_of Asciidoctor::Block, heading
       assert_equal :floating_title, heading.context
       assert_equal '_independent_heading', heading.id
-      assert doc.catalog[:ids].has_key?('_independent_heading')
+      assert doc.catalog[:refs].key? '_independent_heading'
     end
 
     test 'should preprocess second line of setext discrete heading' do
-      input = <<-EOS
-[discrete]
-Heading Title
-ifdef::asciidoctor[]
--------------
-endif::[]
+      input = <<~'EOS'
+      [discrete]
+      Heading Title
+      ifdef::asciidoctor[]
+      -------------
+      endif::[]
       EOS
       result = convert_string_to_embedded input
       assert_xpath '//h2', result, 1
     end
 
     test 'can assign explicit id to discrete heading' do
-      input = <<-EOS
-[[unchained]]
-[float]
-=== Independent Heading!
+      input = <<~'EOS'
+      [[unchained]]
+      [float]
+      === Independent Heading!
 
-not in section
+      not in section
       EOS
 
       doc = document_from_string input
       heading = doc.blocks.first
       assert_equal 'unchained', heading.id
-      assert doc.catalog[:ids].has_key?('unchained')
+      assert doc.catalog[:refs].key? 'unchained'
     end
 
     test 'should not include discrete heading in toc' do
-      input = <<-EOS
-:toc:
+      input = <<~'EOS'
+      :toc:
 
-== Section One
+      == Section One
 
-[float]
-=== Miss Independent
+      [float]
+      === Miss Independent
 
-== Section Two
+      == Section Two
       EOS
 
       output = convert_string input
@@ -1041,26 +1121,26 @@ not in section
     end
 
     test 'should not set id on discrete heading if sectids attribute is unset' do
-      input = <<-EOS
-[float]
-=== Independent Heading!
+      input = <<~'EOS'
+      [float]
+      === Independent Heading!
 
-not in section
+      not in section
       EOS
 
-      output = convert_string_to_embedded input, :attributes => {'sectids' => nil}
+      output = convert_string_to_embedded input, attributes: { 'sectids' => nil }
       assert_xpath '/h3', output, 1
       assert_xpath '/h3[@id="_independent_heading"]', output, 0
       assert_xpath '/h3[@class="float"]', output, 1
     end
 
     test 'should use explicit id for discrete heading if specified' do
-      input = <<-EOS
-[[free]]
-[float]
-== Independent Heading!
+      input = <<~'EOS'
+      [[free]]
+      [float]
+      == Independent Heading!
 
-not in section
+      not in section
       EOS
 
       output = convert_string_to_embedded input
@@ -1070,11 +1150,11 @@ not in section
     end
 
     test 'should add role to class attribute on discrete heading' do
-      input = <<-EOS
-[float, role="isolated"]
-== Independent Heading!
+      input = <<~'EOS'
+      [float, role="isolated"]
+      == Independent Heading!
 
-not in section
+      not in section
       EOS
 
       output = convert_string_to_embedded input
@@ -1084,11 +1164,11 @@ not in section
     end
 
     test 'should ignore title attribute on discrete heading' do
-      input = <<-EOS
-[discrete,title="Captured!"]
-== Independent Heading!
+      input = <<~'EOS'
+      [discrete,title="Captured!"]
+      == Independent Heading!
 
-not in section
+      not in section
       EOS
 
       doc = document_from_string input
@@ -1098,41 +1178,43 @@ not in section
     end
 
     test 'should use specified id and reftext when registering discrete section reference' do
-      input = <<-EOS
-[[install,Install Procedure]]
-[discrete]
-== Install
+      input = <<~'EOS'
+      [[install,Install Procedure]]
+      [discrete]
+      == Install
 
-content
+      content
       EOS
 
       doc = document_from_string input
-      reftext = doc.catalog[:ids]['install']
-      refute_nil reftext
-      assert_equal 'Install Procedure', reftext
+      ref = doc.catalog[:refs]['install']
+      refute_nil ref
+      assert_equal 'Install Procedure', ref.reftext
+      assert_equal 'install', (doc.resolve_id 'Install Procedure')
     end
 
     test 'should use specified reftext when registering discrete section reference' do
-      input = <<-EOS
-[reftext="Install Procedure"]
-[discrete]
-== Install
+      input = <<~'EOS'
+      [reftext="Install Procedure"]
+      [discrete]
+      == Install
 
-content
+      content
       EOS
 
       doc = document_from_string input
-      reftext = doc.catalog[:ids]['_install']
-      refute_nil reftext
-      assert_equal 'Install Procedure', reftext
+      ref = doc.catalog[:refs]['_install']
+      refute_nil ref
+      assert_equal 'Install Procedure', ref.reftext
+      assert_equal '_install', (doc.resolve_id 'Install Procedure')
     end
 
     test 'should not process inline anchor in discrete heading if explicit ID is assigned' do
-      input = <<-EOS
-[discrete#install]
-== Install [[installation]]
+      input = <<~'EOS'
+      [discrete#install]
+      == Install [[installation]]
 
-content
+      content
       EOS
 
       block = block_from_string input
@@ -1143,19 +1225,19 @@ content
 
   context 'Level offset' do
     test 'should print error if standalone document is included without level offset' do
-      input = <<-EOS
-= Master Document
-Doc Writer
+      input = <<~'EOS'
+      = Master Document
+      Doc Writer
 
-text in master
+      text in master
 
-// begin simulated include::[]
-= Standalone Document
-:author: Junior Writer
+      // begin simulated include::[]
+      = Standalone Document
+      :author: Junior Writer
 
-text in standalone
+      text in standalone
 
-// end simulated include::[]
+      // end simulated include::[]
       EOS
 
       using_memory_logger do |logger|
@@ -1165,30 +1247,30 @@ text in standalone
     end
 
     test 'should add level offset to section level' do
-      input = <<-EOS
-= Master Document
-Doc Writer
+      input = <<~'EOS'
+      = Master Document
+      Doc Writer
 
-Master document written by {author}.
+      Master document written by {author}.
 
-:leveloffset: 1
+      :leveloffset: 1
 
-// begin simulated include::[]
-= Standalone Document
-:author: Junior Writer
+      // begin simulated include::[]
+      = Standalone Document
+      :author: Junior Writer
 
-Standalone document written by {author}.
+      Standalone document written by {author}.
 
-== Section in Standalone
+      == Section in Standalone
 
-Standalone section text.
-// end simulated include::[]
+      Standalone section text.
+      // end simulated include::[]
 
-:leveloffset!:
+      :leveloffset!:
 
-== Section in Master
+      == Section in Master
 
-Master section text.
+      Master section text.
       EOS
 
       output = nil
@@ -1205,14 +1287,14 @@ Master section text.
     end
 
     test 'level offset should be added to discrete heading' do
-      input = <<-EOS
-= Master Document
-Doc Writer
+      input = <<~'EOS'
+      = Master Document
+      Doc Writer
 
-:leveloffset: 1
+      :leveloffset: 1
 
-[float]
-= Discrete Heading
+      [float]
+      = Discrete Heading
       EOS
 
       output = convert_string input
@@ -1220,21 +1302,21 @@ Doc Writer
     end
 
     test 'should be able to reset level offset' do
-      input = <<-EOS
-= Master Document
-Doc Writer
+      input = <<~'EOS'
+      = Master Document
+      Doc Writer
 
-Master preamble.
+      Master preamble.
 
-:leveloffset: 1
+      :leveloffset: 1
 
-= Standalone Document
+      = Standalone Document
 
-Standalone preamble.
+      Standalone preamble.
 
-:leveloffset!:
+      :leveloffset!:
 
-== Level 1 Section
+      == Level 1 Section
       EOS
 
       output = convert_string input
@@ -1243,23 +1325,23 @@ Standalone preamble.
     end
 
     test 'should add relative offset value to current leveloffset' do
-      input = <<-EOS
-= Master Document
-Doc Writer
+      input = <<~'EOS'
+      = Master Document
+      Doc Writer
 
-Master preamble.
+      Master preamble.
 
-:leveloffset: 1
+      :leveloffset: 1
 
-= Chapter 1
+      = Chapter 1
 
-content
+      content
 
-:leveloffset: +1
+      :leveloffset: +1
 
-= Standalone Section
+      = Standalone Section
 
-content
+      content
       EOS
 
       output = convert_string input
@@ -1320,33 +1402,33 @@ content
     end
 
     test 'should output section numbers when sectnums attribute is set' do
-      input = <<-EOS
-= Title
-:sectnums:
+      input = <<~'EOS'
+      = Title
+      :sectnums:
 
-== Section_1
+      == Section_1
 
-text
+      text
 
-=== Section_1_1
+      === Section_1_1
 
-text
+      text
 
-==== Section_1_1_1
+      ==== Section_1_1_1
 
-text
+      text
 
-== Section_2
+      == Section_2
 
-text
+      text
 
-=== Section_2_1
+      === Section_2_1
 
-text
+      text
 
-=== Section_2_2
+      === Section_2_2
 
-text
+      text
       EOS
 
       output = convert_string input
@@ -1359,33 +1441,33 @@ text
     end
 
     test 'should output section numbers when numbered attribute is set' do
-      input = <<-EOS
-= Title
-:numbered:
+      input = <<~'EOS'
+      = Title
+      :numbered:
 
-== Section_1
+      == Section_1
 
-text
+      text
 
-=== Section_1_1
+      === Section_1_1
 
-text
+      text
 
-==== Section_1_1_1
+      ==== Section_1_1_1
 
-text
+      text
 
-== Section_2
+      == Section_2
 
-text
+      text
 
-=== Section_2_1
+      === Section_2_1
 
-text
+      text
 
-=== Section_2_2
+      === Section_2_2
 
-text
+      text
       EOS
 
       output = convert_string input
@@ -1398,41 +1480,59 @@ text
     end
 
     test 'should not crash if child section of part is out of sequence and part numbering is disabled' do
-      input = <<-EOS
-= Document Title
-:doctype: book
-:sectnums:
+      input = <<~'EOS'
+      = Document Title
+      :doctype: book
+      :sectnums:
 
-= Part
+      = Part
 
-=== Out of Sequence Section
+      === Out of Sequence Section
       EOS
 
       using_memory_logger do |logger|
         output = convert_string input
         assert_xpath '//h1[text()="Part"]', output, 1
-        assert_xpath '//h3[text()=".1. Out of Sequence Section"]', output, 1 
+        assert_xpath '//h3[text()=".1. Out of Sequence Section"]', output, 1
+      end
+    end
+
+    test 'should not hang if relative leveloffset attempts to make resolved section level negative' do
+      input = <<~'EOS'
+      = Document Title
+      :doctype: book
+      :leveloffset: -1
+
+      = Part Title
+
+      == Chapter Title
+      EOS
+
+      using_memory_logger do |logger|
+        output = convert_string input
+        assert_xpath '//h1[text()="Part Title"]', output, 1
+        assert_xpath '//h1[text()="Chapter Title"]', output, 1
       end
     end
 
     test 'should number parts when doctype is book and partnums attributes is set' do
-      input = <<-EOS
-= Book Title
-:doctype: book
-:sectnums:
-:partnums:
+      input = <<~'EOS'
+      = Book Title
+      :doctype: book
+      :sectnums:
+      :partnums:
 
-= Language
+      = Language
 
-== Syntax
+      == Syntax
 
-content
+      content
 
-= Processor
+      = Processor
 
-== CLI
+      == CLI
 
-content
+      content
       EOS
 
       output = convert_string input
@@ -1440,25 +1540,52 @@ content
       assert_xpath '//h1[@id="_processor"][text() = "II: Processor"]', output, 1
     end
 
+    test 'should assign sequential roman numerals to book parts' do
+      input = <<~'EOS'
+      = Book Title
+      :doctype: book
+      :sectnums:
+      :partnums:
+
+      = First Part
+
+      part intro
+
+      == First Chapter
+
+      = Second Part
+
+      part intro
+
+      == Second Chapter
+      EOS
+
+      doc = document_from_string input
+      assert_equal 'I', doc.sections[0].numeral
+      assert_equal '1', doc.sections[0].sections[0].numeral
+      assert_equal 'II', doc.sections[1].numeral
+      assert_equal '2', doc.sections[1].sections[0].numeral
+    end
+
     test 'should prepend value of part-signifier attribute to title of numbered part' do
-      input = <<-EOS
-= Book Title
-:doctype: book
-:sectnums:
-:partnums:
-:part-signifier: Part
+      input = <<~'EOS'
+      = Book Title
+      :doctype: book
+      :sectnums:
+      :partnums:
+      :part-signifier: Part
 
-= Language
+      = Language
 
-== Syntax
+      == Syntax
 
-content
+      content
 
-= Processor
+      = Processor
 
-== CLI
+      == CLI
 
-content
+      content
       EOS
 
       output = convert_string input
@@ -1467,24 +1594,24 @@ content
     end
 
     test 'should prepend value of chapter-signifier attribute to title of numbered chapter' do
-      input = <<-EOS
-= Book Title
-:doctype: book
-:sectnums:
-:partnums:
-:chapter-signifier: Chapter
+      input = <<~'EOS'
+      = Book Title
+      :doctype: book
+      :sectnums:
+      :partnums:
+      :chapter-signifier: Chapter
 
-= Language
+      = Language
 
-== Syntax
+      == Syntax
 
-content
+      content
 
-= Processor
+      = Processor
 
-== CLI
+      == CLI
 
-content
+      content
       EOS
 
       output = convert_string input
@@ -1493,18 +1620,18 @@ content
     end
 
     test 'blocks should have level' do
-      input = <<-EOS
-= Title
+      input = <<~'EOS'
+      = Title
 
-preamble
+      preamble
 
-== Section 1
+      == Section 1
 
-paragraph
+      paragraph
 
-=== Section 1.1
+      === Section 1.1
 
-paragraph
+      paragraph
       EOS
       doc = document_from_string input
       assert_equal 0, doc.blocks[0].level
@@ -1515,27 +1642,27 @@ paragraph
     end
 
     test 'section numbers should not increment when numbered attribute is turned off within document' do
-      input = <<-EOS
-= Document Title
-:numbered:
+      input = <<~'EOS'
+      = Document Title
+      :numbered:
 
-:numbered!:
+      :numbered!:
 
-== Colophon Section
+      == Colophon Section
 
-== Another Colophon Section
+      == Another Colophon Section
 
-== Final Colophon Section
+      == Final Colophon Section
 
-:numbered:
+      :numbered:
 
-== Section One
+      == Section One
 
-=== Section One Subsection
+      === Section One Subsection
 
-== Section Two
+      == Section Two
 
-== Section Three
+      == Section Three
       EOS
 
       output = convert_string input
@@ -1550,29 +1677,29 @@ paragraph
     end
 
     test 'section numbers can be toggled even if numbered attribute is enable via the API' do
-      input = <<-EOS
-= Document Title
+      input = <<~'EOS'
+      = Document Title
 
-:numbered!:
+      :numbered!:
 
-== Colophon Section
+      == Colophon Section
 
-== Another Colophon Section
+      == Another Colophon Section
 
-== Final Colophon Section
+      == Final Colophon Section
 
-:numbered:
+      :numbered:
 
-== Section One
+      == Section One
 
-=== Section One Subsection
+      === Section One Subsection
 
-== Section Two
+      == Section Two
 
-== Section Three
+      == Section Three
       EOS
 
-      output = convert_string input, :attributes => {'numbered' => ''}
+      output = convert_string input, attributes: { 'numbered' => '' }
       assert_xpath '//h1[text()="Document Title"]', output, 1
       assert_xpath '//h2[@id="_colophon_section"][text()="Colophon Section"]', output, 1
       assert_xpath '//h2[@id="_another_colophon_section"][text()="Another Colophon Section"]', output, 1
@@ -1584,29 +1711,29 @@ paragraph
     end
 
     test 'section numbers cannot be toggled even if numbered attribute is disabled via the API' do
-      input = <<-EOS
-= Document Title
+      input = <<~'EOS'
+      = Document Title
 
-:numbered!:
+      :numbered!:
 
-== Colophon Section
+      == Colophon Section
 
-== Another Colophon Section
+      == Another Colophon Section
 
-== Final Colophon Section
+      == Final Colophon Section
 
-:numbered:
+      :numbered:
 
-== Section One
+      == Section One
 
-=== Section One Subsection
+      === Section One Subsection
 
-== Section Two
+      == Section Two
 
-== Section Three
+      == Section Three
       EOS
 
-      output = convert_string input, :attributes => {'numbered!' => ''}
+      output = convert_string input, attributes: { 'numbered!' => '' }
       assert_xpath '//h1[text()="Document Title"]', output, 1
       assert_xpath '//h2[@id="_colophon_section"][text()="Colophon Section"]', output, 1
       assert_xpath '//h2[@id="_another_colophon_section"][text()="Another Colophon Section"]', output, 1
@@ -1617,27 +1744,27 @@ paragraph
       assert_xpath '//h2[@id="_section_three"][text()="Section Three"]', output, 1
     end
 
-    # NOTE AsciiDoc fails this test because it does not properly check for a None value when looking up the numbered attribute
+    # NOTE AsciiDoc Python fails this test because it does not properly check for a None value when looking up the numbered attribute
     test 'section numbers should not increment until numbered attribute is turned back on' do
-      input = <<-EOS
-= Document Title
-:numbered!:
+      input = <<~'EOS'
+      = Document Title
+      :numbered!:
 
-== Colophon Section
+      == Colophon Section
 
-== Another Colophon Section
+      == Another Colophon Section
 
-== Final Colophon Section
+      == Final Colophon Section
 
-:numbered:
+      :numbered:
 
-== Section One
+      == Section One
 
-=== Section One Subsection
+      === Section One Subsection
 
-== Section Two
+      == Section Two
 
-== Section Three
+      == Section Three
       EOS
 
       output = convert_string input
@@ -1652,21 +1779,21 @@ paragraph
     end
 
     test 'table with asciidoc content should not disable numbering of subsequent sections' do
-      input = <<-EOS
-= Document Title
-:numbered:
+      input = <<~'EOS'
+      = Document Title
+      :numbered:
 
-preamble
+      preamble
 
-== Section One
+      == Section One
 
-|===
-a|content
-|===
+      |===
+      a|content
+      |===
 
-== Section Two
+      == Section Two
 
-content
+      content
       EOS
 
       output = convert_string input
@@ -1677,22 +1804,22 @@ content
     end
 
     test 'should not number parts when doctype is book' do
-      input = <<-EOS
-= Document Title
-:doctype: book
-:numbered:
+      input = <<~'EOS'
+      = Document Title
+      :doctype: book
+      :numbered:
 
-= Part 1
+      = Part 1
 
-== Chapter 1
+      == Chapter 1
 
-content
+      content
 
-= Part 2
+      = Part 2
 
-== Chapter 2
+      == Chapter 2
 
-content
+      content
       EOS
 
       output = convert_string input
@@ -1704,30 +1831,30 @@ content
     end
 
     test 'should number chapters sequentially even when divided into parts' do
-      input = <<-EOS
-= Document Title
-:doctype: book
-:numbered:
+      input = <<~'EOS'
+      = Document Title
+      :doctype: book
+      :numbered:
 
-== Chapter 1
+      == Chapter 1
 
-content
+      content
 
-= Part 1
+      = Part 1
 
-== Chapter 2
+      == Chapter 2
 
-content
+      content
 
-= Part 2
+      = Part 2
 
-== Chapter 3
+      == Chapter 3
 
-content
+      content
 
-== Chapter 4
+      == Chapter 4
 
-content
+      content
       EOS
 
       result = convert_string input
@@ -1738,16 +1865,16 @@ content
     end
 
     test 'reindex_sections should correct section enumeration after sections are modified' do
-      input = <<-EOS
-:sectnums:
+      input = <<~'EOS'
+      :sectnums:
 
-== First Section
+      == First Section
 
-content
+      content
 
-== Last Section
+      == Last Section
 
-content
+      content
       EOS
 
       doc = document_from_string input
@@ -1757,24 +1884,24 @@ content
       sections = doc.sections
       [0, 1, 2].each do |index|
         assert_equal index, sections[index].index
-        assert_equal index + 1, sections[index].numeral
+        assert_equal (index + 1).to_s, sections[index].numeral
         assert_equal index + 1, sections[index].number
       end
     end
 
-    test 'should allow sections to be renumbered using deprecated number property' do
-      input = <<-EOS
-== Somewhere in the Middle
+    test 'should allow sections to be renumbered using numberal property' do
+      input = <<~'EOS'
+      == Somewhere in the Middle
 
-== The End
+      == The End
       EOS
 
-      doc = document_from_string input, :attributes => { 'sectnums' => '' }
+      doc = document_from_string input, attributes: { 'sectnums' => '' }
       doc.sections.each do |sect|
-        sect.number += 1
+        sect.numeral = sect.numeral.next
       end
 
-      output = doc.convert :header_footer => false
+      output = doc.convert standalone: false
       assert_xpath '//h2[text()="2. Somewhere in the Middle"]', output, 1
       assert_xpath '//h2[text()="3. The End"]', output, 1
     end
@@ -1782,17 +1909,17 @@ content
 
   context 'Links and anchors' do
     test 'should include anchor if sectanchors document attribute is set' do
-      input = <<-EOS
-== Installation
+      input = <<~'EOS'
+      == Installation
 
-Installation section.
+      Installation section.
 
-=== Linux
+      === Linux
 
-Linux installation instructions.
+      Linux installation instructions.
       EOS
 
-      output = convert_string_to_embedded input, :attributes => {'sectanchors' => ''}
+      output = convert_string_to_embedded input, attributes: { 'sectanchors' => '' }
       assert_xpath '/*[@class="sect1"]/h2[@id="_installation"]/a', output, 1
       assert_xpath '/*[@class="sect1"]/h2[@id="_installation"]/a[@class="anchor"][@href="#_installation"]', output, 1
       assert_xpath '/*[@class="sect1"]/h2[@id="_installation"]/a/following-sibling::text()="Installation"', output, true
@@ -1802,17 +1929,17 @@ Linux installation instructions.
     end
 
     test 'should position after title text if sectanchors is set to after' do
-      input = <<-EOS
-== Installation
+      input = <<~'EOS'
+      == Installation
 
-Installation section.
+      Installation section.
 
-=== Linux
+      === Linux
 
-Linux installation instructions.
+      Linux installation instructions.
       EOS
 
-      output = convert_string_to_embedded input, :attributes => {'sectanchors' => 'after'}
+      output = convert_string_to_embedded input, attributes: { 'sectanchors' => 'after' }
       assert_xpath '/*[@class="sect1"]/h2[@id="_installation"]/a', output, 1
       assert_xpath '/*[@class="sect1"]/h2[@id="_installation"]/a[@class="anchor"][@href="#_installation"]', output, 1
       assert_xpath '/*[@class="sect1"]/h2[@id="_installation"]/a/preceding-sibling::text()="Installation"', output, true
@@ -1822,17 +1949,17 @@ Linux installation instructions.
     end
 
     test 'should link section if sectlinks document attribute is set' do
-      input = <<-EOS
-== Installation
+      input = <<~'EOS'
+      == Installation
 
-Installation section.
+      Installation section.
 
-=== Linux
+      === Linux
 
-Linux installation instructions.
+      Linux installation instructions.
       EOS
 
-      output = convert_string_to_embedded input, :attributes => {'sectlinks' => ''}
+      output = convert_string_to_embedded input, attributes: { 'sectlinks' => '' }
       assert_xpath '/*[@class="sect1"]/h2[@id="_installation"]/a', output, 1
       assert_xpath '/*[@class="sect1"]/h2[@id="_installation"]/a[@class="link"][@href="#_installation"]', output, 1
       assert_xpath '/*[@class="sect1"]/h2[@id="_installation"]/a[text()="Installation"]', output, 1
@@ -1843,12 +1970,33 @@ Linux installation instructions.
   end
 
   context 'Special sections' do
-    test 'should assign sectname, caption, and numeral to appendix section by default' do
-      input = <<-EOS
-[appendix]
-== Attribute Options
+    test 'should ignore style if it matches sectN' do
+      input = <<~'EOS'
+      = Document Title
 
-Details
+      [sect1]
+      == Section Level 1
+
+      content
+
+      [sect2]
+      == Section Level 2
+
+      content
+      EOS
+
+      output = convert_string input, backend: :docbook
+      assert_xpath '//section', output, 2
+      assert_xpath '//sect1', output, 0
+      assert_xpath '//sect2', output, 0
+    end
+
+    test 'should assign sectname, caption, and numeral to appendix section by default' do
+      input = <<~'EOS'
+      [appendix]
+      == Attribute Options
+
+      Details
       EOS
 
       appendix = block_from_string input
@@ -1860,11 +2008,11 @@ Details
     end
 
     test 'should prefix appendix title by numbered label even when section numbering is disabled' do
-      input = <<-EOS
-[appendix]
-== Attribute Options
+      input = <<~'EOS'
+      [appendix]
+      == Attribute Options
 
-Details
+      Details
       EOS
 
       output = convert_string_to_embedded input
@@ -1872,12 +2020,12 @@ Details
     end
 
     test 'should use style from last block attribute line above section that defines a style' do
-      input = <<-EOS
-[glossary]
-[appendix]
-== Attribute Options
+      input = <<~'EOS'
+      [glossary]
+      [appendix]
+      == Attribute Options
 
-Details
+      Details
       EOS
 
       output = convert_string_to_embedded input
@@ -1885,12 +2033,12 @@ Details
     end
 
     test 'setting ID using style shorthand should not clear section style' do
-      input = <<-EOS
-[appendix]
-[#attribute-options]
-== Attribute Options
+      input = <<~'EOS'
+      [appendix]
+      [#attribute-options]
+      == Attribute Options
 
-Details
+      Details
       EOS
 
       output = convert_string_to_embedded input
@@ -1898,13 +2046,13 @@ Details
     end
 
     test 'should use custom appendix caption if specified' do
-      input = <<-EOS
-:appendix-caption: App
+      input = <<~'EOS'
+      :appendix-caption: App
 
-[appendix]
-== Attribute Options
+      [appendix]
+      == Attribute Options
 
-Details
+      Details
       EOS
 
       output = convert_string_to_embedded input
@@ -1912,14 +2060,14 @@ Details
     end
 
     test 'should only assign letter to appendix when numbered is enabled and appendix caption is not set' do
-      input = <<-EOS
-:numbered:
-:!appendix-caption:
+      input = <<~'EOS'
+      :numbered:
+      :!appendix-caption:
 
-[appendix]
-== Attribute Options
+      [appendix]
+      == Attribute Options
 
-Details
+      Details
       EOS
 
       output = convert_string_to_embedded input
@@ -1927,16 +2075,16 @@ Details
     end
 
     test 'should increment appendix number for each appendix section' do
-      input = <<-EOS
-[appendix]
-== Attribute Options
+      input = <<~'EOS'
+      [appendix]
+      == Attribute Options
 
-Details
+      Details
 
-[appendix]
-== Migration
+      [appendix]
+      == Migration
 
-Details
+      Details
       EOS
 
       output = convert_string_to_embedded input
@@ -1945,21 +2093,21 @@ Details
     end
 
     test 'should continue numbering after appendix' do
-      input = <<-EOS
-:numbered:
+      input = <<~'EOS'
+      :numbered:
 
-== First Section
+      == First Section
 
-content
+      content
 
-[appendix]
-== Attribute Options
+      [appendix]
+      == Attribute Options
 
-content
+      content
 
-== Migration
+      == Migration
 
-content
+      content
       EOS
 
       output = convert_string_to_embedded input
@@ -1969,17 +2117,17 @@ content
     end
 
     test 'should number appendix subsections using appendix letter' do
-      input = <<-EOS
-:numbered:
+      input = <<~'EOS'
+      :numbered:
 
-[appendix]
-== Attribute Options
+      [appendix]
+      == Attribute Options
 
-Details
+      Details
 
-=== Optional Attributes
+      === Optional Attributes
 
-Details
+      Details
       EOS
 
       output = convert_string_to_embedded input
@@ -1988,18 +2136,18 @@ Details
     end
 
     test 'should not number level 4 section by default' do
-      input = <<-EOS
-:numbered:
+      input = <<~'EOS'
+      :numbered:
 
-== Level_1
+      == Level_1
 
-=== Level_2
+      === Level_2
 
-==== Level_3
+      ==== Level_3
 
-===== Level_4
+      ===== Level_4
 
-text
+      text
       EOS
       output = convert_string_to_embedded input
       assert_xpath '//h5', output, 1
@@ -2007,19 +2155,19 @@ text
     end
 
     test 'should only number levels up to value defined by sectnumlevels attribute' do
-      input = <<-EOS
-:numbered:
-:sectnumlevels: 2
+      input = <<~'EOS'
+      :numbered:
+      :sectnumlevels: 2
 
-== Level_1
+      == Level_1
 
-=== Level_2
+      === Level_2
 
-==== Level_3
+      ==== Level_3
 
-===== Level_4
+      ===== Level_4
 
-text
+      text
       EOS
       output = convert_string_to_embedded input
       assert_xpath '//h2', output, 1
@@ -2033,31 +2181,31 @@ text
     end
 
     test 'should not number sections or subsections in regions where numbered is off' do
-      input = <<-EOS
-:numbered:
+      input = <<~'EOS'
+      :numbered:
 
-== Section One
+      == Section One
 
-:numbered!:
+      :numbered!:
 
-[appendix]
-== Attribute Options
+      [appendix]
+      == Attribute Options
 
-Details
+      Details
 
-[appendix]
-== Migration
+      [appendix]
+      == Migration
 
-Details
+      Details
 
-=== Gotchas
+      === Gotchas
 
-Details
+      Details
 
-[glossary]
-== Glossary
+      [glossary]
+      == Glossary
 
-Terms
+      Terms
       EOS
 
       output = convert_string_to_embedded input
@@ -2069,32 +2217,32 @@ Terms
     end
 
     test 'should not number sections or subsections in toc in regions where numbered is off' do
-      input = <<-EOS
-:numbered:
-:toc:
+      input = <<~'EOS'
+      :numbered:
+      :toc:
 
-== Section One
+      == Section One
 
-:numbered!:
+      :numbered!:
 
-[appendix]
-== Attribute Options
+      [appendix]
+      == Attribute Options
 
-Details
+      Details
 
-[appendix]
-== Migration
+      [appendix]
+      == Migration
 
-Details
+      Details
 
-=== Gotchas
+      === Gotchas
 
-Details
+      Details
 
-[glossary]
-== Glossary
+      [glossary]
+      == Glossary
 
-Terms
+      Terms
       EOS
 
       output = convert_string input
@@ -2106,17 +2254,17 @@ Terms
     end
 
     test 'should only number sections in toc up to value defined by sectnumlevels attribute' do
-      input = <<-EOS
-:numbered:
-:toc:
-:sectnumlevels: 2
-:toclevels: 3
+      input = <<~'EOS'
+      :numbered:
+      :toc:
+      :sectnumlevels: 2
+      :toclevels: 3
 
-== Level 1
+      == Level 1
 
-=== Level 2
+      === Level 2
 
-==== Level 3
+      ==== Level 3
       EOS
 
       output = convert_string input
@@ -2126,39 +2274,39 @@ Terms
     end
 
     test 'should not number special sections or their subsections by default except for appendices' do
-      input = <<-EOS
-:doctype: book
-:sectnums:
+      input = <<~'EOS'
+      :doctype: book
+      :sectnums:
 
-[preface]
-== Preface
+      [preface]
+      == Preface
 
-=== Preface Subsection
+      === Preface Subsection
 
-content
+      content
 
-== Section One
+      == Section One
 
-content
+      content
 
-[appendix]
-== Attribute Options
+      [appendix]
+      == Attribute Options
 
-Details
+      Details
 
-[appendix]
-== Migration
+      [appendix]
+      == Migration
 
-Details
+      Details
 
-=== Gotchas
+      === Gotchas
 
-Details
+      Details
 
-[glossary]
-== Glossary
+      [glossary]
+      == Glossary
 
-Terms
+      Terms
       EOS
 
       output = convert_string_to_embedded input
@@ -2172,40 +2320,40 @@ Terms
     end
 
     test 'should not number special sections or their subsections in toc by default except for appendices' do
-      input = <<-EOS
-:doctype: book
-:sectnums:
-:toc:
+      input = <<~'EOS'
+      :doctype: book
+      :sectnums:
+      :toc:
 
-[preface]
-== Preface
+      [preface]
+      == Preface
 
-=== Preface Subsection
+      === Preface Subsection
 
-content
+      content
 
-== Section One
+      == Section One
 
-content
+      content
 
-[appendix]
-== Attribute Options
+      [appendix]
+      == Attribute Options
 
-Details
+      Details
 
-[appendix]
-== Migration
+      [appendix]
+      == Migration
 
-Details
+      Details
 
-=== Gotchas
+      === Gotchas
 
-Details
+      Details
 
-[glossary]
-== Glossary
+      [glossary]
+      == Glossary
 
-Terms
+      Terms
       EOS
 
       output = convert_string input
@@ -2219,39 +2367,39 @@ Terms
     end
 
     test 'should number special sections and their subsections when sectnums is all' do
-      input = <<-EOS
-:doctype: book
-:sectnums: all
+      input = <<~'EOS'
+      :doctype: book
+      :sectnums: all
 
-[preface]
-== Preface
+      [preface]
+      == Preface
 
-=== Preface Subsection
+      === Preface Subsection
 
-content
+      content
 
-== Section One
+      == Section One
 
-content
+      content
 
-[appendix]
-== Attribute Options
+      [appendix]
+      == Attribute Options
 
-Details
+      Details
 
-[appendix]
-== Migration
+      [appendix]
+      == Migration
 
-Details
+      Details
 
-=== Gotchas
+      === Gotchas
 
-Details
+      Details
 
-[glossary]
-== Glossary
+      [glossary]
+      == Glossary
 
-Terms
+      Terms
       EOS
 
       output = convert_string_to_embedded input
@@ -2265,40 +2413,40 @@ Terms
     end
 
     test 'should number special sections and their subsections in toc when sectnums is all' do
-      input = <<-EOS
-:doctype: book
-:sectnums: all
-:toc:
+      input = <<~'EOS'
+      :doctype: book
+      :sectnums: all
+      :toc:
 
-[preface]
-== Preface
+      [preface]
+      == Preface
 
-=== Preface Subsection
+      === Preface Subsection
 
-content
+      content
 
-== Section One
+      == Section One
 
-content
+      content
 
-[appendix]
-== Attribute Options
+      [appendix]
+      == Attribute Options
 
-Details
+      Details
 
-[appendix]
-== Migration
+      [appendix]
+      == Migration
 
-Details
+      Details
 
-=== Gotchas
+      === Gotchas
 
-Details
+      Details
 
-[glossary]
-== Glossary
+      [glossary]
+      == Glossary
 
-Terms
+      Terms
       EOS
 
       output = convert_string input
@@ -2312,20 +2460,20 @@ Terms
     end
 
     test 'level 0 special sections in multipart book should be coerced to level 1' do
-      input = <<-EOS
-= Multipart Book
-Doc Writer
-:doctype: book
+      input = <<~'EOS'
+      = Multipart Book
+      Doc Writer
+      :doctype: book
 
-[preface]
-= Preface
+      [preface]
+      = Preface
 
-Preface text
+      Preface text
 
-[appendix]
-= Appendix
+      [appendix]
+      = Appendix
 
-Appendix text
+      Appendix text
       EOS
 
       output = convert_string input
@@ -2334,152 +2482,152 @@ Appendix text
     end
 
     test 'should output docbook elements that correspond to special sections in book doctype' do
-      input = <<-EOS
-= Multipart Book
-:doctype: book
-:idprefix:
+      input = <<~'EOS'
+      = Multipart Book
+      :doctype: book
+      :idprefix:
 
-[abstract]
-= Abstract Title
+      [abstract]
+      = Abstract Title
 
-Normal chapter (no abstract in book)
+      Normal chapter (no abstract in book)
 
-[dedication]
-= Dedication Title
+      [dedication]
+      = Dedication Title
 
-Dedication content
+      Dedication content
 
-[preface]
-= Preface Title
+      [preface]
+      = Preface Title
 
-Preface content
+      Preface content
 
-=== Preface sub-section
+      === Preface sub-section
 
-Preface subsection content
+      Preface subsection content
 
-= Part 1
+      = Part 1
 
-[partintro]
-.Part intro title
-Part intro content
+      [partintro]
+      .Part intro title
+      Part intro content
 
-== Chapter 1
+      == Chapter 1
 
-blah blah
+      blah blah
 
-== Chapter 2
+      == Chapter 2
 
-blah blah
+      blah blah
 
-= Part 2
+      = Part 2
 
-[partintro]
-blah blah
+      [partintro]
+      blah blah
 
-== Chapter 3
+      == Chapter 3
 
-blah blah
+      blah blah
 
-== Chapter 4
+      == Chapter 4
 
-blah blah
+      blah blah
 
-[appendix]
-= Appendix Title
+      [appendix]
+      = Appendix Title
 
-Appendix content
+      Appendix content
 
-=== Appendix sub-section
+      === Appendix sub-section
 
-Appendix sub-section content
+      Appendix sub-section content
 
-[bibliography]
-= Bibliography Title
+      [bibliography]
+      = Bibliography Title
 
-Bibliography content
+      Bibliography content
 
-[glossary]
-= Glossary Title
+      [glossary]
+      = Glossary Title
 
-Glossary content
+      Glossary content
 
-[colophon]
-= Colophon Title
+      [colophon]
+      = Colophon Title
 
-Colophon content
+      Colophon content
 
-[index]
-= Index Title
+      [index]
+      = Index Title
       EOS
 
-      output = convert_string_to_embedded input, :backend => 'docbook45'
-      assert_xpath '/chapter[@id="abstract_title"]', output, 1
-      assert_xpath '/chapter[@id="abstract_title"]/title[text()="Abstract Title"]', output, 1
-      assert_xpath '/chapter/following-sibling::dedication[@id="dedication_title"]', output, 1
-      assert_xpath '/chapter/following-sibling::dedication[@id="dedication_title"]/title[text()="Dedication Title"]', output, 1
-      assert_xpath '/dedication/following-sibling::preface[@id="preface_title"]', output, 1
-      assert_xpath '/dedication/following-sibling::preface[@id="preface_title"]/title[text()="Preface Title"]', output, 1
-      assert_xpath '/preface/section[@id="preface_sub_section"]', output, 1
-      assert_xpath '/preface/section[@id="preface_sub_section"]/title[text()="Preface sub-section"]', output, 1
-      assert_xpath '/preface/following-sibling::part[@id="part_1"]', output, 1
-      assert_xpath '/preface/following-sibling::part[@id="part_1"]/title[text()="Part 1"]', output, 1
-      assert_xpath '/part[@id="part_1"]/partintro', output, 1
-      assert_xpath '/part[@id="part_1"]/partintro/title[text()="Part intro title"]', output, 1
-      assert_xpath '/part[@id="part_1"]/partintro/following-sibling::chapter[@id="chapter_1"]', output, 1
-      assert_xpath '/part[@id="part_1"]/partintro/following-sibling::chapter[@id="chapter_1"]/title[text()="Chapter 1"]', output, 1
-      assert_xpath '(/part)[2]/following-sibling::appendix[@id="appendix_title"]', output, 1
-      assert_xpath '(/part)[2]/following-sibling::appendix[@id="appendix_title"]/title[text()="Appendix Title"]', output, 1
-      assert_xpath '/appendix/section[@id="appendix_sub_section"]', output, 1
-      assert_xpath '/appendix/section[@id="appendix_sub_section"]/title[text()="Appendix sub-section"]', output, 1
-      assert_xpath '/appendix/following-sibling::bibliography[@id="bibliography_title"]', output, 1
-      assert_xpath '/appendix/following-sibling::bibliography[@id="bibliography_title"]/title[text()="Bibliography Title"]', output, 1
-      assert_xpath '/bibliography/following-sibling::glossary[@id="glossary_title"]', output, 1
-      assert_xpath '/bibliography/following-sibling::glossary[@id="glossary_title"]/title[text()="Glossary Title"]', output, 1
-      assert_xpath '/glossary/following-sibling::colophon[@id="colophon_title"]', output, 1
-      assert_xpath '/glossary/following-sibling::colophon[@id="colophon_title"]/title[text()="Colophon Title"]', output, 1
-      assert_xpath '/colophon/following-sibling::index[@id="index_title"]', output, 1
-      assert_xpath '/colophon/following-sibling::index[@id="index_title"]/title[text()="Index Title"]', output, 1
+      output = convert_string input, backend: 'docbook'
+      assert_xpath '/book/chapter[@xml:id="abstract_title"]', output, 1
+      assert_xpath '/book/chapter[@xml:id="abstract_title"]/title[text()="Abstract Title"]', output, 1
+      assert_xpath '/book/chapter/following-sibling::dedication[@xml:id="dedication_title"]', output, 1
+      assert_xpath '/book/chapter/following-sibling::dedication[@xml:id="dedication_title"]/title[text()="Dedication Title"]', output, 1
+      assert_xpath '/book/dedication/following-sibling::preface[@xml:id="preface_title"]', output, 1
+      assert_xpath '/book/dedication/following-sibling::preface[@xml:id="preface_title"]/title[text()="Preface Title"]', output, 1
+      assert_xpath '/book/preface/section[@xml:id="preface_sub_section"]', output, 1
+      assert_xpath '/book/preface/section[@xml:id="preface_sub_section"]/title[text()="Preface sub-section"]', output, 1
+      assert_xpath '/book/preface/following-sibling::part[@xml:id="part_1"]', output, 1
+      assert_xpath '/book/preface/following-sibling::part[@xml:id="part_1"]/title[text()="Part 1"]', output, 1
+      assert_xpath '/book/part[@xml:id="part_1"]/partintro', output, 1
+      assert_xpath '/book/part[@xml:id="part_1"]/partintro/title[text()="Part intro title"]', output, 1
+      assert_xpath '/book/part[@xml:id="part_1"]/partintro/following-sibling::chapter[@xml:id="chapter_1"]', output, 1
+      assert_xpath '/book/part[@xml:id="part_1"]/partintro/following-sibling::chapter[@xml:id="chapter_1"]/title[text()="Chapter 1"]', output, 1
+      assert_xpath '(/book/part)[2]/following-sibling::appendix[@xml:id="appendix_title"]', output, 1
+      assert_xpath '(/book/part)[2]/following-sibling::appendix[@xml:id="appendix_title"]/title[text()="Appendix Title"]', output, 1
+      assert_xpath '/book/appendix/section[@xml:id="appendix_sub_section"]', output, 1
+      assert_xpath '/book/appendix/section[@xml:id="appendix_sub_section"]/title[text()="Appendix sub-section"]', output, 1
+      assert_xpath '/book/appendix/following-sibling::bibliography[@xml:id="bibliography_title"]', output, 1
+      assert_xpath '/book/appendix/following-sibling::bibliography[@xml:id="bibliography_title"]/title[text()="Bibliography Title"]', output, 1
+      assert_xpath '/book/bibliography/following-sibling::glossary[@xml:id="glossary_title"]', output, 1
+      assert_xpath '/book/bibliography/following-sibling::glossary[@xml:id="glossary_title"]/title[text()="Glossary Title"]', output, 1
+      assert_xpath '/book/glossary/following-sibling::colophon[@xml:id="colophon_title"]', output, 1
+      assert_xpath '/book/glossary/following-sibling::colophon[@xml:id="colophon_title"]/title[text()="Colophon Title"]', output, 1
+      assert_xpath '/book/colophon/following-sibling::index[@xml:id="index_title"]', output, 1
+      assert_xpath '/book/colophon/following-sibling::index[@xml:id="index_title"]/title[text()="Index Title"]', output, 1
     end
 
     test 'abstract section maps to abstract element in docbook for article doctype' do
-      input = <<-EOS
-= Article
-:idprefix:
+      input = <<~'EOS'
+      = Article
+      :idprefix:
 
-[abstract]
-== Abstract Title
+      [abstract]
+      == Abstract Title
 
-Abstract content
+      Abstract content
       EOS
 
-      output = convert_string_to_embedded input, :backend => 'docbook45'
-      assert_xpath '/abstract[@id="abstract_title"]', output, 1
-      assert_xpath '/abstract[@id="abstract_title"]/title[text()="Abstract Title"]', output, 1
+      output = convert_string_to_embedded input, backend: 'docbook'
+      assert_xpath '/abstract[@xml:id="abstract_title"]', output, 1
+      assert_xpath '/abstract[@xml:id="abstract_title"]/title[text()="Abstract Title"]', output, 1
     end
 
     test 'should allow a special section to be nested at arbitrary depth in DocBook output' do
-      input = <<-EOS
-= Document Title
-:doctype: book
+      input = <<~'EOS'
+      = Document Title
+      :doctype: book
 
-== Glossaries
+      == Glossaries
 
-[glossary]
-=== Glossary A
+      [glossary]
+      === Glossary A
 
-Glossaries are optional.
-Glossaries entries are an example of a style of AsciiDoc description lists.
+      Glossaries are optional.
+      Glossaries entries are an example of a style of AsciiDoc description lists.
 
-[glossary]
-A glossary term::
-The corresponding definition.
+      [glossary]
+      A glossary term::
+      The corresponding definition.
 
-A second glossary term::
-The corresponding definition.
+      A second glossary term::
+      The corresponding definition.
       EOS
 
-      output = convert_string input, :backend => :docbook
+      output = convert_string input, backend: :docbook
       assert_xpath '//glossary', output, 1
       assert_xpath '//chapter/glossary', output, 1
       assert_xpath '//glossary/title[text()="Glossary A"]', output, 1
@@ -2487,14 +2635,14 @@ The corresponding definition.
     end
 
     test 'should drop title on special section in DocBook output if untitled option is set' do
-      input = <<-EOS
-[dedication%untitled]
-== Dedication
+      input = <<~'EOS'
+      [dedication%untitled]
+      == Dedication
 
-content
+      content
       EOS
 
-      output = convert_string_to_embedded input, :backend => :docbook
+      output = convert_string_to_embedded input, backend: :docbook
       assert_xpath '/dedication', output, 1
       assert_xpath '/dedication/title', output, 0
     end
@@ -2502,68 +2650,68 @@ content
 
   context "heading patterns in blocks" do
     test "should not interpret a listing block as a heading" do
-      input = <<-EOS
-Section
--------
+      input = <<~'EOS'
+      Section
+      -------
 
-----
-code
-----
+      ----
+      code
+      ----
 
-fin.
+      fin.
       EOS
       output = convert_string input
       assert_xpath "//h2", output, 1
     end
 
     test "should not interpret an open block as a heading" do
-      input = <<-EOS
-Section
--------
+      input = <<~'EOS'
+      Section
+      -------
 
---
-ha
---
+      --
+      ha
+      --
 
-fin.
+      fin.
       EOS
       output = convert_string input
       assert_xpath "//h2", output, 1
     end
 
     test "should not interpret an attribute list as a heading" do
-      input = <<-EOS
-Section
-=======
+      input = <<~'EOS'
+      Section
+      =======
 
-preamble
+      preamble
 
-[TIP]
-====
-This should be a tip, not a heading.
-====
+      [TIP]
+      ====
+      This should be a tip, not a heading.
+      ====
       EOS
       output = convert_string input
       assert_xpath "//*[@class='admonitionblock tip']//p[text() = 'This should be a tip, not a heading.']", output, 1
     end
 
     test "should not match a heading in a description list" do
-      input = <<-EOS
-Section
--------
+      input = <<~'EOS'
+      Section
+      -------
 
-term1::
-+
-----
-list = [1, 2, 3];
-----
-term2::
-== not a heading
-term3:: def
+      term1::
+      +
+      ----
+      list = [1, 2, 3];
+      ----
+      term2::
+      == not a heading
+      term3:: def
 
-//
+      //
 
-fin.
+      fin.
       EOS
       output = convert_string input
       assert_xpath "//h2", output, 1
@@ -2571,21 +2719,21 @@ fin.
     end
 
     test "should not match a heading in a bulleted list" do
-      input = <<-EOS
-Section
--------
+      input = <<~'EOS'
+      Section
+      -------
 
-* first
-+
-----
-list = [1, 2, 3];
-----
-+
-* second
-== not a heading
-* third
+      * first
+      +
+      ----
+      list = [1, 2, 3];
+      ----
+      +
+      * second
+      == not a heading
+      * third
 
-fin.
+      fin.
       EOS
       output = convert_string input
       assert_xpath "//h2", output, 1
@@ -2593,12 +2741,12 @@ fin.
     end
 
     test "should not match a heading in a block" do
-      input = <<-EOS
-====
+      input = <<~'EOS'
+      ====
 
-== not a heading
+      == not a heading
 
-====
+      ====
       EOS
       output = convert_string input
       assert_xpath "//h2", output, 0
@@ -2608,25 +2756,25 @@ fin.
 
   context 'Table of Contents' do
     test 'should output unnumbered table of contents in header if toc attribute is set' do
-      input = <<-EOS
-= Article
-:toc:
+      input = <<~'EOS'
+      = Article
+      :toc:
 
-== Section One
+      == Section One
 
-It was a dark and stormy night...
+      It was a dark and stormy night...
 
-== Section Two
+      == Section Two
 
-They couldn't believe their eyes when...
+      They couldn't believe their eyes when...
 
-=== Interlude
+      === Interlude
 
-While they were waiting...
+      While they were waiting...
 
-== Section Three
+      == Section Three
 
-That's all she wrote!
+      That's all she wrote!
       EOS
       output = convert_string input
       assert_xpath '//*[@id="header"]//*[@id="toc"][@class="toc"]', output, 1
@@ -2644,26 +2792,26 @@ That's all she wrote!
     end
 
     test 'should output numbered table of contents in header if toc and numbered attributes are set' do
-      input = <<-EOS
-= Article
-:toc:
-:numbered:
+      input = <<~'EOS'
+      = Article
+      :toc:
+      :numbered:
 
-== Section One
+      == Section One
 
-It was a dark and stormy night...
+      It was a dark and stormy night...
 
-== Section Two
+      == Section Two
 
-They couldn't believe their eyes when...
+      They couldn't believe their eyes when...
 
-=== Interlude
+      === Interlude
 
-While they were waiting...
+      While they were waiting...
 
-== Section Three
+      == Section Three
 
-That's all she wrote!
+      That's all she wrote!
       EOS
       output = convert_string input
       assert_xpath '//*[@id="header"]//*[@id="toc"][@class="toc"]', output, 1
@@ -2678,28 +2826,28 @@ That's all she wrote!
     end
 
     test 'should output a table of contents that honors numbered setting at position of section in document' do
-      input = <<-EOS
-= Article
-:toc:
-:numbered:
+      input = <<~'EOS'
+      = Article
+      :toc:
+      :numbered:
 
-== Section One
+      == Section One
 
-It was a dark and stormy night...
+      It was a dark and stormy night...
 
-== Section Two
+      == Section Two
 
-They couldn't believe their eyes when...
+      They couldn't believe their eyes when...
 
-=== Interlude
+      === Interlude
 
-While they were waiting...
+      While they were waiting...
 
-:numbered!:
+      :numbered!:
 
-== Section Three
+      == Section Three
 
-That's all she wrote!
+      That's all she wrote!
       EOS
       output = convert_string input
       assert_xpath '//*[@id="header"]//*[@id="toc"][@class="toc"]', output, 1
@@ -2712,27 +2860,27 @@ That's all she wrote!
     end
 
     test 'should not number parts in table of contents for book doctype when numbered attribute is set' do
-      input = <<-EOS
-= Book
-:doctype: book
-:toc:
-:numbered:
+      input = <<~'EOS'
+      = Book
+      :doctype: book
+      :toc:
+      :numbered:
 
-= Part 1
+      = Part 1
 
-== First Section of Part 1
+      == First Section of Part 1
 
-blah
+      blah
 
-== Second Section of Part 1
+      == Second Section of Part 1
 
-blah
+      blah
 
-= Part 2
+      = Part 2
 
-== First Section of Part 2
+      == First Section of Part 2
 
-blah
+      blah
       EOS
 
       output = convert_string input
@@ -2749,18 +2897,18 @@ blah
     end
 
     test 'should output table of contents in header if toc2 attribute is set' do
-      input = <<-EOS
-= Article
-:toc2:
-:numbered:
+      input = <<~'EOS'
+      = Article
+      :toc2:
+      :numbered:
 
-== Section One
+      == Section One
 
-It was a dark and stormy night...
+      It was a dark and stormy night...
 
-== Section Two
+      == Section Two
 
-They couldn't believe their eyes when...
+      They couldn't believe their eyes when...
       EOS
 
       output = convert_string input
@@ -2770,18 +2918,18 @@ They couldn't believe their eyes when...
     end
 
     test 'should set toc position if toc attribute is set to position' do
-      input = <<-EOS
-= Article
-:toc: >
-:numbered:
+      input = <<~'EOS'
+      = Article
+      :toc: >
+      :numbered:
 
-== Section One
+      == Section One
 
-It was a dark and stormy night...
+      It was a dark and stormy night...
 
-== Section Two
+      == Section Two
 
-They couldn't believe their eyes when...
+      They couldn't believe their eyes when...
       EOS
 
       output = convert_string input
@@ -2791,19 +2939,19 @@ They couldn't believe their eyes when...
     end
 
     test 'should set toc position if toc and toc-position attributes are set' do
-      input = <<-EOS
-= Article
-:toc:
-:toc-position: right
-:numbered:
+      input = <<~'EOS'
+      = Article
+      :toc:
+      :toc-position: right
+      :numbered:
 
-== Section One
+      == Section One
 
-It was a dark and stormy night...
+      It was a dark and stormy night...
 
-== Section Two
+      == Section Two
 
-They couldn't believe their eyes when...
+      They couldn't believe their eyes when...
       EOS
 
       output = convert_string input
@@ -2813,19 +2961,19 @@ They couldn't believe their eyes when...
     end
 
     test 'should set toc position if toc2 and toc-position attribute are set' do
-      input = <<-EOS
-= Article
-:toc2:
-:toc-position: right
-:numbered:
+      input = <<~'EOS'
+      = Article
+      :toc2:
+      :toc-position: right
+      :numbered:
 
-== Section One
+      == Section One
 
-It was a dark and stormy night...
+      It was a dark and stormy night...
 
-== Section Two
+      == Section Two
 
-They couldn't believe their eyes when...
+      They couldn't believe their eyes when...
       EOS
 
       output = convert_string input
@@ -2835,18 +2983,18 @@ They couldn't believe their eyes when...
     end
 
     test 'should set toc position if toc attribute is set to direction' do
-      input = <<-EOS
-= Article
-:toc: right
-:numbered:
+      input = <<~'EOS'
+      = Article
+      :toc: right
+      :numbered:
 
-== Section One
+      == Section One
 
-It was a dark and stormy night...
+      It was a dark and stormy night...
 
-== Section Two
+      == Section Two
 
-They couldn't believe their eyes when...
+      They couldn't believe their eyes when...
       EOS
 
       output = convert_string input
@@ -2856,19 +3004,19 @@ They couldn't believe their eyes when...
     end
 
     test 'should set toc placement to preamble if toc attribute is set to preamble' do
-      input = <<-EOS
-= Article
-:toc: preamble
+      input = <<~'EOS'
+      = Article
+      :toc: preamble
 
-Yada yada
+      Yada yada
 
-== Section One
+      == Section One
 
-It was a dark and stormy night...
+      It was a dark and stormy night...
 
-== Section Two
+      == Section Two
 
-They couldn't believe their eyes when...
+      They couldn't believe their eyes when...
       EOS
 
       output = convert_string input
@@ -2877,26 +3025,26 @@ They couldn't believe their eyes when...
     end
 
     test 'should use document attributes toc-class, toc-title and toclevels to create toc' do
-      input = <<-EOS
-= Article
-:toc:
-:toc-title: Contents
-:toc-class: toc2
-:toclevels: 1
+      input = <<~'EOS'
+      = Article
+      :toc:
+      :toc-title: Contents
+      :toc-class: toc2
+      :toclevels: 1
 
-== Section 1
+      == Section 1
 
-=== Section 1.1
+      === Section 1.1
 
-==== Section 1.1.1
+      ==== Section 1.1.1
 
-==== Section 1.1.2
+      ==== Section 1.1.2
 
-=== Section 1.2
+      === Section 1.2
 
-== Section 2
+      == Section 2
 
-Fin.
+      Fin.
       EOS
       output = convert_string input
       assert_css '#header #toc', output, 1
@@ -2907,18 +3055,18 @@ Fin.
     end
 
     test 'should not output table of contents if toc-placement attribute is unset' do
-      input = <<-EOS
-= Article
-:toc:
-:toc-placement!:
+      input = <<~'EOS'
+      = Article
+      :toc:
+      :toc-placement!:
 
-== Section One
+      == Section One
 
-It was a dark and stormy night...
+      It was a dark and stormy night...
 
-== Section Two
+      == Section Two
 
-They couldn't believe their eyes when...
+      They couldn't believe their eyes when...
       EOS
 
       output = convert_string input
@@ -2926,22 +3074,22 @@ They couldn't believe their eyes when...
     end
 
     test 'should output table of contents at location of toc macro' do
-      input = <<-EOS
-= Article
-:toc:
-:toc-placement: macro
+      input = <<~'EOS'
+      = Article
+      :toc:
+      :toc-placement: macro
 
-Once upon a time...
+      Once upon a time...
 
-toc::[]
+      toc::[]
 
-== Section One
+      == Section One
 
-It was a dark and stormy night...
+      It was a dark and stormy night...
 
-== Section Two
+      == Section Two
 
-They couldn't believe their eyes when...
+      They couldn't believe their eyes when...
       EOS
 
       output = convert_string input
@@ -2950,22 +3098,22 @@ They couldn't believe their eyes when...
     end
 
     test 'should output table of contents at location of toc macro in embedded document' do
-      input = <<-EOS
-= Article
-:toc:
-:toc-placement: macro
+      input = <<~'EOS'
+      = Article
+      :toc:
+      :toc-placement: macro
 
-Once upon a time...
+      Once upon a time...
 
-toc::[]
+      toc::[]
 
-== Section One
+      == Section One
 
-It was a dark and stormy night...
+      It was a dark and stormy night...
 
-== Section Two
+      == Section Two
 
-They couldn't believe their eyes when...
+      They couldn't believe their eyes when...
       EOS
 
       output = convert_string_to_embedded input
@@ -2974,20 +3122,20 @@ They couldn't believe their eyes when...
     end
 
     test 'should output table of contents at default location in embedded document if toc attribute is set' do
-      input = <<-EOS
-= Article
-:showtitle:
-:toc:
+      input = <<~'EOS'
+      = Article
+      :showtitle:
+      :toc:
 
-Once upon a time...
+      Once upon a time...
 
-== Section One
+      == Section One
 
-It was a dark and stormy night...
+      It was a dark and stormy night...
 
-== Section Two
+      == Section Two
 
-They couldn't believe their eyes when...
+      They couldn't believe their eyes when...
       EOS
 
       output = convert_string_to_embedded input
@@ -2997,21 +3145,21 @@ They couldn't believe their eyes when...
     end
 
     test 'should not activate toc macro if toc-placement is not set' do
-      input = <<-EOS
-= Article
-:toc:
+      input = <<~'EOS'
+      = Article
+      :toc:
 
-Once upon a time...
+      Once upon a time...
 
-toc::[]
+      toc::[]
 
-== Section One
+      == Section One
 
-It was a dark and stormy night...
+      It was a dark and stormy night...
 
-== Section Two
+      == Section Two
 
-They couldn't believe their eyes when...
+      They couldn't believe their eyes when...
       EOS
 
       output = convert_string input
@@ -3023,21 +3171,21 @@ They couldn't believe their eyes when...
     end
 
     test 'should only output toc at toc macro if toc is macro' do
-      input = <<-EOS
-= Article
-:toc: macro
+      input = <<~'EOS'
+      = Article
+      :toc: macro
 
-Once upon a time...
+      Once upon a time...
 
-toc::[]
+      toc::[]
 
-== Section One
+      == Section One
 
-It was a dark and stormy night...
+      It was a dark and stormy night...
 
-== Section Two
+      == Section Two
 
-They couldn't believe their eyes when...
+      They couldn't believe their eyes when...
       EOS
 
       output = convert_string input
@@ -3049,31 +3197,31 @@ They couldn't believe their eyes when...
     end
 
     test 'should use global attributes for toc-title, toc-class and toclevels for toc macro' do
-      input = <<-EOS
-= Article
-:toc:
-:toc-placement: macro
-:toc-title: Contents
-:toc-class: contents
-:toclevels: 1
+      input = <<~'EOS'
+      = Article
+      :toc:
+      :toc-placement: macro
+      :toc-title: Contents
+      :toc-class: contents
+      :toclevels: 1
 
-Preamble.
+      Preamble.
 
-toc::[]
+      toc::[]
 
-== Section 1
+      == Section 1
 
-=== Section 1.1
+      === Section 1.1
 
-==== Section 1.1.1
+      ==== Section 1.1.1
 
-==== Section 1.1.2
+      ==== Section 1.1.2
 
-=== Section 1.2
+      === Section 1.2
 
-== Section 2
+      == Section 2
 
-Fin.
+      Fin.
       EOS
 
       output = convert_string input
@@ -3088,35 +3236,35 @@ Fin.
     end
 
     test 'should honor id, title, role and level attributes on toc macro' do
-      input = <<-EOS
-= Article
-:toc:
-:toc-placement: macro
-:toc-title: Ignored
-:toc-class: ignored
-:toclevels: 5
-:tocdepth: 1
+      input = <<~'EOS'
+      = Article
+      :toc:
+      :toc-placement: macro
+      :toc-title: Ignored
+      :toc-class: ignored
+      :toclevels: 5
+      :tocdepth: 1
 
-Preamble.
+      Preamble.
 
-[[contents]]
-[role="contents"]
-.Contents
-toc::[levels={tocdepth}]
+      [[contents]]
+      [role="contents"]
+      .Contents
+      toc::[levels={tocdepth}]
 
-== Section 1
+      == Section 1
 
-=== Section 1.1
+      === Section 1.1
 
-==== Section 1.1.1
+      ==== Section 1.1.1
 
-==== Section 1.1.2
+      ==== Section 1.1.2
 
-=== Section 1.2
+      === Section 1.2
 
-== Section 2
+      == Section 2
 
-Fin.
+      Fin.
       EOS
 
       output = convert_string input
@@ -3131,25 +3279,25 @@ Fin.
     end
 
     test 'child toc levels should not have additional bullet at parent level in html' do
-      input = <<-EOS
-= Article
-:toc:
+      input = <<~'EOS'
+      = Article
+      :toc:
 
-== Section One
+      == Section One
 
-It was a dark and stormy night...
+      It was a dark and stormy night...
 
-== Section Two
+      == Section Two
 
-They couldn't believe their eyes when...
+      They couldn't believe their eyes when...
 
-=== Interlude
+      === Interlude
 
-While they were waiting...
+      While they were waiting...
 
-== Section Three
+      == Section Three
 
-That's all she wrote!
+      That's all she wrote!
       EOS
       output = convert_string input
       assert_xpath '//*[@id="header"]//*[@id="toc"][@class="toc"]', output, 1
@@ -3165,15 +3313,15 @@ That's all she wrote!
     end
 
     test 'should not display a table of contents if document has no sections' do
-      input_src = <<-EOS
-= Document Title
-:toc:
+      input_src = <<~'EOS'
+      = Document Title
+      :toc:
 
-toc::[]
+      toc::[]
 
-This document has no sections.
+      This document has no sections.
 
-It only has content.
+      It only has content.
       EOS
 
       ['', 'left', 'preamble', 'macro'].each do |placement|
@@ -3184,21 +3332,21 @@ It only has content.
     end
 
     test 'should drop anchors from contents of entries in table of contents' do
-      input = <<-EOS
-= Document Title
-:toc:
+      input = <<~'EOS'
+      = Document Title
+      :toc:
 
-== [[un]]Section One
+      == [[un]]Section One
 
-content
+      content
 
-== [[two]][[deux]]Section Two
+      == [[two]][[deux]]Section Two
 
-content
+      content
 
-== Plant Trees by https://ecosia.org[Searching]
+      == Plant Trees by https://ecosia.org[Searching]
 
-content
+      content
       EOS
 
       output = convert_string_to_embedded input
@@ -3211,25 +3359,25 @@ content
     end
 
     test 'should not remove non-anchor tags from contents of entries in table of contents' do
-      input = <<-EOS
-= Document Title
-:toc:
-:icons: font
+      input = <<~'EOS'
+      = Document Title
+      :toc:
+      :icons: font
 
-== `run` command
+      == `run` command
 
-content
+      content
 
-== icon:bug[] Issues
+      == icon:bug[] Issues
 
-content
+      content
 
-== https://ecosia.org[_Sustainable_ Searches]
+      == https://ecosia.org[_Sustainable_ Searches]
 
-content
+      content
       EOS
 
-      output = convert_string_to_embedded input, :safe => :safe
+      output = convert_string_to_embedded input, safe: :safe
       assert_xpath '/*[@id="toc"]', output, 1
       toc_links = xmlnodes_at_xpath '/*[@id="toc"]//li', output
       assert_equal 3, toc_links.size
@@ -3241,36 +3389,36 @@ content
 
   context 'article doctype' do
     test 'should create only sections in docbook backend' do
-      input = <<-EOS
-= Article
-Doc Writer
+      input = <<~'EOS'
+      = Article
+      Doc Writer
 
-== Section 1
+      == Section 1
 
-The adventure.
+      The adventure.
 
-=== Subsection One
+      === Subsection One
 
-It was a dark and stormy night...
+      It was a dark and stormy night...
 
-=== Subsection Two
+      === Subsection Two
 
-They couldn't believe their eyes when...
+      They couldn't believe their eyes when...
 
-== Section 2
+      == Section 2
 
-The return.
+      The return.
 
-=== Subsection Three
+      === Subsection Three
 
-While they were returning...
+      While they were returning...
 
-=== Subsection Four
+      === Subsection Four
 
-That's all she wrote!
+      That's all she wrote!
       EOS
 
-      output = convert_string input, :backend => 'docbook'
+      output = convert_string input, backend: 'docbook'
       assert_xpath '//part', output, 0
       assert_xpath '//chapter', output, 0
       assert_xpath '/article/section', output, 2
@@ -3284,34 +3432,34 @@ That's all she wrote!
 
   context 'book doctype' do
     test 'document title with level 0 headings' do
-      input = <<-EOS
-= Book
-Doc Writer
-:doctype: book
+      input = <<~'EOS'
+      = Book
+      Doc Writer
+      :doctype: book
 
-= Chapter One
+      = Chapter One
 
-[partintro]
-It was a dark and stormy night...
+      [partintro]
+      It was a dark and stormy night...
 
-== Scene One
+      == Scene One
 
-Someone's gonna get axed.
+      Someone's gonna get axed.
 
-= Chapter Two
+      = Chapter Two
 
-[partintro]
-They couldn't believe their eyes when...
+      [partintro]
+      They couldn't believe their eyes when...
 
-== Interlude
+      == Interlude
 
-While they were waiting...
+      While they were waiting...
 
-= Chapter Three
+      = Chapter Three
 
-== Scene One
+      == Scene One
 
-That's all she wrote!
+      That's all she wrote!
       EOS
 
       output = convert_string(input)
@@ -3328,14 +3476,14 @@ That's all she wrote!
     end
 
     test 'should print error if level 0 section comes after nested section and doctype is not book' do
-      input = <<-EOS
-= Document Title
+      input = <<~'EOS'
+      = Document Title
 
-== Level 1 Section
+      == Level 1 Section
 
-=== Level 2 Section
+      === Level 2 Section
 
-= Level 0 Section
+      = Level 0 Section
       EOS
 
       using_memory_logger do |logger|
@@ -3345,22 +3493,22 @@ That's all she wrote!
     end
 
     test 'should add class matching role to part' do
-      input = <<-EOS
-= Book Title
-:doctype: book
+      input = <<~'EOS'
+      = Book Title
+      :doctype: book
 
-[.newbie]
-= Part 1
+      [.newbie]
+      = Part 1
 
-== Chapter A
+      == Chapter A
 
-content
+      content
 
-= Part 2
+      = Part 2
 
-== Chapter B
+      == Chapter B
 
-content
+      content
       EOS
 
       result = convert_string_to_embedded input
@@ -3370,47 +3518,47 @@ content
     end
 
     test 'should assign appropriate sectname for section type' do
-      input = <<-EOS
-= Book Title
-:doctype: book
-:idprefix:
-:idseparator: -
+      input = <<~'EOS'
+      = Book Title
+      :doctype: book
+      :idprefix:
+      :idseparator: -
 
-= Part Title
+      = Part Title
 
-== Chapter Title
+      == Chapter Title
 
-=== Section Title
+      === Section Title
 
-content
+      content
 
-[appendix]
-== Appendix Title
+      [appendix]
+      == Appendix Title
 
-=== Appendix Section Title
+      === Appendix Section Title
 
-content
+      content
       EOS
 
       doc = document_from_string input
       assert_equal 'header', doc.header.sectname
-      assert_equal 'part', (doc.find_by :id => 'part-title')[0].sectname
-      assert_equal 'chapter', (doc.find_by :id => 'chapter-title')[0].sectname
-      assert_equal 'section', (doc.find_by :id => 'section-title')[0].sectname
-      assert_equal 'appendix', (doc.find_by :id => 'appendix-title')[0].sectname
-      assert_equal 'section', (doc.find_by :id => 'appendix-section-title')[0].sectname
+      assert_equal 'part', (doc.find_by id: 'part-title')[0].sectname
+      assert_equal 'chapter', (doc.find_by id: 'chapter-title')[0].sectname
+      assert_equal 'section', (doc.find_by id: 'section-title')[0].sectname
+      assert_equal 'appendix', (doc.find_by id: 'appendix-title')[0].sectname
+      assert_equal 'section', (doc.find_by id: 'appendix-section-title')[0].sectname
     end
 
     test 'should add partintro style to child paragraph of part' do
-      input = <<-EOS
-= Book
-:doctype: book
+      input = <<~'EOS'
+      = Book
+      :doctype: book
 
-= Part 1
+      = Part 1
 
-part intro
+      part intro
 
-== Chapter 1
+      == Chapter 1
       EOS
 
       doc = document_from_string input
@@ -3420,17 +3568,17 @@ part intro
     end
 
     test 'should add partintro style to child open block of part' do
-      input = <<-EOS
-= Book
-:doctype: book
+      input = <<~'EOS'
+      = Book
+      :doctype: book
 
-= Part 1
+      = Part 1
 
---
-part intro
---
+      --
+      part intro
+      --
 
-== Chapter 1
+      == Chapter 1
       EOS
 
       doc = document_from_string input
@@ -3440,17 +3588,17 @@ part intro
     end
 
     test 'should wrap child paragraphs of part in partintro open block' do
-      input = <<-EOS
-= Book
-:doctype: book
+      input = <<~'EOS'
+      = Book
+      :doctype: book
 
-= Part 1
+      = Part 1
 
-part intro
+      part intro
 
-more part intro
+      more part intro
 
-== Chapter 1
+      == Chapter 1
       EOS
 
       doc = document_from_string input
@@ -3463,14 +3611,14 @@ more part intro
     end
 
     test 'should warn if part has no sections' do
-      input = <<-EOS
-= Book
-:doctype: book
+      input = <<~'EOS'
+      = Book
+      :doctype: book
 
-= Part 1
+      = Part 1
 
-[partintro]
-intro
+      [partintro]
+      intro
       EOS
 
       using_memory_logger do |logger|
@@ -3480,39 +3628,39 @@ intro
     end
 
     test 'should create parts and chapters in docbook backend' do
-      input = <<-EOS
-= Book
-Doc Writer
-:doctype: book
+      input = <<~'EOS'
+      = Book
+      Doc Writer
+      :doctype: book
 
-= Part 1
+      = Part 1
 
-[partintro]
-The adventure.
+      [partintro]
+      The adventure.
 
-== Chapter One
+      == Chapter One
 
-It was a dark and stormy night...
+      It was a dark and stormy night...
 
-== Chapter Two
+      == Chapter Two
 
-They couldn't believe their eyes when...
+      They couldn't believe their eyes when...
 
-= Part 2
+      = Part 2
 
-[partintro]
-The return.
+      [partintro]
+      The return.
 
-== Chapter Three
+      == Chapter Three
 
-While they were returning...
+      While they were returning...
 
-== Chapter Four
+      == Chapter Four
 
-That's all she wrote!
+      That's all she wrote!
       EOS
 
-      output = convert_string input, :backend => 'docbook'
+      output = convert_string input, backend: 'docbook'
       assert_xpath '//chapter/chapter', output, 0
       assert_xpath '/book/part', output, 2
       assert_xpath '/book/part[1]/title[text() = "Part 1"]', output, 1
@@ -3523,43 +3671,43 @@ That's all she wrote!
     end
 
     test 'subsections in preface and appendix should start at level 2' do
-      input = <<-EOS
-= Multipart Book
-Doc Writer
-:doctype: book
+      input = <<~'EOS'
+      = Multipart Book
+      Doc Writer
+      :doctype: book
 
-[preface]
-= Preface
+      [preface]
+      = Preface
 
-Preface content
+      Preface content
 
-=== Preface subsection
+      === Preface subsection
 
-Preface subsection content
+      Preface subsection content
 
-= Part 1
+      = Part 1
 
-.Part intro title
-[partintro]
-Part intro content
+      .Part intro title
+      [partintro]
+      Part intro content
 
-== Chapter 1
+      == Chapter 1
 
-content
+      content
 
-[appendix]
-= Appendix
+      [appendix]
+      = Appendix
 
-Appendix content
+      Appendix content
 
-=== Appendix subsection
+      === Appendix subsection
 
-Appendix subsection content
+      Appendix subsection content
       EOS
 
       output = nil
       using_memory_logger do |logger|
-        output = convert_string input, :backend => 'docbook'
+        output = convert_string input, backend: 'docbook'
         assert logger.empty?
       end
       assert_xpath '/book/preface', output, 1

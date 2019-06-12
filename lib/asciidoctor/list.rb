@@ -1,4 +1,4 @@
-# encoding: UTF-8
+# frozen_string_literal: true
 module Asciidoctor
 # Public: Methods for managing AsciiDoc lists (ordered, unordered and description lists)
 class List < AbstractBlock
@@ -31,7 +31,7 @@ class List < AbstractBlock
     end
   end
 
-  # Alias render to convert to maintain backwards compatibility
+  # Deprecated: Use {List#convert} instead.
   alias render convert
 
   def to_s
@@ -41,6 +41,9 @@ class List < AbstractBlock
 end
 
 # Public: Methods for managing items for AsciiDoc olists, ulist, and dlists.
+#
+# In a description list (dlist), each item is a tuple that consists of a 2-item Array of ListItem terms and a ListItem
+# description (i.e., [[term, term, ...], desc]. If a description is not set, then the second entry in the tuple is nil.
 class ListItem < AbstractBlock
 
   # A contextual alias for the list parent node; counterpart to the items alias on List
@@ -63,7 +66,7 @@ class ListItem < AbstractBlock
   # Public: A convenience method that checks whether the text of this list item
   # is not blank (i.e., not nil or empty string).
   def text?
-    !@text.nil_or_empty?
+    @text.nil_or_empty? ? false : true
   end
 
   # Public: Get the String text of this ListItem with substitutions applied.
@@ -100,33 +103,16 @@ class ListItem < AbstractBlock
     !simple?
   end
 
-  # Public: Fold the first paragraph block into the text
-  #
-  # Here are the rules for when a folding occurs:
-  #
-  # Given: this list item has at least one block
-  # When: the first block is a paragraph that's not connected by a list continuation
-  # Or: the first block is an indented paragraph that's adjacent (wrapped line)
-  # Or: the first block is an indented paragraph that's not connected by a list continuation
-  # Then: then drop the first block and fold it's content (buffer) into the list text
+  # Internal: Fold the adjacent paragraph block into the list item text
   #
   # Returns nothing
-  def fold_first(continuation_connects_first_block = false, content_adjacent = false)
-    if (first_block = @blocks[0]) && Block === first_block &&
-        ((first_block.context == :paragraph && !continuation_connects_first_block) ||
-        ((content_adjacent || !continuation_connects_first_block) && first_block.context == :literal &&
-            first_block.option?('listparagraph')))
-
-      block = blocks.shift
-      block.lines.unshift @text unless @text.nil_or_empty?
-      @text = block.source
-    end
+  def fold_first
+    @text = @text.nil_or_empty? ? @blocks.shift.source : %(#{@text}#{LF}#{@blocks.shift.source})
     nil
   end
 
   def to_s
     %(#<#{self.class}@#{object_id} {list_context: #{parent.context.inspect}, text: #{@text.inspect}, blocks: #{(@blocks || []).size}}>)
   end
-
 end
 end

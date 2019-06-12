@@ -1,19 +1,16 @@
-# encoding: UTF-8
-unless defined? ASCIIDOCTOR_PROJECT_DIR
-  $: << File.dirname(__FILE__); $:.uniq!
-  require 'test_helper'
-end
+# frozen_string_literal: true
+require_relative 'test_helper'
 
 context "Bulleted lists (:ulist)" do
   context "Simple lists" do
     test "dash elements with no blank lines" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-- Foo
-- Boo
-- Blech
+      - Foo
+      - Boo
+      - Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -21,10 +18,10 @@ List
     end
 
     test 'indented dash elements using spaces' do
-      input = <<-EOS
- - Foo
- - Boo
- - Blech
+      input = <<~EOS
+      \x20- Foo
+      \x20- Boo
+      \x20- Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -32,10 +29,10 @@ List
     end
 
     test 'indented dash elements using tabs' do
-      input = <<-EOS
-\t-\tFoo
-\t-\tBoo
-\t-\tBlech
+      input = <<~EOS
+      \t-\tFoo
+      \t-\tBoo
+      \t-\tBlech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -43,16 +40,16 @@ List
     end
 
     test "dash elements separated by blank lines should merge lists" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-- Foo
+      - Foo
 
-- Boo
+      - Boo
 
 
-- Blech
+      - Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -60,17 +57,17 @@ List
     end
 
     test 'dash elements with interspersed line comments should be skipped and not break list' do
-      input = <<-EOS
-== List
+      input = <<~'EOS'
+      == List
 
-- Foo
-// line comment
-// another line comment
-- Boo
-// line comment
-more text
-// another line comment
-- Blech
+      - Foo
+      // line comment
+      // another line comment
+      - Boo
+      // line comment
+      more text
+      // another line comment
+      - Blech
       EOS
       output = convert_string_to_embedded input
       assert_xpath '//ul', output, 1
@@ -79,16 +76,16 @@ more text
     end
 
     test "dash elements separated by a line comment offset by blank lines should not merge lists" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-- Foo
-- Boo
+      - Foo
+      - Boo
 
-//
+      //
 
-- Blech
+      - Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 2
@@ -97,15 +94,15 @@ List
     end
 
     test "dash elements separated by a block title offset by a blank line should not merge lists" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-- Foo
-- Boo
+      - Foo
+      - Boo
 
-.Also
-- Blech
+      .Also
+      - Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 2
@@ -115,14 +112,14 @@ List
     end
 
     test "dash elements separated by an attribute entry offset by a blank line should not merge lists" do
-      input = <<-EOS
-== List
+      input = <<~'EOS'
+      == List
 
-- Foo
-- Boo
+      - Foo
+      - Boo
 
-:foo: bar
-- Blech
+      :foo: bar
+      - Blech
       EOS
       output = convert_string_to_embedded input
       assert_xpath '//ul', output, 2
@@ -131,14 +128,14 @@ List
     end
 
     test 'a non-indented wrapped line is folded into text of list item' do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-- Foo
-wrapped content
-- Boo
-- Blech
+      - Foo
+      wrapped content
+      - Boo
+      - Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -147,13 +144,13 @@ wrapped content
     end
 
     test 'a non-indented wrapped line that resembles a block title is folded into text of list item' do
-      input = <<-EOS
-== List
+      input = <<~'EOS'
+      == List
 
-- Foo
-.wrapped content
-- Boo
-- Blech
+      - Foo
+      .wrapped content
+      - Boo
+      - Blech
       EOS
       output = convert_string_to_embedded input
       assert_xpath '//ul', output, 1
@@ -162,13 +159,13 @@ wrapped content
     end
 
     test 'a non-indented wrapped line that resembles an attribute entry is folded into text of list item' do
-      input = <<-EOS
-== List
+      input = <<~'EOS'
+      == List
 
-- Foo
-:foo: bar
-- Boo
-- Blech
+      - Foo
+      :foo: bar
+      - Boo
+      - Blech
       EOS
       output = convert_string_to_embedded input
       assert_xpath '//ul', output, 1
@@ -177,10 +174,10 @@ wrapped content
     end
 
     test 'a list item with a nested marker terminates non-indented paragraph for text of list item' do
-      input = <<-EOS
-- Foo
-Bar
-* Foo
+      input = <<~'EOS'
+      - Foo
+      Bar
+      * Foo
       EOS
 
       output = convert_string_to_embedded input
@@ -189,18 +186,18 @@ Bar
     end
 
     test 'a list item for a different list terminates non-indented paragraph for text of list item' do
-      input = <<-EOS
-== Example 1
+      input = <<~'EOS'
+      == Example 1
 
-- Foo
-Bar
-. Foo
+      - Foo
+      Bar
+      . Foo
 
-== Example 2
+      == Example 2
 
-* Item
-text
-term:: def
+      * Item
+      text
+      term:: def
       EOS
 
       output = convert_string_to_embedded input
@@ -211,14 +208,14 @@ term:: def
     end
 
     test 'an indented wrapped line is unindented and folded into text of list item' do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-- Foo
-  wrapped content
-- Boo
-- Blech
+      - Foo
+        wrapped content
+      - Boo
+      - Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -227,19 +224,20 @@ List
     end
 
     test 'wrapped list item with hanging indent followed by non-indented line' do
-      input = <<-EOS
-== Lists
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      == Lists
 
-- list item 1
-  // not line comment
-second wrapped line
-- list item 2
+      - list item 1
+        // not line comment
+      second wrapped line
+      - list item 2
       EOS
       output = convert_string_to_embedded input
       assert_css 'ul', output, 1
       assert_css 'ul li', output, 2
       # NOTE for some reason, we're getting an extra line after the indented line
-      lines = xmlnodes_at_xpath('(//ul/li)[1]/p', output, 1).text.gsub(/\n[[:space:]]*\n/, "\n").lines.entries
+      lines = xmlnodes_at_xpath('(//ul/li)[1]/p', output, 1).text.gsub(/\n[[:space:]]*\n/, ?\n).lines
       assert_equal 3, lines.size
       assert_equal 'list item 1', lines[0].chomp
       assert_equal '  // not line comment', lines[1].chomp
@@ -247,10 +245,11 @@ second wrapped line
     end
 
     test 'a list item with a nested marker terminates indented paragraph for text of list item' do
-      input = <<-EOS
-- Foo
-  Bar
-* Foo
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      - Foo
+        Bar
+      * Foo
       EOS
 
       output = convert_string_to_embedded input
@@ -259,9 +258,9 @@ second wrapped line
     end
 
     test 'a list item that starts with a sequence of list markers characters should not match a nested list' do
-      input = <<-EOS
- * first item
- *. normal text
+      input = <<~EOS
+      \x20* first item
+      \x20*. normal text
       EOS
 
       output = convert_string_to_embedded input
@@ -271,18 +270,19 @@ second wrapped line
     end
 
     test 'a list item for a different list terminates indented paragraph for text of list item' do
-      input = <<-EOS
-== Example 1
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      == Example 1
 
-- Foo
-  Bar
-. Foo
+      - Foo
+        Bar
+      . Foo
 
-== Example 2
+      == Example 2
 
-* Item
-  text
-term:: def
+      * Item
+        text
+      term:: def
       EOS
 
       output = convert_string_to_embedded input
@@ -293,16 +293,17 @@ term:: def
     end
 
     test "a literal paragraph offset by blank lines in list content is appended as a literal block" do
-      input = <<-EOS
-List
-====
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      List
+      ====
 
-- Foo
+      - Foo
 
-  literal
+        literal
 
-- Boo
-- Blech
+      - Boo
+      - Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -313,19 +314,41 @@ List
       assert_xpath '((//ul/li)[1]/*[@class="literalblock"])[1]//pre[text() = "literal"]', output, 1
     end
 
+    test 'should escape special characters in all literal paragraphs attached to list item' do
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      * first item
+
+        <code>text</code>
+
+        more <code>text</code>
+
+      * second item
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_css 'li', output, 2
+      assert_css 'code', output, 0
+      assert_css 'li:first-of-type > *', output, 3
+      assert_css 'li:first-of-type pre', output, 2
+      assert_xpath '((//li)[1]//pre)[1][text()="<code>text</code>"]', output, 1
+      assert_xpath '((//li)[1]//pre)[2][text()="more <code>text</code>"]', output, 1
+    end
+
     test "a literal paragraph offset by a blank line in list content followed by line with continuation is appended as two blocks" do
-      input = <<-EOS
-List
-====
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      List
+      ====
 
-- Foo
+      - Foo
 
-  literal
-+
-para
+        literal
+      +
+      para
 
-- Boo
-- Blech
+      - Boo
+      - Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -339,11 +362,12 @@ para
     end
 
     test 'an admonition paragraph attached by a line continuation to a list item with wrapped text should produce admonition' do
-      input = <<-EOS
-- first-line text
-  wrapped text
-+
-NOTE: This is a note.
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      - first-line text
+        wrapped text
+      +
+      NOTE: This is a note.
       EOS
 
       output = convert_string_to_embedded input
@@ -356,18 +380,19 @@ NOTE: This is a note.
     end
 
     test 'paragraph-like blocks attached to an ancestory list item by a list continuation should produce blocks' do
-      input = <<-EOS
-* parent
- ** child
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      * parent
+       ** child
 
-+
-NOTE: This is a note.
+      +
+      NOTE: This is a note.
 
-* another parent
- ** another child
+      * another parent
+       ** another child
 
-+
-'''
+      +
+      '''
       EOS
 
       output = convert_string_to_embedded input
@@ -378,21 +403,21 @@ NOTE: This is a note.
     end
 
     test 'should not inherit block attributes from previous block when block is attached using a list continuation' do
-      input = <<-EOS
-* complex list item
-+
-[source,xml]
-----
-<name>value</name> <!--1-->
-----
-<1> a configuration value
+      input = <<~'EOS'
+      * complex list item
+      +
+      [source,xml]
+      ----
+      <name>value</name> <!--1-->
+      ----
+      <1> a configuration value
       EOS
 
       doc = document_from_string input
       colist = doc.blocks[0].items[0].blocks[-1]
       assert_equal :colist, colist.context
       refute_equal 'source', colist.style
-      output = doc.convert :header_footer => false
+      output = doc.convert standalone: false
       assert_css 'ul', output, 1
       assert_css 'ul > li', output, 1
       assert_css 'ul > li > p', output, 1
@@ -401,18 +426,18 @@ NOTE: This is a note.
     end
 
     test 'should continue to parse blocks attached by a list continuation after block is dropped' do
-      input = <<-EOS
-* item
-+
-paragraph
-+
-[comment]
-comment
-+
-====
-example
-====
-'''
+      input = <<~'EOS'
+      * item
+      +
+      paragraph
+      +
+      [comment]
+      comment
+      +
+      ====
+      example
+      ====
+      '''
       EOS
 
       output = convert_string_to_embedded input
@@ -421,13 +446,13 @@ example
     end
 
     test 'appends line as paragraph if attached by continuation following line comment' do
-      input = <<-EOS
-- list item 1
-// line comment
-+
-paragraph in list item 1
+      input = <<~'EOS'
+      - list item 1
+      // line comment
+      +
+      paragraph in list item 1
 
-- list item 2
+      - list item 2
       EOS
       output = convert_string_to_embedded input
       assert_css 'ul', output, 1
@@ -439,15 +464,16 @@ paragraph in list item 1
     end
 
     test "a literal paragraph with a line that appears as a list item that is followed by a continuation should create two blocks" do
-      input = <<-EOS
-* Foo
-+
-  literal
-. still literal
-+
-para
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      * Foo
+      +
+        literal
+      . still literal
+      +
+      para
 
-* Bar
+      * Bar
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -461,19 +487,20 @@ para
     end
 
     test "consecutive literal paragraph offset by blank lines in list content are appended as a literal blocks" do
-      input = <<-EOS
-List
-====
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      List
+      ====
 
-- Foo
+      - Foo
 
-  literal
+        literal
 
-  more
-  literal
+        more
+        literal
 
-- Boo
-- Blech
+      - Boo
+      - Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -481,20 +508,21 @@ List
       assert_xpath '(//ul/li)[1]/p[text() = "Foo"]', output, 1
       assert_xpath '(//ul/li)[1]/*[@class="literalblock"]', output, 2
       assert_xpath '(//ul/li)[1]/p/following-sibling::*[@class="literalblock"]', output, 2
-      assert_xpath '((//ul/li)[1]/*[@class="literalblock"])[1]//pre[text() = "literal"]', output, 1
-      assert_xpath "((//ul/li)[1]/*[@class='literalblock'])[2]//pre[text() = 'more\nliteral']", output, 1
+      assert_xpath '((//ul/li)[1]/*[@class="literalblock"])[1]//pre[text()="literal"]', output, 1
+      assert_xpath "((//ul/li)[1]/*[@class='literalblock'])[2]//pre[text()='more\nliteral']", output, 1
     end
 
     test "a literal paragraph without a trailing blank line consumes following list items" do
-      input = <<-EOS
-List
-====
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      List
+      ====
 
-- Foo
+      - Foo
 
-  literal
-- Boo
-- Blech
+        literal
+      - Boo
+      - Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -506,13 +534,13 @@ List
     end
 
     test "asterisk elements with no blank lines" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-* Foo
-* Boo
-* Blech
+      * Foo
+      * Boo
+      * Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -520,10 +548,10 @@ List
     end
 
     test 'indented asterisk elements using spaces' do
-      input = <<-EOS
- * Foo
- * Boo
- * Blech
+      input = <<~EOS
+      \x20* Foo
+      \x20* Boo
+      \x20* Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -531,21 +559,21 @@ List
     end
 
     test 'indented unicode bullet elements using spaces' do
-      input = <<-EOS
- • Foo
- • Boo
- • Blech
+      input = <<~EOS
+      \x20• Foo
+      \x20• Boo
+      \x20• Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 3
-    end if ::RUBY_MIN_VERSION_1_9
+    end
 
     test 'indented asterisk elements using tabs' do
-      input = <<-EOS
-\t*\tFoo
-\t*\tBoo
-\t*\tBlech
+      input = <<~EOS
+      \t*\tFoo
+      \t*\tBoo
+      \t*\tBlech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -554,11 +582,11 @@ List
 
     test 'should represent block style as style class' do
       ['disc', 'square', 'circle'].each do |style|
-        input = <<-EOS
-[#{style}]
-* a
-* b
-* c
+        input = <<~EOS
+        [#{style}]
+        * a
+        * b
+        * c
         EOS
         output = convert_string_to_embedded input
         assert_css ".ulist.#{style}", output, 1
@@ -567,16 +595,16 @@ List
     end
 
     test "asterisk elements separated by blank lines should merge lists" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-* Foo
+      * Foo
 
-* Boo
+      * Boo
 
 
-* Blech
+      * Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -584,17 +612,17 @@ List
     end
 
     test 'asterisk elements with interspersed line comments should be skipped and not break list' do
-      input = <<-EOS
-== List
+      input = <<~'EOS'
+      == List
 
-* Foo
-// line comment
-// another line comment
-* Boo
-// line comment
-more text
-// another line comment
-* Blech
+      * Foo
+      // line comment
+      // another line comment
+      * Boo
+      // line comment
+      more text
+      // another line comment
+      * Blech
       EOS
       output = convert_string_to_embedded input
       assert_xpath '//ul', output, 1
@@ -603,16 +631,16 @@ more text
     end
 
     test "asterisk elements separated by a line comment offset by blank lines should not merge lists" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-* Foo
-* Boo
+      * Foo
+      * Boo
 
-//
+      //
 
-* Blech
+      * Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 2
@@ -621,15 +649,15 @@ List
     end
 
     test "asterisk elements separated by a block title offset by a blank line should not merge lists" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-* Foo
-* Boo
+      * Foo
+      * Boo
 
-.Also
-* Blech
+      .Also
+      * Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 2
@@ -639,14 +667,14 @@ List
     end
 
     test "asterisk elements separated by an attribute entry offset by a blank line should not merge lists" do
-      input = <<-EOS
-== List
+      input = <<~'EOS'
+      == List
 
-* Foo
-* Boo
+      * Foo
+      * Boo
 
-:foo: bar
-* Blech
+      :foo: bar
+      * Blech
       EOS
       output = convert_string_to_embedded input
       assert_xpath '//ul', output, 2
@@ -655,16 +683,16 @@ List
     end
 
     test "list should terminate before next lower section heading" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-* first
-item
-* second
-item
+      * first
+      item
+      * second
+      item
 
-== Section
+      == Section
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -673,17 +701,17 @@ item
     end
 
     test "list should terminate before next lower section heading with implicit id" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-* first
-item
-* second
-item
+      * first
+      item
+      * second
+      item
 
-[[sec]]
-== Section
+      [[sec]]
+      == Section
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -692,10 +720,10 @@ item
     end
 
     test 'should not find section title immediately below last list item' do
-      input = <<-EOS
-* first
-* second
-== Not a section
+      input = <<~'EOS'
+      * first
+      * second
+      == Not a section
       EOS
 
       output = convert_string_to_embedded input
@@ -707,10 +735,10 @@ item
     end
 
     test 'should match trailing line separator in text of list item' do
-      input = <<-EOS.chomp
-* a
-* b#{decode_char 8232}
-* c
+      input = <<~EOS.chop
+      * a
+      * b#{decode_char 8232}
+      * c
       EOS
 
       output = convert_string input
@@ -719,10 +747,10 @@ item
     end
 
     test 'should match line separator in text of list item' do
-      input = <<-EOS.chomp
-* a
-* b#{decode_char 8232}b
-* c
+      input = <<~EOS.chop
+      * a
+      * b#{decode_char 8232}b
+      * c
       EOS
 
       output = convert_string input
@@ -733,13 +761,13 @@ item
 
   context "Lists with inline markup" do
     test "quoted text" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-- I am *strong*.
-- I am _stressed_.
-- I am `flexible`.
+      - I am *strong*.
+      - I am _stressed_.
+      - I am `flexible`.
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -750,13 +778,13 @@ List
     end
 
     test "attribute substitutions" do
-      input = <<-EOS
-List
-====
-:foo: bar
+      input = <<~'EOS'
+      List
+      ====
+      :foo: bar
 
-- side a {vbar} side b
-- Take me to a {foo}.
+      - side a {vbar} side b
+      - Take me to a {foo}.
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -766,10 +794,10 @@ List
     end
 
     test "leading dot is treated as text not block title" do
-      input = <<-EOS
-* .first
-* .second
-* .third
+      input = <<~'EOS'
+      * .first
+      * .second
+      * .third
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -780,10 +808,11 @@ List
     end
 
     test "word ending sentence on continuing line not treated as a list item" do
-      input = <<-EOS
-A. This is the story about
-   AsciiDoc. It begins here.
-B. And it ends here.
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      A. This is the story about
+         AsciiDoc. It begins here.
+      B. And it ends here.
       EOS
       output = convert_string input
       assert_xpath '//ol', output, 1
@@ -791,55 +820,79 @@ B. And it ends here.
     end
 
     test 'should discover anchor at start of unordered list item text and register it as a reference' do
-      input = <<-EOS
-The highest peak in the Front Range is <<grays-peak>>, which tops <<mount-evans>> by just a few feet.
+      input = <<~'EOS'
+      The highest peak in the Front Range is <<grays-peak>>, which tops <<mount-evans>> by just a few feet.
 
-* [[mount-evans,Mount Evans]]At 14,271 feet, Mount Evans is the highest summit of the Chicago Peaks in the Front Range of the Rocky Mountains.
-* [[grays-peak,Grays Peak]]
-Grays Peak rises to 14,278 feet, making it the highest summit in the Front Range of the Rocky Mountains.
-* Longs Peak is a 14,259-foot high, prominent mountain summit in the northern Front Range of the Rocky Mountains.
-* Pikes Peak is the highest summit of the southern Front Range of the Rocky Mountains at 14,115 feet.
+      * [[mount-evans,Mount Evans]]At 14,271 feet, Mount Evans is the highest summit of the Chicago Peaks in the Front Range of the Rocky Mountains.
+      * [[grays-peak,Grays Peak]]
+      Grays Peak rises to 14,278 feet, making it the highest summit in the Front Range of the Rocky Mountains.
+      * Longs Peak is a 14,259-foot high, prominent mountain summit in the northern Front Range of the Rocky Mountains.
+      * Pikes Peak is the highest summit of the southern Front Range of the Rocky Mountains at 14,115 feet.
       EOS
 
       doc = document_from_string input
       refs = doc.catalog[:refs]
       assert refs.key?('mount-evans')
       assert refs.key?('grays-peak')
-      output = doc.convert :header_footer => false
+      output = doc.convert standalone: false
       assert_xpath '(//p)[1]/a[@href="#grays-peak"][text()="Grays Peak"]', output, 1
       assert_xpath '(//p)[1]/a[@href="#mount-evans"][text()="Mount Evans"]', output, 1
     end
 
     test 'should discover anchor at start of ordered list item text and register it as a reference' do
-      input = <<-EOS
-This is a cross-reference to <<step-2>>.
-This is a cross-reference to <<step-4>>.
+      input = <<~'EOS'
+      This is a cross-reference to <<step-2>>.
+      This is a cross-reference to <<step-4>>.
 
-. Ordered list, item 1, without anchor
-. [[step-2,Step 2]]Ordered list, item 2, with anchor
-. Ordered list, item 3, without anchor
-. [[step-4,Step 4]]Ordered list, item 4, with anchor
+      . Ordered list, item 1, without anchor
+      . [[step-2,Step 2]]Ordered list, item 2, with anchor
+      . Ordered list, item 3, without anchor
+      . [[step-4,Step 4]]Ordered list, item 4, with anchor
       EOS
 
       doc = document_from_string input
       refs = doc.catalog[:refs]
       assert refs.key?('step-2')
       assert refs.key?('step-4')
-      output = doc.convert :header_footer => false
+      output = doc.convert standalone: false
       assert_xpath '(//p)[1]/a[@href="#step-2"][text()="Step 2"]', output, 1
       assert_xpath '(//p)[1]/a[@href="#step-4"][text()="Step 4"]', output, 1
+    end
+
+    test 'should discover anchor at start of callout list item text and register it as a reference' do
+      input = <<~'EOS'
+      This is a cross-reference to <<url-mapping>>.
+
+      [source,ruby]
+      ----
+      require 'sinatra' <1>
+
+      get '/hi' do <2> <3>
+        "Hello World!"
+      end
+      ----
+      <1> Library import
+      <2> [[url-mapping,url mapping]]URL mapping
+      <3> Response block
+      EOS
+
+      doc = document_from_string input
+      refs = doc.catalog[:refs]
+      assert refs.key?('url-mapping')
+      output = doc.convert standalone: false
+      assert_xpath '(//p)[1]/a[@href="#url-mapping"][text()="url mapping"]', output, 1
     end
   end
 
   context "Nested lists" do
     test "asterisk element mixed with dash elements should be nested" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-- Foo
-* Boo
-- Blech
+      - Foo
+      * Boo
+      - Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 2
@@ -849,13 +902,13 @@ List
     end
 
     test "dash element mixed with asterisks elements should be nested" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-* Foo
-- Boo
-* Blech
+      * Foo
+      - Boo
+      * Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 2
@@ -865,16 +918,16 @@ List
     end
 
     test "lines prefixed with alternating list markers separated by blank lines should be nested" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-- Foo
+      - Foo
 
-* Boo
+      * Boo
 
 
-- Blech
+      - Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 2
@@ -884,13 +937,13 @@ List
     end
 
     test "nested elements (2) with asterisks" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-* Foo
-** Boo
-* Blech
+      * Foo
+      ** Boo
+      * Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 2
@@ -900,14 +953,14 @@ List
     end
 
     test "nested elements (3) with asterisks" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-* Foo
-** Boo
-*** Snoo
-* Blech
+      * Foo
+      ** Boo
+      *** Snoo
+      * Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 3
@@ -917,15 +970,15 @@ List
     end
 
     test "nested elements (4) with asterisks" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-* Foo
-** Boo
-*** Snoo
-**** Froo
-* Blech
+      * Foo
+      ** Boo
+      *** Snoo
+      **** Froo
+      * Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 4
@@ -936,16 +989,16 @@ List
     end
 
     test "nested elements (5) with asterisks" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-* Foo
-** Boo
-*** Snoo
-**** Froo
-***** Groo
-* Blech
+      * Foo
+      ** Boo
+      *** Snoo
+      **** Froo
+      ***** Groo
+      * Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 5
@@ -967,22 +1020,23 @@ List
     end
 
     test 'level of unordered list should match section level' do
-      input = <<-EOS
-== Parent Section
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      == Parent Section
 
-* item 1.1
- ** item 2.1
-  *** item 3.1
- ** item 2.2
-* item 1.2
+      * item 1.1
+       ** item 2.1
+        *** item 3.1
+       ** item 2.2
+      * item 1.2
 
-=== Nested Section
+      === Nested Section
 
-* item 1.1
+      * item 1.1
       EOS
 
       doc = document_from_string input
-      lists = doc.find_by :context => :ulist
+      lists = doc.find_by context: :ulist
       assert_equal 1, lists[0].level
       assert_equal 1, lists[1].level
       assert_equal 1, lists[2].level
@@ -990,22 +1044,20 @@ List
     end
 
     test 'does not recognize lists with repeating unicode bullets' do
-      input = <<-EOS
-•• Boo
-      EOS
+      input = '•• Boo'
       output = convert_string input
       assert_xpath '//ul', output, 0
       assert_includes output, '•'
-    end if ::RUBY_MIN_VERSION_1_9
+    end
 
     test "nested ordered elements (2)" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-. Foo
-.. Boo
-. Blech
+      . Foo
+      .. Boo
+      . Blech
       EOS
       output = convert_string input
       assert_xpath '//ol', output, 2
@@ -1015,14 +1067,14 @@ List
     end
 
     test "nested ordered elements (3)" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-. Foo
-.. Boo
-... Snoo
-. Blech
+      . Foo
+      .. Boo
+      ... Snoo
+      . Blech
       EOS
       output = convert_string input
       assert_xpath '//ol', output, 3
@@ -1042,22 +1094,23 @@ List
     end
 
     test 'level of ordered list should match section level' do
-      input = <<-EOS
-== Parent Section
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      == Parent Section
 
-. item 1.1
- .. item 2.1
-  ... item 3.1
- .. item 2.2
-. item 1.2
+      . item 1.1
+       .. item 2.1
+        ... item 3.1
+       .. item 2.2
+      . item 1.2
 
-=== Nested Section
+      === Nested Section
 
-. item 1.1
+      . item 1.1
       EOS
 
       doc = document_from_string input
-      lists = doc.find_by :context => :olist
+      lists = doc.find_by context: :olist
       assert_equal 1, lists[0].level
       assert_equal 1, lists[1].level
       assert_equal 1, lists[2].level
@@ -1065,13 +1118,13 @@ List
     end
 
     test "nested unordered inside ordered elements" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-. Foo
-* Boo
-. Blech
+      . Foo
+      * Boo
+      . Blech
       EOS
       output = convert_string input
       assert_xpath '//ol', output, 1
@@ -1081,13 +1134,13 @@ List
     end
 
     test "nested ordered inside unordered elements" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-* Foo
-. Boo
-* Blech
+      * Foo
+      . Boo
+      * Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -1097,13 +1150,13 @@ List
     end
 
     test 'three levels of alternating unordered and ordered elements' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-* bullet 1
-. numbered 1.1
-** bullet 1.1.1
-* bullet 2
+      * bullet 1
+      . numbered 1.1
+      ** bullet 1.1.1
+      * bullet 2
       EOS
 
       output = convert_string_to_embedded input
@@ -1118,16 +1171,16 @@ List
     end
 
     test "lines with alternating markers of unordered and ordered list types separated by blank lines should be nested" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-* Foo
+      * Foo
 
-. Boo
+      . Boo
 
 
-* Blech
+      * Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -1137,17 +1190,18 @@ List
     end
 
     test 'list item with literal content should not consume nested list of different type' do
-      input = <<-EOS
-List
-====
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      List
+      ====
 
-- bullet
+      - bullet
 
-  literal
-  but not
-  hungry
+        literal
+        but not
+        hungry
 
-. numbered
+      . numbered
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -1162,18 +1216,19 @@ List
     end
 
     test 'nested list item does not eat the title of the following detached block' do
-      input = <<-EOS
-List
-====
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      List
+      ====
 
-- bullet
-  * nested bullet 1
-  * nested bullet 2
+      - bullet
+        * nested bullet 1
+        * nested bullet 2
 
-.Title
-....
-literal
-....
+      .Title
+      ....
+      literal
+      ....
       EOS
       # use convert_string so we can match all ulists easier
       output = convert_string input
@@ -1183,15 +1238,15 @@ literal
     end
 
     test "lines with alternating markers of bulleted and description list types separated by blank lines should be nested" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-* Foo
+      * Foo
 
-term1:: def1
+      term1:: def1
 
-* Blech
+      * Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -1202,14 +1257,14 @@ term1:: def1
     end
 
     test "nested ordered with attribute inside unordered elements" do
-      input = <<-EOS
-Blah
-====
+      input = <<~'EOS'
+      Blah
+      ====
 
-* Foo
-[start=2]
-. Boo
-* Blech
+      * Foo
+      [start=2]
+      . Boo
+      * Blech
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -1221,15 +1276,15 @@ Blah
 
   context "List continuations" do
     test "adjacent list continuation line attaches following paragraph" do
-      input = <<-EOS
-Lists
-=====
+      input = <<~'EOS'
+      Lists
+      =====
 
-* Item one, paragraph one
-+
-Item one, paragraph two
-+
-* Item two
+      * Item one, paragraph one
+      +
+      Item one, paragraph two
+      +
+      * Item two
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -1241,17 +1296,17 @@ Item one, paragraph two
     end
 
     test "adjacent list continuation line attaches following block" do
-      input = <<-EOS
-Lists
-=====
+      input = <<~'EOS'
+      Lists
+      =====
 
-* Item one, paragraph one
-+
-....
-Item one, literal block
-....
-+
-* Item two
+      * Item one, paragraph one
+      +
+      ....
+      Item one, literal block
+      ....
+      +
+      * Item two
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -1261,21 +1316,21 @@ Item one, literal block
     end
 
     test 'adjacent list continuation line attaches following block with block attributes' do
-      input = <<-EOS
-Lists
-=====
+      input = <<~'EOS'
+      Lists
+      =====
 
-* Item one, paragraph one
-+
-:foo: bar
-[[beck]]
-.Read the following aloud to yourself
-[source, ruby]
-----
-5.times { print "Odelay!" }
-----
+      * Item one, paragraph one
+      +
+      :foo: bar
+      [[beck]]
+      .Read the following aloud to yourself
+      [source, ruby]
+      ----
+      5.times { print "Odelay!" }
+      ----
 
-* Item two
+      * Item two
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -1287,15 +1342,15 @@ Lists
     end
 
     test 'trailing block attribute line attached by continuation should not create block' do
-      input = <<-EOS
-Lists
-=====
+      input = <<~'EOS'
+      Lists
+      =====
 
-* Item one, paragraph one
-+
-[source]
+      * Item one, paragraph one
+      +
+      [source]
 
-* Item two
+      * Item two
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -1305,15 +1360,15 @@ Lists
     end
 
     test 'trailing block title line attached by continuation should not create block' do
-      input = <<-EOS
-Lists
-=====
+      input = <<~'EOS'
+    Lists
+    =====
 
-* Item one, paragraph one
-+
-.Disappears into the ether
+    * Item one, paragraph one
+    +
+    .Disappears into the ether
 
-* Item two
+    * Item two
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -1322,21 +1377,21 @@ Lists
     end
 
     test 'consecutive blocks in list continuation attach to list item' do
-      input = <<-EOS
-Lists
-=====
+      input = <<~'EOS'
+      Lists
+      =====
 
-* Item one, paragraph one
-+
-....
-Item one, literal block
-....
-+
-____
-Item one, quote block
-____
-+
-* Item two
+      * Item one, paragraph one
+      +
+      ....
+      Item one, literal block
+      ....
+      +
+      ____
+      Item one, quote block
+      ____
+      +
+      * Item two
       EOS
       output = convert_string_to_embedded input
       assert_xpath '//ul', output, 1
@@ -1347,17 +1402,18 @@ ____
     end
 
     test 'list item with hanging indent followed by block attached by list continuation' do
-      input = <<-EOS
-== Lists
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      == Lists
 
-. list item 1
-  continued
-+
---
-open block in list item 1
---
+      . list item 1
+        continued
+      +
+      --
+      open block in list item 1
+      --
 
-. list item 2
+      . list item 2
       EOS
       output = convert_string_to_embedded input
       assert_css 'ol', output, 1
@@ -1369,18 +1425,18 @@ open block in list item 1
     end
 
     test 'list item paragraph in list item and nested list item' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-. list item 1
-+
-list item 1 paragraph
+      . list item 1
+      +
+      list item 1 paragraph
 
-* nested list item
-+
-nested list item paragraph
+      * nested list item
+      +
+      nested list item paragraph
 
-. list item 2
+      . list item 2
       EOS
       output = convert_string_to_embedded input
       assert_css '.olist ol', output, 1
@@ -1398,20 +1454,20 @@ nested list item paragraph
     end
 
     test 'trailing list continuations should attach to list items at respective levels' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-. list item 1
-+
-* nested list item 1
-* nested list item 2
-+
-paragraph for nested list item 2
+      . list item 1
+      +
+      * nested list item 1
+      * nested list item 2
+      +
+      paragraph for nested list item 2
 
-+
-paragraph for list item 1
+      +
+      paragraph for list item 1
 
-. list item 2
+      . list item 2
       EOS
       output = convert_string_to_embedded input
       assert_css '.olist ol', output, 1
@@ -1431,20 +1487,20 @@ paragraph for list item 1
     end
 
     test 'trailing list continuations should attach to list items of different types at respective levels' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-* bullet 1
-. numbered 1.1
-** bullet 1.1.1
+      * bullet 1
+      . numbered 1.1
+      ** bullet 1.1.1
 
-+
-numbered 1.1 paragraph
+      +
+      numbered 1.1 paragraph
 
-+
-bullet 1 paragraph
+      +
+      bullet 1 paragraph
 
-* bullet 2
+      * bullet 2
       EOS
       output = convert_string_to_embedded input
 
@@ -1467,25 +1523,25 @@ bullet 1 paragraph
     end
 
     test 'repeated list continuations should attach to list items at respective levels' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-. list item 1
+      . list item 1
 
-* nested list item 1
-+
---
-open block for nested list item 1
---
-+
-* nested list item 2
-+
-paragraph for nested list item 2
+      * nested list item 1
+      +
+      --
+      open block for nested list item 1
+      --
+      +
+      * nested list item 2
+      +
+      paragraph for nested list item 2
 
-+
-paragraph for list item 1
+      +
+      paragraph for list item 1
 
-. list item 2
+      . list item 2
       EOS
       output = convert_string_to_embedded input
       assert_css '.olist ol', output, 1
@@ -1508,25 +1564,25 @@ paragraph for list item 1
     end
 
     test 'repeated list continuations attached directly to list item should attach to list items at respective levels' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-. list item 1
-+
-* nested list item 1
-+
---
-open block for nested list item 1
---
-+
-* nested list item 2
-+
-paragraph for nested list item 2
+      . list item 1
+      +
+      * nested list item 1
+      +
+      --
+      open block for nested list item 1
+      --
+      +
+      * nested list item 2
+      +
+      paragraph for nested list item 2
 
-+
-paragraph for list item 1
+      +
+      paragraph for list item 1
 
-. list item 2
+      . list item 2
       EOS
       output = convert_string_to_embedded input
       assert_css '.olist ol', output, 1
@@ -1549,26 +1605,26 @@ paragraph for list item 1
     end
 
     test 'repeated list continuations should attach to list items at respective levels ignoring blank lines' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-. list item 1
-+
-* nested list item 1
-+
---
-open block for nested list item 1
---
-+
-* nested list item 2
-+
-paragraph for nested list item 2
+      . list item 1
+      +
+      * nested list item 1
+      +
+      --
+      open block for nested list item 1
+      --
+      +
+      * nested list item 2
+      +
+      paragraph for nested list item 2
 
 
-+
-paragraph for list item 1
+      +
+      paragraph for list item 1
 
-. list item 2
+      . list item 2
       EOS
       output = convert_string_to_embedded input
       assert_css '.olist ol', output, 1
@@ -1591,26 +1647,26 @@ paragraph for list item 1
     end
 
     test 'trailing list continuations should ignore preceding blank lines' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-* bullet 1
-** bullet 1.1
-*** bullet 1.1.1
-+
---
-open block
---
-
-
-+
-bullet 1.1 paragraph
+      * bullet 1
+      ** bullet 1.1
+      *** bullet 1.1.1
+      +
+      --
+      open block
+      --
 
 
-+
-bullet 1 paragraph
+      +
+      bullet 1.1 paragraph
 
-* bullet 2
+
+      +
+      bullet 1 paragraph
+
+      * bullet 2
       EOS
       output = convert_string_to_embedded input
 
@@ -1632,18 +1688,19 @@ bullet 1 paragraph
     end
 
     test 'indented outline list item with different marker offset by a blank line should be recognized as a nested list' do
-      input = <<-EOS
-* item 1
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      * item 1
 
-  . item 1.1
-+
-attached paragraph
+        . item 1.1
+      +
+      attached paragraph
 
-  . item 1.2
-+
-attached paragraph
+        . item 1.2
+      +
+      attached paragraph
 
-* item 2
+      * item 2
       EOS
 
       output = convert_string_to_embedded input
@@ -1664,18 +1721,19 @@ attached paragraph
     end
 
     test 'indented description list item inside outline list item offset by a blank line should be recognized as a nested list' do
-      input = <<-EOS
-* item 1
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      * item 1
 
-  term a:: description a
-+
-attached paragraph
+        term a:: description a
+      +
+      attached paragraph
 
-  term b:: description b
-+
-attached paragraph
+        term b:: description b
+      +
+      attached paragraph
 
-* item 2
+      * item 2
       EOS
 
       output = convert_string_to_embedded input
@@ -1699,19 +1757,19 @@ attached paragraph
     # NOTE this is not consistent w/ AsciiDoc output, but this is some screwy input anyway
 =begin
     test "consecutive list continuation lines are folded" do
-      input = <<-EOS
-Lists
-=====
+      input = <<~'EOS'
+      Lists
+      =====
 
-* Item one, paragraph one
-+
-+
-Item one, paragraph two
-+
-+
-* Item two
-+
-+
+      * Item one, paragraph one
+      +
+      +
+      Item one, paragraph two
+      +
+      +
+      * Item two
+      +
+      +
       EOS
       output = convert_string input
       assert_xpath '//ul', output, 1
@@ -1724,12 +1782,12 @@ Item one, paragraph two
 =end
 
     test 'should warn if unterminated block is detected in list item' do
-      input = <<-EOS
-* item
-+
-====
-example
-* swallowed item
+      input = <<~'EOS'
+      * item
+      +
+      ====
+      example
+      * swallowed item
       EOS
 
       using_memory_logger do |logger|
@@ -1746,13 +1804,13 @@ end
 context "Ordered lists (:olist)" do
   context "Simple lists" do
     test "dot elements with no blank lines" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-. Foo
-. Boo
-. Blech
+      . Foo
+      . Boo
+      . Blech
       EOS
       output = convert_string input
       assert_xpath '//ol', output, 1
@@ -1760,10 +1818,10 @@ List
     end
 
     test 'indented dot elements using spaces' do
-      input = <<-EOS
- . Foo
- . Boo
- . Blech
+      input = <<~EOS
+      \x20. Foo
+      \x20. Boo
+      \x20. Blech
       EOS
       output = convert_string input
       assert_xpath '//ol', output, 1
@@ -1771,10 +1829,10 @@ List
     end
 
     test 'indented dot elements using tabs' do
-      input = <<-EOS
-\t.\tFoo
-\t.\tBoo
-\t.\tBlech
+      input = <<~EOS
+      \t.\tFoo
+      \t.\tBoo
+      \t.\tBlech
       EOS
       output = convert_string input
       assert_xpath '//ol', output, 1
@@ -1782,11 +1840,11 @@ List
     end
 
     test 'should represent explicit role attribute as style class' do
-      input = <<-EOS
-[role="dry"]
-. Once
-. Again
-. Refactor!
+      input = <<~'EOS'
+      [role="dry"]
+      . Once
+      . Again
+      . Refactor!
       EOS
 
       output = convert_string_to_embedded input
@@ -1795,10 +1853,10 @@ List
     end
 
     test 'should base list style on marker length rather than list depth' do
-      input = <<-EOS
-... parent
-.. child
-. grandchild
+      input = <<~'EOS'
+      ... parent
+      .. child
+      . grandchild
       EOS
 
       output = convert_string_to_embedded input
@@ -1808,11 +1866,11 @@ List
     end
 
     test 'should allow list style to be specified explicitly when using markers with implicit style' do
-      input = <<-EOS
-[loweralpha]
-i) 1
-ii) 2
-iii) 3
+      input = <<~'EOS'
+      [loweralpha]
+      i) 1
+      ii) 2
+      iii) 3
       EOS
 
       output = convert_string_to_embedded input
@@ -1821,11 +1879,11 @@ iii) 3
     end
 
     test 'should represent custom numbering and explicit role attribute as style classes' do
-      input = <<-EOS
-[loweralpha, role="dry"]
-. Once
-. Again
-. Refactor!
+      input = <<~'EOS'
+      [loweralpha, role="dry"]
+      . Once
+      . Again
+      . Refactor!
       EOS
 
       output = convert_string_to_embedded input
@@ -1834,12 +1892,12 @@ iii) 3
     end
 
     test 'should set reversed attribute on list if reversed option is set' do
-      input = <<-EOS
-[%reversed, start=3]
-. three
-. two
-. one
-. blast off!
+      input = <<~'EOS'
+      [%reversed, start=3]
+      . three
+      . two
+      . one
+      . blast off!
       EOS
 
       output = convert_string_to_embedded input
@@ -1847,11 +1905,11 @@ iii) 3
     end
 
     test 'should represent implicit role attribute as style class' do
-      input = <<-EOS
-[.dry]
-. Once
-. Again
-. Refactor!
+      input = <<~'EOS'
+      [.dry]
+      . Once
+      . Again
+      . Refactor!
       EOS
 
       output = convert_string_to_embedded input
@@ -1860,11 +1918,11 @@ iii) 3
     end
 
     test 'should represent custom numbering and implicit role attribute as style classes' do
-      input = <<-EOS
-[loweralpha.dry]
-. Once
-. Again
-. Refactor!
+      input = <<~'EOS'
+      [loweralpha.dry]
+      . Once
+      . Again
+      . Refactor!
       EOS
 
       output = convert_string_to_embedded input
@@ -1873,34 +1931,55 @@ iii) 3
     end
 
     test "dot elements separated by blank lines should merge lists" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-. Foo
+      . Foo
 
-. Boo
+      . Boo
 
 
-. Blech
+      . Blech
       EOS
       output = convert_string input
       assert_xpath '//ol', output, 1
       assert_xpath '//ol/li', output, 3
     end
 
-    test 'dot elements with interspersed line comments should be skipped and not break list' do
-      input = <<-EOS
-== List
+    test 'should escape special characters in all literal paragraphs attached to list item' do
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      . first item
 
-. Foo
-// line comment
-// another line comment
-. Boo
-// line comment
-more text
-// another line comment
-. Blech
+        <code>text</code>
+
+        more <code>text</code>
+
+      . second item
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_css 'li', output, 2
+      assert_css 'code', output, 0
+      assert_css 'li:first-of-type > *', output, 3
+      assert_css 'li:first-of-type pre', output, 2
+      assert_xpath '((//li)[1]//pre)[1][text()="<code>text</code>"]', output, 1
+      assert_xpath '((//li)[1]//pre)[2][text()="more <code>text</code>"]', output, 1
+    end
+
+    test 'dot elements with interspersed line comments should be skipped and not break list' do
+      input = <<~'EOS'
+      == List
+
+      . Foo
+      // line comment
+      // another line comment
+      . Boo
+      // line comment
+      more text
+      // another line comment
+      . Blech
       EOS
       output = convert_string_to_embedded input
       assert_xpath '//ol', output, 1
@@ -1909,16 +1988,16 @@ more text
     end
 
     test "dot elements separated by line comment offset by blank lines should not merge lists" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-. Foo
-. Boo
+      . Foo
+      . Boo
 
-//
+      //
 
-. Blech
+      . Blech
       EOS
       output = convert_string input
       assert_xpath '//ol', output, 2
@@ -1927,15 +2006,15 @@ List
     end
 
     test "dot elements separated by a block title offset by a blank line should not merge lists" do
-      input = <<-EOS
-List
-====
+      input = <<~'EOS'
+      List
+      ====
 
-. Foo
-. Boo
+      . Foo
+      . Boo
 
-.Also
-. Blech
+      .Also
+      . Blech
       EOS
       output = convert_string input
       assert_xpath '//ol', output, 2
@@ -1945,14 +2024,14 @@ List
     end
 
     test "dot elements separated by an attribute entry offset by a blank line should not merge lists" do
-      input = <<-EOS
-== List
+      input = <<~'EOS'
+      == List
 
-. Foo
-. Boo
+      . Foo
+      . Boo
 
-:foo: bar
-. Blech
+      :foo: bar
+      . Blech
       EOS
       output = convert_string_to_embedded input
       assert_xpath '//ol', output, 2
@@ -1960,41 +2039,26 @@ List
       assert_xpath '(//ol)[2]/li', output, 1
     end
 
-    test 'should use start number in docbook4.5 backend' do
-      input = <<-EOS
-== List
-
-[start=7]
-. item 7
-. item 8
-      EOS
-
-      output = convert_string_to_embedded input, :backend => 'docbook45'
-      assert_xpath '//orderedlist', output, 1
-      assert_xpath '(//orderedlist)/listitem', output, 2
-      assert_xpath '(//orderedlist/listitem)[1][@override = "7"]', output, 1
-    end
-
     test 'should use start number in docbook5 backend' do
-      input = <<-EOS
-== List
+      input = <<~'EOS'
+      == List
 
-[start=7]
-. item 7
-. item 8
+      [start=7]
+      . item 7
+      . item 8
       EOS
 
-      output = convert_string_to_embedded input, :backend => 'docbook5'
+      output = convert_string_to_embedded input, backend: 'docbook5'
       assert_xpath '//orderedlist', output, 1
       assert_xpath '(//orderedlist)/listitem', output, 2
       assert_xpath '(//orderedlist)[@startingnumber = "7"]', output, 1
     end
 
     test 'should match trailing line separator in text of list item' do
-      input = <<-EOS.chomp
-. a
-. b#{decode_char 8232}
-. c
+      input = <<~EOS.chop
+      . a
+      . b#{decode_char 8232}
+      . c
       EOS
 
       output = convert_string input
@@ -2003,10 +2067,10 @@ List
     end
 
     test 'should match line separator in text of list item' do
-      input = <<-EOS.chomp
-. a
-. b#{decode_char 8232}b
-. c
+      input = <<~EOS.chop
+      . a
+      . b#{decode_char 8232}b
+      . c
       EOS
 
       output = convert_string input
@@ -2016,9 +2080,9 @@ List
   end
 
   test 'should warn if explicit uppercase roman numerals in list are out of sequence' do
-    input = <<-EOS
-I) one
-III) three
+    input = <<~'EOS'
+    I) one
+    III) three
     EOS
     using_memory_logger do |logger|
       output = convert_string_to_embedded input
@@ -2028,9 +2092,9 @@ III) three
   end
 
   test 'should warn if explicit lowercase roman numerals in list are out of sequence' do
-    input = <<-EOS
-i) one
-iii) three
+    input = <<~'EOS'
+    i) one
+    iii) three
     EOS
     using_memory_logger do |logger|
       output = convert_string_to_embedded input
@@ -2042,10 +2106,32 @@ end
 
 context "Description lists (:dlist)" do
   context "Simple lists" do
+    test 'should not parse a bare dlist delimiter as a dlist' do
+      input = '::'
+      output = convert_string_to_embedded input
+      assert_css 'dl', output, 0
+      assert_xpath '//p[text()="::"]', output, 1
+    end
+
+    test 'should not parse an indented bare dlist delimiter as a dlist' do
+      input = ' ::'
+      output = convert_string_to_embedded input
+      assert_css 'dl', output, 0
+      assert_xpath '//pre[text()="::"]', output, 1
+    end
+
+    test 'should parse a dlist delimiter preceded by a blank attribute as a dlist' do
+      input = '{blank}::'
+      output = convert_string_to_embedded input
+      assert_css 'dl', output, 1
+      assert_css 'dl > dt', output, 1
+      assert_css 'dl > dt:empty', output, 1
+    end
+
     test "single-line adjacent elements" do
-      input = <<-EOS
-term1:: def1
-term2:: def2
+      input = <<~'EOS'
+      term1:: def1
+      term2:: def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 1
@@ -2058,9 +2144,9 @@ term2:: def2
     end
 
     test 'should parse sibling items using same rules' do
-      input = <<-EOS
-term1;; ;; def1
-term2;; ;; def2
+      input = <<~'EOS'
+      term1;; ;; def1
+      term2;; ;; def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 1
@@ -2072,10 +2158,22 @@ term2;; ;; def2
       assert_xpath '(//dl/dt)[2]/following-sibling::dd/p[text() = ";; def2"]', output, 1
     end
 
+    test 'should allow term to end with a semicolon when using double semicolon delimiter' do
+      input = <<~'EOS'
+      term;;; def
+      EOS
+      output = convert_string_to_embedded input
+      assert_css 'dl', output, 1
+      assert_css 'dl > dt', output, 1
+      assert_xpath '(//dl/dt)[1][text() = "term;"]', output, 1
+      assert_xpath '(//dl/dt)[1]/following-sibling::dd/p[text() = "def"]', output, 1
+    end
+
     test "single-line indented adjacent elements" do
-      input = <<-EOS
-term1:: def1
- term2:: def2
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      term1:: def1
+       term2:: def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 1
@@ -2088,9 +2186,9 @@ term1:: def1
     end
 
     test "single-line indented adjacent elements with tabs" do
-      input = <<-EOS
-term1::\tdef1
-\tterm2::\tdef2
+      input = <<~EOS
+      term1::\tdef1
+      \tterm2::\tdef2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 1
@@ -2103,10 +2201,10 @@ term1::\tdef1
     end
 
     test "single-line elements separated by blank line should create a single list" do
-      input = <<-EOS
-term1:: def1
+      input = <<~'EOS'
+      term1:: def1
 
-term2:: def2
+      term2:: def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 1
@@ -2115,12 +2213,12 @@ term2:: def2
     end
 
     test "a line comment between elements should divide them into separate lists" do
-      input = <<-EOS
-term1:: def1
+      input = <<~'EOS'
+      term1:: def1
 
-//
+      //
 
-term2:: def2
+      term2:: def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 2
@@ -2130,12 +2228,12 @@ term2:: def2
     end
 
     test "a ruler between elements should divide them into separate lists" do
-      input = <<-EOS
-term1:: def1
+      input = <<~'EOS'
+      term1:: def1
 
-'''
+      '''
 
-term2:: def2
+      term2:: def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 2
@@ -2146,11 +2244,11 @@ term2:: def2
     end
 
     test "a block title between elements should divide them into separate lists" do
-      input = <<-EOS
-term1:: def1
+      input = <<~'EOS'
+      term1:: def1
 
-.Some more
-term2:: def2
+      .Some more
+      term2:: def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 2
@@ -2161,11 +2259,11 @@ term2:: def2
     end
 
     test "multi-line elements with paragraph content" do
-      input = <<-EOS
-term1::
-def1
-term2::
-def2
+      input = <<~'EOS'
+      term1::
+      def1
+      term2::
+      def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 1
@@ -2178,11 +2276,12 @@ def2
     end
 
     test "multi-line elements with indented paragraph content" do
-      input = <<-EOS
-term1::
- def1
-term2::
-  def2
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      term1::
+       def1
+      term2::
+        def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 1
@@ -2195,14 +2294,15 @@ term2::
     end
 
     test "multi-line elements with indented paragraph content that includes comment lines" do
-      input = <<-EOS
-term1::
- def1
-// comment
-term2::
-  def2
-// comment
-  def2 continued
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      term1::
+       def1
+      // comment
+      term2::
+        def2
+      // comment
+        def2 continued
       EOS
       output = convert_string_to_embedded input
       assert_xpath '//dl', output, 1
@@ -2215,26 +2315,52 @@ term2::
     end
 
     test "should not strip comment line in literal paragraph block attached to list item" do
-      input = <<-EOS
-term1::
-+
- line 1
-// not a comment
- line 3
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      term1::
+      +
+       line 1
+      // not a comment
+       line 3
       EOS
       output = convert_string_to_embedded input
       assert_xpath '//*[@class="literalblock"]', output, 1
       assert_xpath %(//*[@class="literalblock"]//pre[text()=" line 1\n// not a comment\n line 3"]), output, 1
     end
 
-    test 'multi-line element with paragraph starting with multiple dashes should not be seen as list' do
-      input = <<-EOS
-term1::
-  def1
-  -- and a note
+    test 'should escape special characters in all literal paragraphs attached to list item' do
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      term:: desc
 
-term2::
-  def2
+        <code>text</code>
+
+        more <code>text</code>
+
+      another term::
+
+        <code>text</code> in a paragraph
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_css 'dt', output, 2
+      assert_css 'code', output, 0
+      assert_css 'dd:first-of-type > *', output, 3
+      assert_css 'dd:first-of-type pre', output, 2
+      assert_xpath '((//dd)[1]//pre)[1][text()="<code>text</code>"]', output, 1
+      assert_xpath '((//dd)[1]//pre)[2][text()="more <code>text</code>"]', output, 1
+      assert_xpath '((//dd)[2]//p)[1][text()="<code>text</code> in a paragraph"]', output, 1
+    end
+
+    test 'multi-line element with paragraph starting with multiple dashes should not be seen as list' do
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      term1::
+        def1
+        -- and a note
+
+      term2::
+        def2
       EOS
       output = convert_string_to_embedded input
       assert_xpath '//dl', output, 1
@@ -2247,10 +2373,10 @@ term2::
     end
 
     test "multi-line element with multiple terms" do
-      input = <<-EOS
-term1::
-term2::
-def2
+      input = <<~'EOS'
+      term1::
+      term2::
+      def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 1
@@ -2263,14 +2389,14 @@ def2
     end
 
     test 'consecutive terms share same varlistentry in docbook' do
-      input = <<-EOS
-term::
-alt term::
-description
+      input = <<~'EOS'
+      term::
+      alt term::
+      description
 
-last::
+      last::
       EOS
-      output = convert_string_to_embedded input, :backend => 'docbook'
+      output = convert_string_to_embedded input, backend: 'docbook'
       assert_xpath '//varlistentry', output, 2
       assert_xpath '(//varlistentry)[1]/term', output, 2
       assert_xpath '(//varlistentry)[2]/term', output, 1
@@ -2279,13 +2405,13 @@ last::
     end
 
     test "multi-line elements with blank line before paragraph content" do
-      input = <<-EOS
-term1::
+      input = <<~'EOS'
+      term1::
 
-def1
-term2::
+      def1
+      term2::
 
-def2
+      def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 1
@@ -2299,14 +2425,15 @@ def2
 
     test "multi-line elements with paragraph and literal content" do
       # blank line following literal paragraph is required or else it will gobble up the second term
-      input = <<-EOS
-term1::
-def1
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      term1::
+      def1
 
-  literal
+        literal
 
-term2::
-  def2
+      term2::
+        def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 1
@@ -2320,10 +2447,10 @@ term2::
     end
 
     test "mixed single and multi-line adjacent elements" do
-      input = <<-EOS
-term1:: def1
-term2::
-def2
+      input = <<~'EOS'
+      term1:: def1
+      term2::
+      def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 1
@@ -2336,17 +2463,17 @@ def2
     end
 
     test 'should discover anchor at start of description term text and register it as a reference' do
-      input = <<-EOS
-The highest peak in the Front Range is <<grays-peak>>, which tops <<mount-evans>> by just a few feet.
+      input = <<~'EOS'
+      The highest peak in the Front Range is <<grays-peak>>, which tops <<mount-evans>> by just a few feet.
 
-[[mount-evans,Mount Evans]]Mount Evans:: 14,271 feet
-[[grays-peak]]Grays Peak:: 14,278 feet
+      [[mount-evans,Mount Evans]]Mount Evans:: 14,271 feet
+      [[grays-peak]]Grays Peak:: 14,278 feet
       EOS
       doc = document_from_string input
       refs = doc.catalog[:refs]
       assert refs.key?('mount-evans')
       assert refs.key?('grays-peak')
-      output = doc.convert :header_footer => false
+      output = doc.convert standalone: false
       assert_xpath '(//p)[1]/a[@href="#grays-peak"][text()="Grays Peak"]', output, 1
       assert_xpath '(//p)[1]/a[@href="#mount-evans"][text()="Mount Evans"]', output, 1
       assert_xpath '//dl', output, 1
@@ -2356,24 +2483,24 @@ The highest peak in the Front Range is <<grays-peak>>, which tops <<mount-evans>
     end
 
     test "missing space before term does not produce description list" do
-      input = <<-EOS
-term1::def1
-term2::def2
+      input = <<~'EOS'
+      term1::def1
+      term2::def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 0
     end
 
     test "literal block inside description list" do
-      input = <<-EOS
-term::
-+
-....
-literal, line 1
+      input = <<~'EOS'
+      term::
+      +
+      ....
+      literal, line 1
 
-literal, line 2
-....
-anotherterm:: def
+      literal, line 2
+      ....
+      anotherterm:: def
       EOS
       output = convert_string input
       assert_xpath '//dl/dt', output, 2
@@ -2384,16 +2511,16 @@ anotherterm:: def
     end
 
     test "literal block inside description list with trailing line continuation" do
-      input = <<-EOS
-term::
-+
-....
-literal, line 1
+      input = <<~'EOS'
+      term::
+      +
+      ....
+      literal, line 1
 
-literal, line 2
-....
-+
-anotherterm:: def
+      literal, line 2
+      ....
+      +
+      anotherterm:: def
       EOS
       output = convert_string input
       assert_xpath '//dl/dt', output, 2
@@ -2404,21 +2531,21 @@ anotherterm:: def
     end
 
     test "multiple listing blocks inside description list" do
-      input = <<-EOS
-term::
-+
-----
-listing, line 1
+      input = <<~'EOS'
+      term::
+      +
+      ----
+      listing, line 1
 
-listing, line 2
-----
-+
-----
-listing, line 1
+      listing, line 2
+      ----
+      +
+      ----
+      listing, line 1
 
-listing, line 2
-----
-anotherterm:: def
+      listing, line 2
+      ----
+      anotherterm:: def
       EOS
       output = convert_string input
       assert_xpath '//dl/dt', output, 2
@@ -2429,15 +2556,15 @@ anotherterm:: def
     end
 
     test "open block inside description list" do
-      input = <<-EOS
-term::
-+
---
-Open block as description of term.
+      input = <<~'EOS'
+      term::
+      +
+      --
+      Open block as description of term.
 
-And some more detail...
---
-anotherterm:: def
+      And some more detail...
+      --
+      anotherterm:: def
       EOS
       output = convert_string input
       assert_xpath '//dl/dd//p', output, 3
@@ -2445,12 +2572,12 @@ anotherterm:: def
     end
 
     test "paragraph attached by a list continuation on either side in a description list" do
-      input = <<-EOS
-term1:: def1
-+
-more detail
-+
-term2:: def2
+      input = <<~'EOS'
+      term1:: def1
+      +
+      more detail
+      +
+      term2:: def2
       EOS
       output = convert_string input
       assert_xpath '(//dl/dt)[1][normalize-space(text())="term1"]', output, 1
@@ -2461,13 +2588,13 @@ term2:: def2
     end
 
     test "paragraph attached by a list continuation on either side to a multi-line element in a description list" do
-      input = <<-EOS
-term1::
-def1
-+
-more detail
-+
-term2:: def2
+      input = <<~'EOS'
+      term1::
+      def1
+      +
+      more detail
+      +
+      term2:: def2
       EOS
       output = convert_string input
       assert_xpath '(//dl/dt)[1][normalize-space(text())="term1"]', output, 1
@@ -2477,14 +2604,33 @@ term2:: def2
       assert_xpath '(//dl/dd)[1]/p/following-sibling::*[@class="paragraph"]/p[text() = "more detail"]', output, 1
     end
 
-    test "verse paragraph inside a description list" do
-      input = <<-EOS
-term1:: def
-+
-[verse]
-la la la
+    test 'should continue to parse subsequent blocks attached to list item after first block is dropped' do
+      input = <<~'EOS'
+      :attribute-missing: drop-line
 
-term2:: def
+      term::
+      +
+      image::{unresolved}[]
+      +
+      paragraph
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_css 'dl', output, 1
+      assert_css 'dl > dt', output, 1
+      assert_css 'dl > dt + dd', output, 1
+      assert_css 'dl > dt + dd > .imageblock', output, 0
+      assert_css 'dl > dt + dd > .paragraph', output, 1
+    end
+
+    test "verse paragraph inside a description list" do
+      input = <<~'EOS'
+      term1:: def
+      +
+      [verse]
+      la la la
+
+      term2:: def
       EOS
       output = convert_string input
       assert_xpath '//dl/dd//p', output, 2
@@ -2492,12 +2638,12 @@ term2:: def
     end
 
     test "list inside a description list" do
-      input = <<-EOS
-term1::
-* level 1
-** level 2
-* level 1
-term2:: def
+      input = <<~'EOS'
+      term1::
+      * level 1
+      ** level 2
+      * level 1
+      term2:: def
       EOS
       output = convert_string input
       assert_xpath '//dl/dd', output, 2
@@ -2507,14 +2653,14 @@ term2:: def
     end
 
     test "list inside a description list offset by blank lines" do
-      input = <<-EOS
-term1::
+      input = <<~'EOS'
+      term1::
 
-* level 1
-** level 2
-* level 1
+      * level 1
+      ** level 2
+      * level 1
 
-term2:: def
+      term2:: def
       EOS
       output = convert_string input
       assert_xpath '//dl/dd', output, 2
@@ -2524,18 +2670,18 @@ term2:: def
     end
 
     test "should only grab one line following last item if item has no inline description" do
-      input = <<-EOS
-term1::
+      input = <<~'EOS'
+      term1::
 
-def1
+      def1
 
-term2::
+      term2::
 
-def2
+      def2
 
-A new paragraph
+      A new paragraph
 
-Another new paragraph
+      Another new paragraph
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 1
@@ -2548,18 +2694,19 @@ Another new paragraph
     end
 
     test "should only grab one literal line following last item if item has no inline description" do
-      input = <<-EOS
-term1::
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      term1::
 
-def1
+      def1
 
-term2::
+      term2::
 
-  def2
+        def2
 
-A new paragraph
+      A new paragraph
 
-Another new paragraph
+      Another new paragraph
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 1
@@ -2572,18 +2719,19 @@ Another new paragraph
     end
 
     test "should append subsequent paragraph literals to list item as block content" do
-      input = <<-EOS
-term1::
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      term1::
 
-def1
+      def1
 
-term2::
+      term2::
 
-  def2
+        def2
 
-  literal
+        literal
 
-A new paragraph.
+      A new paragraph.
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 1
@@ -2597,12 +2745,12 @@ A new paragraph.
     end
 
     test 'should not match comment line that looks like description list term' do
-      input = <<-EOS
-before
+      input = <<~'EOS'
+      before
 
-//key:: val
+      //key:: val
 
-after
+      after
       EOS
 
       output = convert_string_to_embedded input
@@ -2610,13 +2758,13 @@ after
     end
 
     test 'should not match comment line following list that looks like description list term' do
-      input = <<-EOS
-* item
+      input = <<~'EOS'
+      * item
 
-//::
-== Section
+      //term:: desc
+      == Section
 
-section text
+      section text
       EOS
 
       output = convert_string_to_embedded input
@@ -2627,13 +2775,13 @@ section text
     end
 
     test 'should not match comment line that looks like sibling description list term' do
-      input = <<-EOS
-before
+      input = <<~'EOS'
+      before
 
-foo:: bar
-//yin:: yang
+      foo:: bar
+      //yin:: yang
 
-after
+      after
       EOS
 
       output = convert_string_to_embedded input
@@ -2643,40 +2791,41 @@ after
     end
 
     test 'should not hang on description list item in list that begins with ///' do
-      input = <<-EOS
-* x
-///::
-y
+      input = <<~'EOS'
+      * a
+      ///b::
+      c
       EOS
 
       output = convert_string_to_embedded input
-      assert_css '.ulist', output, 1
-      assert_css '.ulist .dlist', output, 1
-      assert_xpath '//dt[text()="///"]', output, 1
-      assert_xpath '//dd/p[text()="y"]', output, 1
+      assert_css 'ul', output, 1
+      assert_css 'ul li dl', output, 1
+      assert_xpath '//ul/li/p[text()="a"]', output, 1
+      assert_xpath '//dt[text()="///b"]', output, 1
+      assert_xpath '//dd/p[text()="c"]', output, 1
     end
 
     test 'should not hang on sibling description list item that begins with ///' do
-      input = <<-EOS
-::
-///::
-y
+      input = <<~'EOS'
+      a::
+      ///b::
+      c
       EOS
 
       output = convert_string_to_embedded input
-      assert_css '.dlist', output, 1
-      assert_xpath '(//dl/dt)[1][not(text())]', output, 1
-      assert_xpath '(//dl/dt)[2][text()="///"]', output, 1
-      assert_xpath '//dl/dd/p[text()="y"]', output, 1
+      assert_css 'dl', output, 1
+      assert_xpath '(//dl/dt)[1][text()="a"]', output, 1
+      assert_xpath '(//dl/dt)[2][text()="///b"]', output, 1
+      assert_xpath '//dl/dd/p[text()="c"]', output, 1
     end
 
     test 'should skip dlist term that begins with // unless it begins with ///' do
-      input = <<-EOS
-category a::
-//ignored term:: def
+      input = <<~'EOS'
+      category a::
+      //ignored term:: def
 
-category b::
-///term:: def
+      category b::
+      ///term:: def
       EOS
 
       output = convert_string_to_embedded input
@@ -2685,22 +2834,22 @@ category b::
     end
 
     test 'more than 4 consecutive colons should become part of description list term' do
-      input = <<-EOS
-A term::::: a description
+      input = <<~'EOS'
+      A term::::: a description
       EOS
 
       output = convert_string_to_embedded input
-      assert_xpath '//dl', output, 1
-      assert_xpath '//dt', output, 1
-      assert_xpath '//dt[text()="A term:"]', output, 1
-      assert_xpath '//dd/p[text()="a description"]', output, 1
+      assert_css 'dl', output, 1
+      assert_css 'dl > dt', output, 1
+      assert_xpath '//dl/dt[text()="A term:"]', output, 1
+      assert_xpath '//dl/dd/p[text()="a description"]', output, 1
     end
 
     test 'text method of dd node should return nil if dd node only contains blocks' do
-      input = <<-EOS
-term::
-+
-paragraph
+      input = <<~'EOS'
+      term::
+      +
+      paragraph
       EOS
 
       doc = document_from_string input
@@ -2709,10 +2858,10 @@ paragraph
     end
 
     test 'should match trailing line separator in text of list item' do
-      input = <<-EOS.chomp
-A:: a
-B:: b#{decode_char 8232}
-C:: c
+      input = <<~EOS.chop
+      A:: a
+      B:: b#{decode_char 8232}
+      C:: c
       EOS
 
       output = convert_string input
@@ -2721,10 +2870,10 @@ C:: c
     end
 
     test 'should match line separator in text of list item' do
-      input = <<-EOS.chomp
-A:: a
-B:: b#{decode_char 8232}b
-C:: c
+      input = <<~EOS.chop
+      A:: a
+      B:: b#{decode_char 8232}b
+      C:: c
       EOS
 
       output = convert_string input
@@ -2734,11 +2883,33 @@ C:: c
   end
 
   context "Nested lists" do
+    test 'should not parse a nested dlist delimiter without a term as a dlist' do
+      input = <<~'EOS'
+      t::
+      ;;
+      EOS
+      output = convert_string_to_embedded input
+      assert_xpath '//dl', output, 1
+      assert_xpath '//dl/dd/p[text()=";;"]', output, 1
+    end
+
+    test 'should not parse a nested indented dlist delimiter without a term as a dlist' do
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      t::
+      desc
+        ;;
+      EOS
+      output = convert_string_to_embedded input
+      assert_xpath '//dl', output, 1
+      assert_xpath %(//dl/dd/p[text()="desc\n  ;;"]), output, 1
+    end
+
     test "single-line adjacent nested elements" do
-      input = <<-EOS
-term1:: def1
-label1::: detail1
-term2:: def2
+      input = <<~'EOS'
+      term1:: def1
+      label1::: detail1
+      term2:: def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 2
@@ -2752,12 +2923,12 @@ term2:: def2
     end
 
     test "single-line adjacent maximum nested elements" do
-      input = <<-EOS
-term1:: def1
-label1::: detail1
-name1:::: value1
-item1;; price1
-term2:: def2
+      input = <<~'EOS'
+      term1:: def1
+      label1::: detail1
+      name1:::: value1
+      item1;; price1
+      term2:: def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 4
@@ -2765,12 +2936,12 @@ term2:: def2
     end
 
     test "single-line nested elements seperated by blank line at top level" do
-      input = <<-EOS
-term1:: def1
+      input = <<~'EOS'
+      term1:: def1
 
-label1::: detail1
+      label1::: detail1
 
-term2:: def2
+      term2:: def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 2
@@ -2784,12 +2955,12 @@ term2:: def2
     end
 
     test "single-line nested elements seperated by blank line at nested level" do
-      input = <<-EOS
-term1:: def1
-label1::: detail1
+      input = <<~'EOS'
+      term1:: def1
+      label1::: detail1
 
-label2::: detail2
-term2:: def2
+      label2::: detail2
+      term2:: def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 2
@@ -2803,10 +2974,10 @@ term2:: def2
     end
 
     test "single-line adjacent nested elements with alternate delimiters" do
-      input = <<-EOS
-term1:: def1
-label1;; detail1
-term2:: def2
+      input = <<~'EOS'
+      term1:: def1
+      label1;; detail1
+      term2:: def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 2
@@ -2820,13 +2991,13 @@ term2:: def2
     end
 
     test "multi-line adjacent nested elements" do
-      input = <<-EOS
-term1::
-def1
-label1:::
-detail1
-term2::
-def2
+      input = <<~'EOS'
+      term1::
+      def1
+      label1:::
+      detail1
+      term2::
+      def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 2
@@ -2840,16 +3011,16 @@ def2
     end
 
     test "multi-line nested elements seperated by blank line at nested level repeated" do
-      input = <<-EOS
-term1::
-def1
-label1:::
+      input = <<~'EOS'
+      term1::
+      def1
+      label1:::
 
-detail1
-label2:::
-detail2
+      detail1
+      label2:::
+      detail2
 
-term2:: def2
+      term2:: def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 2
@@ -2863,13 +3034,14 @@ term2:: def2
     end
 
     test "multi-line element with indented nested element" do
-      input = <<-EOS
-term1::
-  def1
-  label1;;
-   detail1
-term2::
-  def2
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      term1::
+        def1
+        label1;;
+         detail1
+      term2::
+        def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 2
@@ -2886,11 +3058,12 @@ term2::
     end
 
     test "mixed single and multi-line elements with indented nested elements" do
-      input = <<-EOS
-term1:: def1
-  label1:::
-   detail1
-term2:: def2
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      term1:: def1
+        label1:::
+         detail1
+      term2:: def2
       EOS
       output = convert_string input
       assert_xpath '//dl', output, 2
@@ -2904,13 +3077,13 @@ term2:: def2
     end
 
     test "multi-line elements with first paragraph folded to text with adjacent nested element" do
-      input = <<-EOS
-term1:: def1
-continued
-label1:::
-detail1
+      input = <<~'EOS'
+      term1:: def1
+      continued
+      label1:::
+      detail1
       EOS
-      output = convert_string input
+      output = convert_string_to_embedded input
       assert_xpath '//dl', output, 2
       assert_xpath '//dl//dl', output, 1
       assert_xpath '(//dl)[1]/dt[1][normalize-space(text()) = "term1"]', output, 1
@@ -2923,10 +3096,10 @@ detail1
 
   context 'Special lists' do
     test 'should convert glossary list with proper semantics' do
-      input = <<-EOS
-[glossary]
-term 1:: def 1
-term 2:: def 2
+      input = <<~'EOS'
+      [glossary]
+      term 1:: def 1
+      term 2:: def 2
       EOS
       output = convert_string_to_embedded input
       assert_css '.dlist.glossary', output, 1
@@ -2934,15 +3107,15 @@ term 2:: def 2
     end
 
     test 'consecutive glossary terms should share same glossentry element in docbook' do
-      input = <<-EOS
-[glossary]
-term::
-alt term::
-description
+      input = <<~'EOS'
+      [glossary]
+      term::
+      alt term::
+      description
 
-last::
+      last::
       EOS
-      output = convert_string_to_embedded input, :backend => 'docbook'
+      output = convert_string_to_embedded input, backend: 'docbook'
       assert_xpath '/glossentry', output, 2
       assert_xpath '(/glossentry)[1]/glossterm', output, 2
       assert_xpath '(/glossentry)[2]/glossterm', output, 1
@@ -2951,37 +3124,40 @@ last::
     end
 
     test 'should convert horizontal list with proper markup' do
-      input = <<-EOS
-[horizontal]
-first term:: description
-+
-more detail
+      input = <<~'EOS'
+      [horizontal]
+      first term:: description
+      +
+      more detail
 
-second term:: description
+      second term:: description
       EOS
       output = convert_string_to_embedded input
       assert_css '.hdlist', output, 1
       assert_css '.hdlist table', output, 1
       assert_css '.hdlist table colgroup', output, 0
       assert_css '.hdlist table tr', output, 2
-      assert_xpath '/*[@class="hdlist"]/table/tr[1]/td', output, 2
-      assert_xpath '/*[@class="hdlist"]/table/tr[1]/td[@class="hdlist1"]', output, 1
-      assert_xpath '/*[@class="hdlist"]/table/tr[1]/td[@class="hdlist2"]', output, 1
-      assert_xpath '/*[@class="hdlist"]/table/tr[1]/td[@class="hdlist2"]/p', output, 1
-      assert_xpath '/*[@class="hdlist"]/table/tr[1]/td[@class="hdlist2"]/p/following-sibling::*[@class="paragraph"]', output, 1
+      # see nokogiri#1803 for why this is necessary
+      tbody_path = jruby? ? 'tbody/' : ''
+      refute_includes output, '<tbody>'
+      assert_xpath %(/*[@class="hdlist"]/table/#{tbody_path}tr[1]/td), output, 2
+      assert_xpath %(/*[@class="hdlist"]/table/#{tbody_path}tr[1]/td[@class="hdlist1"]), output, 1
+      assert_xpath %(/*[@class="hdlist"]/table/#{tbody_path}tr[1]/td[@class="hdlist2"]), output, 1
+      assert_xpath %(/*[@class="hdlist"]/table/#{tbody_path}tr[1]/td[@class="hdlist2"]/p), output, 1
+      assert_xpath %(/*[@class="hdlist"]/table/#{tbody_path}tr[1]/td[@class="hdlist2"]/p/following-sibling::*[@class="paragraph"]), output, 1
       assert_xpath '((//tr)[1]/td)[1][normalize-space(text())="first term"]', output, 1
       assert_xpath '((//tr)[1]/td)[2]/p[normalize-space(text())="description"]', output, 1
 
-      assert_xpath '/*[@class="hdlist"]/table/tr[2]/td', output, 2
+      assert_xpath %(/*[@class="hdlist"]/table/#{tbody_path}tr[2]/td), output, 2
       assert_xpath '((//tr)[2]/td)[1][normalize-space(text())="second term"]', output, 1
       assert_xpath '((//tr)[2]/td)[2]/p[normalize-space(text())="description"]', output, 1
     end
 
     test 'should set col widths of item and label if specified' do
-      input = <<-EOS
-[horizontal]
-[labelwidth="25", itemwidth="75"]
-term:: def
+      input = <<~'EOS'
+      [horizontal]
+      [labelwidth="25", itemwidth="75"]
+      term:: def
       EOS
 
       output = convert_string_to_embedded input
@@ -2993,13 +3169,13 @@ term:: def
     end
 
     test 'should set col widths of item and label in docbook if specified' do
-      input = <<-EOS
-[horizontal]
-[labelwidth="25", itemwidth="75"]
-term:: def
+      input = <<~'EOS'
+      [horizontal]
+      [labelwidth="25", itemwidth="75"]
+      term:: def
       EOS
 
-      output = convert_string_to_embedded input, :backend => 'docbook'
+      output = convert_string_to_embedded input, backend: 'docbook'
       assert_css 'informaltable', output, 1
       assert_css 'informaltable > tgroup', output, 1
       assert_css 'informaltable > tgroup > colspec', output, 2
@@ -3008,9 +3184,9 @@ term:: def
     end
 
     test 'should add strong class to label if strong option is set' do
-      input = <<-EOS
-[horizontal, options="strong"]
-term:: def
+      input = <<~'EOS'
+      [horizontal, options="strong"]
+      term:: def
       EOS
 
       output = convert_string_to_embedded input
@@ -3019,13 +3195,13 @@ term:: def
     end
 
     test 'consecutive terms in horizontal list should share same cell' do
-      input = <<-EOS
-[horizontal]
-term::
-alt term::
-description
+      input = <<~'EOS'
+      [horizontal]
+      term::
+      alt term::
+      description
 
-last::
+      last::
       EOS
       output = convert_string_to_embedded input
       assert_xpath '//tr', output, 2
@@ -3037,15 +3213,15 @@ last::
     end
 
     test 'consecutive terms in horizontal list should share same entry in docbook' do
-      input = <<-EOS
-[horizontal]
-term::
-alt term::
-description
+      input = <<~'EOS'
+      [horizontal]
+      term::
+      alt term::
+      description
 
-last::
+      last::
       EOS
-      output = convert_string_to_embedded input, :backend => 'docbook'
+      output = convert_string_to_embedded input, backend: 'docbook'
       assert_xpath '//row', output, 2
       assert_xpath '(//row)[1]/entry', output, 2
       assert_xpath '((//row)[1]/entry)[1]/simpara', output, 2
@@ -3054,16 +3230,16 @@ last::
     end
 
     test 'should convert horizontal list in docbook with proper markup' do
-      input = <<-EOS
-.Terms
-[horizontal]
-first term:: description
-+
-more detail
+      input = <<~'EOS'
+      .Terms
+      [horizontal]
+      first term:: description
+      +
+      more detail
 
-second term:: description
+      second term:: description
       EOS
-      output = convert_string_to_embedded input, :backend => 'docbook'
+      output = convert_string_to_embedded input, backend: 'docbook'
       assert_xpath '/table', output, 1
       assert_xpath '/table[@tabstyle="horizontal"]', output, 1
       assert_xpath '/table[@tabstyle="horizontal"]/title[text()="Terms"]', output, 1
@@ -3074,14 +3250,15 @@ second term:: description
     end
 
     test 'should convert qanda list in HTML with proper semantics' do
-      input = <<-EOS
-[qanda]
-Question 1::
-        Answer 1.
-Question 2::
-        Answer 2.
-+
-NOTE: A note about Answer 2.
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      [qanda]
+      Question 1::
+              Answer 1.
+      Question 2::
+              Answer 2.
+      +
+      NOTE: A note about Answer 2.
       EOS
       output = convert_string_to_embedded input
       assert_css '.qlist.qanda', output, 1
@@ -3098,16 +3275,17 @@ NOTE: A note about Answer 2.
     end
 
     test 'should convert qanda list in DocBook with proper semantics' do
-      input = <<-EOS
-[qanda]
-Question 1::
-        Answer 1.
-Question 2::
-        Answer 2.
-+
-NOTE: A note about Answer 2.
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      [qanda]
+      Question 1::
+              Answer 1.
+      Question 2::
+              Answer 2.
+      +
+      NOTE: A note about Answer 2.
       EOS
-      output = convert_string_to_embedded input, :backend => 'docbook'
+      output = convert_string_to_embedded input, backend: 'docbook'
       assert_css 'qandaset', output, 1
       assert_css 'qandaset > qandaentry', output, 2
       (1..2).each do |idx|
@@ -3122,15 +3300,15 @@ NOTE: A note about Answer 2.
     end
 
     test 'consecutive questions should share same question element in docbook' do
-      input = <<-EOS
-[qanda]
-question::
-follow-up question::
-response
+      input = <<~'EOS'
+      [qanda]
+      question::
+      follow-up question::
+      response
 
-last question::
+      last question::
       EOS
-      output = convert_string_to_embedded input, :backend => 'docbook'
+      output = convert_string_to_embedded input, backend: 'docbook'
       assert_xpath '//qandaentry', output, 2
       assert_xpath '(//qandaentry)[1]/question', output, 1
       assert_xpath '(//qandaentry)[1]/question/simpara', output, 2
@@ -3140,13 +3318,14 @@ last question::
     end
 
     test 'should convert bibliography list with proper semantics' do
-      input = <<-EOS
-[bibliography]
-- [[[taoup]]] Eric Steven Raymond. 'The Art of Unix
-  Programming'. Addison-Wesley. ISBN 0-13-142901-9.
-- [[[walsh-muellner]]] Norman Walsh & Leonard Muellner.
-  'DocBook - The Definitive Guide'. O'Reilly & Associates. 1999.
-  ISBN 1-56592-580-7.
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      [bibliography]
+      - [[[taoup]]] Eric Steven Raymond. 'The Art of Unix
+        Programming'. Addison-Wesley. ISBN 0-13-142901-9.
+      - [[[walsh-muellner]]] Norman Walsh & Leonard Muellner.
+        'DocBook - The Definitive Guide'. O'Reilly & Associates. 1999.
+        ISBN 1-56592-580-7.
       EOS
       output = convert_string_to_embedded input
       assert_css '.ulist.bibliography', output, 1
@@ -3160,15 +3339,16 @@ last question::
     end
 
     test 'should convert bibliography list with proper semantics to DocBook' do
-      input = <<-EOS
-[bibliography]
-- [[[taoup]]] Eric Steven Raymond. 'The Art of Unix
-  Programming'. Addison-Wesley. ISBN 0-13-142901-9.
-- [[[walsh-muellner]]] Norman Walsh & Leonard Muellner.
-  'DocBook - The Definitive Guide'. O'Reilly & Associates. 1999.
-  ISBN 1-56592-580-7.
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      [bibliography]
+      - [[[taoup]]] Eric Steven Raymond. 'The Art of Unix
+        Programming'. Addison-Wesley. ISBN 0-13-142901-9.
+      - [[[walsh-muellner]]] Norman Walsh & Leonard Muellner.
+        'DocBook - The Definitive Guide'. O'Reilly & Associates. 1999.
+        ISBN 1-56592-580-7.
       EOS
-      output = convert_string_to_embedded input, :backend => 'docbook'
+      output = convert_string_to_embedded input, backend: 'docbook'
       assert_css 'bibliodiv', output, 1
       assert_css 'bibliodiv > bibliomixed', output, 2
       assert_css 'bibliodiv > bibliomixed > bibliomisc', output, 2
@@ -3179,12 +3359,12 @@ last question::
     end
 
     test 'should warn if a bibliography ID is already in use' do
-      input = <<-EOS
-[bibliography]
-* [[[Fowler]]] Fowler M. _Analysis Patterns: Reusable Object Models_.
-Addison-Wesley. 1997.
-* [[[Fowler]]] Fowler M. _Analysis Patterns: Reusable Object Models_.
-Addison-Wesley. 1997.
+      input = <<~'EOS'
+      [bibliography]
+      * [[[Fowler]]] Fowler M. _Analysis Patterns: Reusable Object Models_.
+      Addison-Wesley. 1997.
+      * [[[Fowler]]] Fowler M. _Analysis Patterns: Reusable Object Models_.
+      Addison-Wesley. 1997.
       EOS
       using_memory_logger do |logger|
         output = convert_string_to_embedded input
@@ -3196,31 +3376,32 @@ Addison-Wesley. 1997.
     end
 
     test 'should automatically add bibliography style to top-level lists in bibliography section' do
-      input = <<-EOS
-[bibliography]
-== Bibliography
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      [bibliography]
+      == Bibliography
 
-.Books
-* [[[taoup]]] Eric Steven Raymond. _The Art of Unix
-  Programming_. Addison-Wesley. ISBN 0-13-142901-9.
-* [[[walsh-muellner]]] Norman Walsh & Leonard Muellner.
-  _DocBook - The Definitive Guide_. O'Reilly & Associates. 1999.
-  ISBN 1-56592-580-7.
+      .Books
+      * [[[taoup]]] Eric Steven Raymond. _The Art of Unix
+        Programming_. Addison-Wesley. ISBN 0-13-142901-9.
+      * [[[walsh-muellner]]] Norman Walsh & Leonard Muellner.
+        _DocBook - The Definitive Guide_. O'Reilly & Associates. 1999.
+        ISBN 1-56592-580-7.
 
-.Periodicals
-* [[[doc-writer]]] Doc Writer. _Documentation As Code_. Static Times, 54. August 2016.
+      .Periodicals
+      * [[[doc-writer]]] Doc Writer. _Documentation As Code_. Static Times, 54. August 2016.
       EOS
       doc = document_from_string input
-      ulists = doc.find_by :context => :ulist
+      ulists = doc.find_by context: :ulist
       assert_equal 2, ulists.size
       assert_equal ulists[0].style, 'bibliography'
       assert_equal ulists[1].style, 'bibliography'
     end
 
     test 'should not recognize bibliography anchor that begins with a digit' do
-      input = <<-EOS
-[bibliography]
-- [[[1984]]] George Orwell. '1984'. New American Library. 1950.
+      input = <<~'EOS'
+      [bibliography]
+      - [[[1984]]] George Orwell. '1984'. New American Library. 1950.
       EOS
 
       output = convert_string_to_embedded input
@@ -3229,9 +3410,9 @@ Addison-Wesley. 1997.
     end
 
     test 'should recognize bibliography anchor that contains a digit but does not start with one' do
-      input = <<-EOS
-[bibliography]
-- [[[_1984]]] George Orwell. '1984'. New American Library. 1950.
+      input = <<~'EOS'
+      [bibliography]
+      - [[[_1984]]] George Orwell. '1984'. New American Library. 1950.
       EOS
 
       output = convert_string_to_embedded input
@@ -3241,54 +3422,62 @@ Addison-Wesley. 1997.
     end
 
     test 'should catalog bibliography anchors in bibliography list' do
-      input = <<-EOS
-= Article Title
+      input = <<~'EOS'
+      = Article Title
 
-Please read #{'<<'}Fowler_1997>>.
+      Please read <<Fowler_1997>>.
 
-[bibliography]
-== References
+      [bibliography]
+      == References
 
-* [[[Fowler_1997]]] Fowler M. _Analysis Patterns: Reusable Object Models_. Addison-Wesley. 1997.
+      * [[[Fowler_1997]]] Fowler M. _Analysis Patterns: Reusable Object Models_. Addison-Wesley. 1997.
       EOS
 
       doc = document_from_string input
-      ids = doc.catalog[:ids]
-      assert ids.key?('Fowler_1997')
-      assert_equal '[Fowler_1997]', ids['Fowler_1997']
+      assert doc.catalog[:refs].key? 'Fowler_1997'
     end
 
     test 'should use reftext from bibliography anchor at xref and entry' do
-      input = <<-EOS
-= Article Title
+      input = <<~'EOS'
+      = Article Title
 
-Please read #{'<<'}Fowler_1997>>.
+      Begin with <<TMMM>>.
+      Then move on to <<Fowler_1997>>.
 
-[bibliography]
-== References
+      [bibliography]
+      == References
 
-* [[[Fowler_1997,1]]] Fowler M. _Analysis Patterns: Reusable Object Models_. Addison-Wesley. 1997.
+      * [[[TMMM]]] Brooks F. _The Mythical Man-Month_. Addison-Wesley. 1975.
+      * [[[Fowler_1997,1]]] Fowler M. _Analysis Patterns: Reusable Object Models_. Addison-Wesley. 1997.
       EOS
 
-      doc = document_from_string input, :header_footer => false
-      ids = doc.catalog[:ids]
-      assert ids.key?('Fowler_1997')
-      assert_equal '[1]', ids['Fowler_1997']
-      result = doc.convert :header_footer => false
+      doc = document_from_string input, standalone: false
+      tmmm_ref = doc.catalog[:refs]['TMMM']
+      refute_nil tmmm_ref
+      assert_nil tmmm_ref.reftext
+      fowler_1997_ref = doc.catalog[:refs]['Fowler_1997']
+      refute_nil fowler_1997_ref
+      assert_equal '[1]', fowler_1997_ref.reftext
+      result = doc.convert standalone: false
       assert_xpath '//a[@href="#Fowler_1997"]', result, 1
       assert_xpath '//a[@href="#Fowler_1997"][text()="[1]"]', result, 1
       assert_xpath '//a[@id="Fowler_1997"]', result, 1
-      text = (xmlnodes_at_xpath '(//a[@id="Fowler_1997"])[1]/following-sibling::text()', result, 1).text
-      assert text.start_with?('[1] ')
+      fowler_1997_text = (xmlnodes_at_xpath '(//a[@id="Fowler_1997"])[1]/following-sibling::text()', result, 1).text
+      assert fowler_1997_text.start_with?('[1] ')
+      assert_xpath '//a[@href="#TMMM"]', result, 1
+      assert_xpath '//a[@href="#TMMM"][text()="[TMMM]"]', result, 1
+      assert_xpath '//a[@id="TMMM"]', result, 1
+      tmmm_text = (xmlnodes_at_xpath '(//a[@id="TMMM"])[1]/following-sibling::text()', result, 1).text
+      assert tmmm_text.start_with?('[TMMM] ')
     end
 
     test 'should assign reftext of bibliography anchor to xreflabel in DocBook backend' do
-      input = <<-EOS
-[bibliography]
-* [[[Fowler_1997,1]]] Fowler M. _Analysis Patterns: Reusable Object Models_. Addison-Wesley. 1997.
+      input = <<~'EOS'
+      [bibliography]
+      * [[[Fowler_1997,1]]] Fowler M. _Analysis Patterns: Reusable Object Models_. Addison-Wesley. 1997.
       EOS
 
-      result = convert_string_to_embedded input, :backend => :docbook
+      result = convert_string_to_embedded input, backend: :docbook
       assert_includes result, '<anchor xml:id="Fowler_1997" xreflabel="[1]"/>'
     end
   end
@@ -3299,11 +3488,11 @@ context 'Description lists redux' do
   context 'Label without text on same line' do
 
     test 'folds text from subsequent line' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
-def1
+      term1::
+      def1
       EOS
 
       output = convert_string_to_embedded input
@@ -3313,13 +3502,13 @@ def1
     end
 
     test 'folds text from first line after blank lines' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
+      term1::
 
 
-def1
+      def1
       EOS
 
       output = convert_string_to_embedded input
@@ -3329,13 +3518,13 @@ def1
     end
 
     test 'folds text from first line after blank line and immediately preceding next item' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
+      term1::
 
-def1
-term2:: def2
+      def1
+      term2:: def2
       EOS
 
       output = convert_string_to_embedded input
@@ -3345,14 +3534,14 @@ term2:: def2
     end
 
     test 'paragraph offset by blank lines does not break list if label does not have inline text' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
+      term1::
 
-def1
+      def1
 
-term2:: def2
+      term2:: def2
       EOS
 
       output = convert_string_to_embedded input
@@ -3363,12 +3552,12 @@ term2:: def2
     end
 
     test 'folds text from first line after comment line' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
-// comment
-def1
+      term1::
+      // comment
+      def1
       EOS
 
       output = convert_string_to_embedded input
@@ -3378,13 +3567,13 @@ def1
     end
 
     test 'folds text from line following comment line offset by blank line' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
+      term1::
 
-// comment
-def1
+      // comment
+      def1
       EOS
 
       output = convert_string_to_embedded input
@@ -3394,11 +3583,12 @@ def1
     end
 
     test 'folds text from subsequent indented line' do
-      input = <<-EOS
-== Lists
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      == Lists
 
-term1::
-  def1
+      term1::
+        def1
       EOS
 
       output = convert_string_to_embedded input
@@ -3408,12 +3598,13 @@ term1::
     end
 
     test 'folds text from indented line after blank line' do
-      input = <<-EOS
-== Lists
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      == Lists
 
-term1::
+      term1::
 
-  def1
+        def1
       EOS
 
       output = convert_string_to_embedded input
@@ -3423,12 +3614,12 @@ term1::
     end
 
     test 'folds text that looks like ruler offset by blank line' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
+      term1::
 
-'''
+      '''
       EOS
 
       output = convert_string_to_embedded input
@@ -3438,13 +3629,13 @@ term1::
     end
 
     test 'folds text that looks like ruler offset by blank line and line comment' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
+      term1::
 
-// comment
-'''
+      // comment
+      '''
       EOS
 
       output = convert_string_to_embedded input
@@ -3454,13 +3645,13 @@ term1::
     end
 
     test 'folds text that looks like ruler and the line following it offset by blank line' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
+      term1::
 
-'''
-continued
+      '''
+      continued
       EOS
 
       output = convert_string_to_embedded input
@@ -3470,12 +3661,12 @@ continued
     end
 
     test 'folds text that looks like title offset by blank line' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
+      term1::
 
-.def1
+      .def1
       EOS
 
       output = convert_string_to_embedded input
@@ -3485,13 +3676,13 @@ term1::
     end
 
     test 'folds text that looks like title offset by blank line and line comment' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
+      term1::
 
-// comment
-.def1
+      // comment
+      .def1
       EOS
 
       output = convert_string_to_embedded input
@@ -3501,12 +3692,12 @@ term1::
     end
 
     test 'folds text that looks like admonition offset by blank line' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
+      term1::
 
-NOTE: def1
+      NOTE: def1
       EOS
 
       output = convert_string_to_embedded input
@@ -3516,12 +3707,12 @@ NOTE: def1
     end
 
     test 'folds text that looks like section title offset by blank line' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
+      term1::
 
-== Another Section
+      == Another Section
       EOS
 
       output = convert_string_to_embedded input
@@ -3532,17 +3723,18 @@ term1::
     end
 
     test 'folds text of first literal line offset by blank line appends subsequent literals offset by blank line as blocks' do
-      input = <<-EOS
-== Lists
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      == Lists
 
-term1::
+      term1::
 
-  def1
+        def1
 
-  literal
+        literal
 
 
-  literal
+        literal
       EOS
 
       output = convert_string_to_embedded input
@@ -3554,15 +3746,16 @@ term1::
     end
 
     test 'folds text of subsequent line and appends following literal line offset by blank line as block if term has no inline description' do
-      input = <<-EOS
-== Lists
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      == Lists
 
-term1::
-def1
+      term1::
+      def1
 
-  literal
+        literal
 
-term2:: def2
+      term2:: def2
       EOS
 
       output = convert_string_to_embedded input
@@ -3574,12 +3767,13 @@ term2:: def2
     end
 
     test 'appends literal line attached by continuation as block if item has no inline description' do
-      input = <<-EOS
-== Lists
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      == Lists
 
-term1::
-+
-  literal
+      term1::
+      +
+        literal
       EOS
 
       output = convert_string_to_embedded input
@@ -3591,14 +3785,15 @@ term1::
     end
 
     test 'appends literal line attached by continuation as block if item has no inline description followed by ruler' do
-      input = <<-EOS
-== Lists
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      == Lists
 
-term1::
-+
-  literal
+      term1::
+      +
+        literal
 
-'''
+      '''
       EOS
 
       output = convert_string_to_embedded input
@@ -3611,14 +3806,14 @@ term1::
     end
 
     test 'appends line attached by continuation as block if item has no inline description followed by ruler' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
-+
-para
+      term1::
+      +
+      para
 
-'''
+      '''
       EOS
 
       output = convert_string_to_embedded input
@@ -3631,16 +3826,16 @@ para
     end
 
     test 'appends line attached by continuation as block if item has no inline description followed by block' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
-+
-para
+      term1::
+      +
+      para
 
-....
-literal
-....
+      ....
+      literal
+      ....
       EOS
 
       output = convert_string_to_embedded input
@@ -3654,17 +3849,17 @@ literal
     end
 
     test 'appends block attached by continuation but not subsequent block not attached by continuation' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
-+
-....
-literal
-....
-....
-detached
-....
+      term1::
+      +
+      ....
+      literal
+      ....
+      ....
+      detached
+      ....
       EOS
 
       output = convert_string_to_embedded input
@@ -3678,14 +3873,14 @@ detached
     end
 
     test 'appends list if item has no inline description' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
+      term1::
 
-* one
-* two
-* three
+      * one
+      * two
+      * three
       EOS
 
       output = convert_string_to_embedded input
@@ -3696,15 +3891,15 @@ term1::
     end
 
     test 'appends list to first term when followed immediately by second term' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
+      term1::
 
-* one
-* two
-* three
-term2:: def2
+      * one
+      * two
+      * three
+      term2:: def2
       EOS
 
       output = convert_string_to_embedded input
@@ -3716,19 +3911,20 @@ term2:: def2
     end
 
     test 'appends indented list to first term that is adjacent to second term' do
-      input = <<-EOS
-== Lists
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      == Lists
 
-label 1::
-  description 1
+      label 1::
+        description 1
 
-  * one
-  * two
-  * three
-label 2::
-  description 2
+        * one
+        * two
+        * three
+      label 2::
+        description 2
 
-paragraph
+      paragraph
       EOS
       output = convert_string_to_embedded input
       assert_css '.dlist > dl', output, 1
@@ -3744,19 +3940,20 @@ paragraph
     end
 
     test 'appends indented list to first term that is attached by a continuation and adjacent to second term' do
-      input = <<-EOS
-== Lists
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      == Lists
 
-label 1::
-  description 1
-+
-  * one
-  * two
-  * three
-label 2::
-  description 2
+      label 1::
+        description 1
+      +
+        * one
+        * two
+        * three
+      label 2::
+        description 2
 
-paragraph
+      paragraph
       EOS
       output = convert_string_to_embedded input
       assert_css '.dlist > dl', output, 1
@@ -3772,17 +3969,17 @@ paragraph
     end
 
     test 'appends list and paragraph block when line following list attached by continuation' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
+      term1::
 
-* one
-* two
-* three
+      * one
+      * two
+      * three
 
-+
-para
+      +
+      para
       EOS
 
       output = convert_string_to_embedded input
@@ -3796,16 +3993,16 @@ para
     end
 
     test 'first continued line associated with nested list item and second continued line associated with term' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
-* one
-+
-nested list para
+      term1::
+      * one
+      +
+      nested list para
 
-+
-term1 para
+      +
+      term1 para
       EOS
 
       output = convert_string_to_embedded input
@@ -3820,16 +4017,17 @@ term1 para
     end
 
     test 'literal line attached by continuation swallows adjacent line that looks like term' do
-      input = <<-EOS
-== Lists
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      == Lists
 
-term1::
-+
-  literal
-notnestedterm:::
-+
-  literal
-notnestedterm:::
+      term1::
+      +
+        literal
+      notnestedterm:::
+      +
+        literal
+      notnestedterm:::
       EOS
 
       output = convert_string_to_embedded input
@@ -3841,12 +4039,12 @@ notnestedterm:::
     end
 
     test 'line attached by continuation is appended as paragraph if term has no inline description' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
-+
-para
+      term1::
+      +
+      para
       EOS
 
       output = convert_string_to_embedded input
@@ -3858,11 +4056,11 @@ para
     end
 
     test 'attached paragraph does not break on adjacent nested description list term' do
-      input = <<-EOS
-term1:: def
-+
-more description
-not a term::: def
+      input = <<~'EOS'
+      term1:: def
+      +
+      more description
+      not a term::: def
       EOS
 
       output = convert_string_to_embedded input
@@ -3875,11 +4073,11 @@ not a term::: def
     # FIXME pending
 =begin
     test 'attached paragraph does not break on adjacent sibling description list term' do
-      input = <<-EOS
-term1:: def
-+
-more description
-not a term:: def
+      input = <<~'EOS'
+      term1:: def
+      +
+      more description
+      not a term:: def
       EOS
 
       output = convert_string_to_embedded input
@@ -3891,12 +4089,12 @@ not a term:: def
 =end
 
     test 'attached styled paragraph does not break on adjacent nested description list term' do
-      input = <<-EOS
-term1:: def
-+
-[quote]
-more description
-not a term::: def
+      input = <<~'EOS'
+      term1:: def
+      +
+      [quote]
+      more description
+      not a term::: def
       EOS
 
       output = convert_string_to_embedded input
@@ -3907,14 +4105,14 @@ not a term::: def
     end
 
     test 'appends line as paragraph if attached by continuation following blank line and line comment when term has no inline description' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
+      term1::
 
-// comment
-+
-para
+      // comment
+      +
+      para
       EOS
 
       output = convert_string_to_embedded input
@@ -3926,13 +4124,13 @@ para
     end
 
     test 'line attached by continuation offset by blank line is appended as paragraph if term has no inline description' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
+      term1::
 
-+
-para
+      +
+      para
       EOS
 
       output = convert_string_to_embedded input
@@ -3944,13 +4142,13 @@ para
     end
 
     test 'delimited block breaks list even when term has no inline description' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
-====
-detached
-====
+      term1::
+      ====
+      detached
+      ====
       EOS
 
       output = convert_string_to_embedded input
@@ -3961,12 +4159,12 @@ detached
     end
 
     test 'attribute line breaks list even when term has no inline description' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
-[verse]
-detached
+      term1::
+      [verse]
+      detached
       EOS
 
       output = convert_string_to_embedded input
@@ -3977,12 +4175,12 @@ detached
     end
 
     test 'id line breaks list even when term has no inline description' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1::
-[[id]]
-detached
+      term1::
+      [[id]]
+      detached
       EOS
 
       output = convert_string_to_embedded input
@@ -3996,11 +4194,11 @@ detached
   context 'Item with text inline' do
 
     test 'folds text from inline description and subsequent line' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1:: def1
-continued
+      term1:: def1
+      continued
       EOS
 
       output = convert_string_to_embedded input
@@ -4010,12 +4208,12 @@ continued
     end
 
     test 'folds text from inline description and subsequent lines' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1:: def1
-continued
-continued
+      term1:: def1
+      continued
+      continued
       EOS
 
       output = convert_string_to_embedded input
@@ -4025,12 +4223,12 @@ continued
     end
 
     test 'folds text from inline description and line following comment line' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1:: def1
-// comment
-continued
+      term1:: def1
+      // comment
+      continued
       EOS
 
       output = convert_string_to_embedded input
@@ -4040,11 +4238,12 @@ continued
     end
 
     test 'folds text from inline description and subsequent indented line' do
-      input = <<-EOS
-== Lists
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      == List
 
-term1:: def1
-  continued
+      term1:: def1
+        continued
       EOS
 
       output = convert_string_to_embedded input
@@ -4054,12 +4253,13 @@ term1:: def1
     end
 
     test 'appends literal line offset by blank line as block if item has inline description' do
-      input = <<-EOS
-== Lists
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      == Lists
 
-term1:: def1
+      term1:: def1
 
-  literal
+        literal
       EOS
 
       output = convert_string_to_embedded input
@@ -4071,14 +4271,15 @@ term1:: def1
     end
 
     test 'appends literal line offset by blank line as block and appends line after continuation as block if item has inline description' do
-      input = <<-EOS
-== Lists
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      == Lists
 
-term1:: def1
+      term1:: def1
 
-  literal
-+
-para
+        literal
+      +
+      para
       EOS
 
       output = convert_string_to_embedded input
@@ -4092,14 +4293,15 @@ para
     end
 
     test 'appends line after continuation as block and literal line offset by blank line as block if item has inline description' do
-      input = <<-EOS
-== Lists
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      == Lists
 
-term1:: def1
-+
-para
+      term1:: def1
+      +
+      para
 
-  literal
+        literal
       EOS
 
       output = convert_string_to_embedded input
@@ -4113,14 +4315,14 @@ para
     end
 
     test 'appends list if item has inline description' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1:: def1
+      term1:: def1
 
-* one
-* two
-* three
+      * one
+      * two
+      * three
       EOS
 
       output = convert_string_to_embedded input
@@ -4131,14 +4333,15 @@ term1:: def1
     end
 
     test 'appends literal line attached by continuation as block if item has inline description followed by ruler' do
-      input = <<-EOS
-== Lists
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      == Lists
 
-term1:: def1
-+
-  literal
+      term1:: def1
+      +
+        literal
 
-'''
+      '''
       EOS
 
       output = convert_string_to_embedded input
@@ -4151,12 +4354,12 @@ term1:: def1
     end
 
     test 'line offset by blank line breaks list if term has inline description' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1:: def1
+      term1:: def1
 
-detached
+      detached
       EOS
 
       output = convert_string_to_embedded input
@@ -4168,16 +4371,17 @@ detached
     end
 
     test 'nested term with description does not consume following heading' do
-      input = <<-EOS
-== Lists
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      == Lists
 
-term::
-  def
-  nestedterm;;
-    nesteddef
+      term::
+        def
+        nestedterm;;
+          nesteddef
 
-Detached
-~~~~~~~~
+      Detached
+      ~~~~~~~~
       EOS
 
       output = convert_string_to_embedded input
@@ -4193,14 +4397,14 @@ Detached
     end
 
     test 'line attached by continuation is appended as paragraph if term has inline description followed by detached paragraph' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1:: def1
-+
-para
+      term1:: def1
+      +
+      para
 
-detached
+      detached
       EOS
 
       output = convert_string_to_embedded input
@@ -4214,16 +4418,16 @@ detached
     end
 
     test 'line attached by continuation is appended as paragraph if term has inline description followed by detached block' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1:: def1
-+
-para
+      term1:: def1
+      +
+      para
 
-****
-detached
-****
+      ****
+      detached
+      ****
       EOS
 
       output = convert_string_to_embedded input
@@ -4237,13 +4441,13 @@ detached
     end
 
     test 'line attached by continuation offset by line comment is appended as paragraph if term has inline description' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1:: def1
-// comment
-+
-para
+      term1:: def1
+      // comment
+      +
+      para
       EOS
 
       output = convert_string_to_embedded input
@@ -4255,13 +4459,13 @@ para
     end
 
     test 'line attached by continuation offset by blank line is appended as paragraph if term has inline description' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1:: def1
+      term1:: def1
 
-+
-para
+      +
+      para
       EOS
 
       output = convert_string_to_embedded input
@@ -4273,14 +4477,14 @@ para
     end
 
     test 'line comment offset by blank line divides lists because item has text' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1:: def1
+      term1:: def1
 
-//
+      //
 
-term2:: def2
+      term2:: def2
       EOS
 
       output = convert_string_to_embedded input
@@ -4288,14 +4492,14 @@ term2:: def2
     end
 
     test 'ruler offset by blank line divides lists because item has text' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1:: def1
+      term1:: def1
 
-'''
+      '''
 
-term2:: def2
+      term2:: def2
       EOS
 
       output = convert_string_to_embedded input
@@ -4303,14 +4507,14 @@ term2:: def2
     end
 
     test 'block title offset by blank line divides lists and becomes title of second list because item has text' do
-      input = <<-EOS
-== Lists
+      input = <<~'EOS'
+      == Lists
 
-term1:: def1
+      term1:: def1
 
-.title
+      .title
 
-term2:: def2
+      term2:: def2
       EOS
 
       output = convert_string_to_embedded input
@@ -4322,11 +4526,11 @@ end
 
 context 'Callout lists' do
   test 'does not recognize callout list denoted by markers that only have a trailing bracket' do
-    input  = <<-EOS
-----
-require 'asciidoctor' # <1>
-----
-1> Not a callout list item
+    input  = <<~'EOS'
+    ----
+    require 'asciidoctor' # <1>
+    ----
+    1> Not a callout list item
     EOS
 
     output = convert_string_to_embedded input
@@ -4334,23 +4538,23 @@ require 'asciidoctor' # <1>
   end
 
   test 'listing block with sequential callouts followed by adjacent callout list' do
-    input = <<-EOS
-[source, ruby]
-----
-require 'asciidoctor' # <1>
-doc = Asciidoctor::Document.new('Hello, World!') # <2>
-puts doc.convert # <3>
-----
-<1> Describe the first line
-<2> Describe the second line
-<3> Describe the third line
+    input = <<~'EOS'
+    [source, ruby]
+    ----
+    require 'asciidoctor' # <1>
+    doc = Asciidoctor::Document.new('Hello, World!') # <2>
+    puts doc.convert # <3>
+    ----
+    <1> Describe the first line
+    <2> Describe the second line
+    <3> Describe the third line
     EOS
-    output = convert_string input, :attributes => {'backend' => 'docbook45'}
+    output = convert_string input, attributes: { 'backend' => 'docbook' }
     assert_xpath '//programlisting', output, 1
     assert_xpath '//programlisting//co', output, 3
-    assert_xpath '(//programlisting//co)[1][@id = "CO1-1"]', output, 1
-    assert_xpath '(//programlisting//co)[2][@id = "CO1-2"]', output, 1
-    assert_xpath '(//programlisting//co)[3][@id = "CO1-3"]', output, 1
+    assert_xpath '(//programlisting//co)[1][@xml:id="CO1-1"]', output, 1
+    assert_xpath '(//programlisting//co)[2][@xml:id="CO1-2"]', output, 1
+    assert_xpath '(//programlisting//co)[3][@xml:id="CO1-3"]', output, 1
     assert_xpath '//programlisting/following-sibling::calloutlist/callout', output, 3
     assert_xpath '(//programlisting/following-sibling::calloutlist/callout)[1][@arearefs = "CO1-1"]', output, 1
     assert_xpath '(//programlisting/following-sibling::calloutlist/callout)[2][@arearefs = "CO1-2"]', output, 1
@@ -4358,26 +4562,26 @@ puts doc.convert # <3>
   end
 
   test 'listing block with sequential callouts followed by non-adjacent callout list' do
-    input = <<-EOS
-[source, ruby]
-----
-require 'asciidoctor' # <1>
-doc = Asciidoctor::Document.new('Hello, World!') # <2>
-puts doc.convert # <3>
-----
+    input = <<~'EOS'
+    [source, ruby]
+    ----
+    require 'asciidoctor' # <1>
+    doc = Asciidoctor::Document.new('Hello, World!') # <2>
+    puts doc.convert # <3>
+    ----
 
-Paragraph.
+    Paragraph.
 
-<1> Describe the first line
-<2> Describe the second line
-<3> Describe the third line
+    <1> Describe the first line
+    <2> Describe the second line
+    <3> Describe the third line
     EOS
-    output = convert_string input, :attributes => {'backend' => 'docbook45'}
+    output = convert_string input, attributes: { 'backend' => 'docbook' }
     assert_xpath '//programlisting', output, 1
     assert_xpath '//programlisting//co', output, 3
-    assert_xpath '(//programlisting//co)[1][@id = "CO1-1"]', output, 1
-    assert_xpath '(//programlisting//co)[2][@id = "CO1-2"]', output, 1
-    assert_xpath '(//programlisting//co)[3][@id = "CO1-3"]', output, 1
+    assert_xpath '(//programlisting//co)[1][@xml:id="CO1-1"]', output, 1
+    assert_xpath '(//programlisting//co)[2][@xml:id="CO1-2"]', output, 1
+    assert_xpath '(//programlisting//co)[3][@xml:id="CO1-3"]', output, 1
     assert_xpath '//programlisting/following-sibling::*[1][self::simpara]', output, 1
     assert_xpath '//programlisting/following-sibling::calloutlist/callout', output, 3
     assert_xpath '(//programlisting/following-sibling::calloutlist/callout)[1][@arearefs = "CO1-1"]', output, 1
@@ -4386,45 +4590,45 @@ Paragraph.
   end
 
   test 'listing block with a callout that refers to two different lines' do
-    input = <<-EOS
-[source, ruby]
-----
-require 'asciidoctor' # <1>
-doc = Asciidoctor::Document.new('Hello, World!') # <2>
-puts doc.convert # <2>
-----
-<1> Import the library
-<2> Where the magic happens
+    input = <<~'EOS'
+    [source, ruby]
+    ----
+    require 'asciidoctor' # <1>
+    doc = Asciidoctor::Document.new('Hello, World!') # <2>
+    puts doc.convert # <2>
+    ----
+    <1> Import the library
+    <2> Where the magic happens
     EOS
-    output = convert_string input, :attributes => {'backend' => 'docbook45'}
+    output = convert_string input, attributes: { 'backend' => 'docbook' }
     assert_xpath '//programlisting', output, 1
     assert_xpath '//programlisting//co', output, 3
-    assert_xpath '(//programlisting//co)[1][@id = "CO1-1"]', output, 1
-    assert_xpath '(//programlisting//co)[2][@id = "CO1-2"]', output, 1
-    assert_xpath '(//programlisting//co)[3][@id = "CO1-3"]', output, 1
+    assert_xpath '(//programlisting//co)[1][@xml:id="CO1-1"]', output, 1
+    assert_xpath '(//programlisting//co)[2][@xml:id="CO1-2"]', output, 1
+    assert_xpath '(//programlisting//co)[3][@xml:id="CO1-3"]', output, 1
     assert_xpath '//programlisting/following-sibling::calloutlist/callout', output, 2
     assert_xpath '(//programlisting/following-sibling::calloutlist/callout)[1][@arearefs = "CO1-1"]', output, 1
     assert_xpath '(//programlisting/following-sibling::calloutlist/callout)[2][@arearefs = "CO1-2 CO1-3"]', output, 1
   end
 
-  test 'listing block with non-sequential callouts followed by adjacent callout list' do
-    input = <<-EOS
-[source, ruby]
-----
-require 'asciidoctor' # <2>
-doc = Asciidoctor::Document.new('Hello, World!') # <3>
-puts doc.convert # <1>
-----
-<1> Describe the first line
-<2> Describe the second line
-<3> Describe the third line
+  test 'source block with non-sequential callouts followed by adjacent callout list' do
+    input = <<~'EOS'
+    [source,ruby]
+    ----
+    require 'asciidoctor' # <2>
+    doc = Asciidoctor::Document.new('Hello, World!') # <3>
+    puts doc.convert # <1>
+    ----
+    <1> Describe the first line
+    <2> Describe the second line
+    <3> Describe the third line
     EOS
-    output = convert_string input, :attributes => {'backend' => 'docbook45'}
+    output = convert_string input, attributes: { 'backend' => 'docbook' }
     assert_xpath '//programlisting', output, 1
     assert_xpath '//programlisting//co', output, 3
-    assert_xpath '(//programlisting//co)[1][@id = "CO1-1"]', output, 1
-    assert_xpath '(//programlisting//co)[2][@id = "CO1-2"]', output, 1
-    assert_xpath '(//programlisting//co)[3][@id = "CO1-3"]', output, 1
+    assert_xpath '(//programlisting//co)[1][@xml:id="CO1-1"]', output, 1
+    assert_xpath '(//programlisting//co)[2][@xml:id="CO1-2"]', output, 1
+    assert_xpath '(//programlisting//co)[3][@xml:id="CO1-3"]', output, 1
     assert_xpath '//programlisting/following-sibling::calloutlist/callout', output, 3
     assert_xpath '(//programlisting/following-sibling::calloutlist/callout)[1][@arearefs = "CO1-3"]', output, 1
     assert_xpath '(//programlisting/following-sibling::calloutlist/callout)[2][@arearefs = "CO1-1"]', output, 1
@@ -4432,61 +4636,61 @@ puts doc.convert # <1>
   end
 
   test 'two listing blocks can share the same callout list' do
-    input = <<-EOS
-.Import library
-[source, ruby]
-----
-require 'asciidoctor' # <1>
-----
+    input = <<~'EOS'
+    .Import library
+    [source, ruby]
+    ----
+    require 'asciidoctor' # <1>
+    ----
 
-.Use library
-[source, ruby]
-----
-doc = Asciidoctor::Document.new('Hello, World!') # <2>
-puts doc.convert # <3>
-----
+    .Use library
+    [source, ruby]
+    ----
+    doc = Asciidoctor::Document.new('Hello, World!') # <2>
+    puts doc.convert # <3>
+    ----
 
-<1> Describe the first line
-<2> Describe the second line
-<3> Describe the third line
+    <1> Describe the first line
+    <2> Describe the second line
+    <3> Describe the third line
     EOS
-    output = convert_string input, :attributes => {'backend' => 'docbook45'}
+    output = convert_string input, attributes: { 'backend' => 'docbook' }
     assert_xpath '//programlisting', output, 2
     assert_xpath '(//programlisting)[1]//co', output, 1
-    assert_xpath '(//programlisting)[1]//co[@id = "CO1-1"]', output, 1
+    assert_xpath '(//programlisting)[1]//co[@xml:id="CO1-1"]', output, 1
     assert_xpath '(//programlisting)[2]//co', output, 2
-    assert_xpath '((//programlisting)[2]//co)[1][@id = "CO1-2"]', output, 1
-    assert_xpath '((//programlisting)[2]//co)[2][@id = "CO1-3"]', output, 1
+    assert_xpath '((//programlisting)[2]//co)[1][@xml:id="CO1-2"]', output, 1
+    assert_xpath '((//programlisting)[2]//co)[2][@xml:id="CO1-3"]', output, 1
     assert_xpath '(//calloutlist/callout)[1][@arearefs = "CO1-1"]', output, 1
     assert_xpath '(//calloutlist/callout)[2][@arearefs = "CO1-2"]', output, 1
     assert_xpath '(//calloutlist/callout)[3][@arearefs = "CO1-3"]', output, 1
   end
 
   test 'two listing blocks each followed by an adjacent callout list' do
-    input = <<-EOS
-.Import library
-[source, ruby]
-----
-require 'asciidoctor' # <1>
-----
-<1> Describe the first line
+    input = <<~'EOS'
+    .Import library
+    [source, ruby]
+    ----
+    require 'asciidoctor' # <1>
+    ----
+    <1> Describe the first line
 
-.Use library
-[source, ruby]
-----
-doc = Asciidoctor::Document.new('Hello, World!') # <1>
-puts doc.convert # <2>
-----
-<1> Describe the second line
-<2> Describe the third line
+    .Use library
+    [source, ruby]
+    ----
+    doc = Asciidoctor::Document.new('Hello, World!') # <1>
+    puts doc.convert # <2>
+    ----
+    <1> Describe the second line
+    <2> Describe the third line
     EOS
-    output = convert_string input, :attributes => {'backend' => 'docbook45'}
+    output = convert_string input, attributes: { 'backend' => 'docbook' }
     assert_xpath '//programlisting', output, 2
     assert_xpath '(//programlisting)[1]//co', output, 1
-    assert_xpath '(//programlisting)[1]//co[@id = "CO1-1"]', output, 1
+    assert_xpath '(//programlisting)[1]//co[@xml:id="CO1-1"]', output, 1
     assert_xpath '(//programlisting)[2]//co', output, 2
-    assert_xpath '((//programlisting)[2]//co)[1][@id = "CO2-1"]', output, 1
-    assert_xpath '((//programlisting)[2]//co)[2][@id = "CO2-2"]', output, 1
+    assert_xpath '((//programlisting)[2]//co)[1][@xml:id="CO2-1"]', output, 1
+    assert_xpath '((//programlisting)[2]//co)[2][@xml:id="CO2-2"]', output, 1
     assert_xpath '//calloutlist', output, 2
     assert_xpath '(//calloutlist)[1]/callout', output, 1
     assert_xpath '((//calloutlist)[1]/callout)[1][@arearefs = "CO1-1"]', output, 1
@@ -4496,21 +4700,21 @@ puts doc.convert # <2>
   end
 
   test 'callout list retains block content' do
-    input = <<-EOS
-[source, ruby]
-----
-require 'asciidoctor' # <1>
-doc = Asciidoctor::Document.new('Hello, World!') # <2>
-puts doc.convert # <3>
-----
-<1> Imports the library
-as a RubyGem
-<2> Creates a new document
-* Scans the lines for known blocks
-* Converts the lines into blocks
-<3> Renders the document
-+
-You can write this to file rather than printing to stdout.
+    input = <<~'EOS'
+    [source, ruby]
+    ----
+    require 'asciidoctor' # <1>
+    doc = Asciidoctor::Document.new('Hello, World!') # <2>
+    puts doc.convert # <3>
+    ----
+    <1> Imports the library
+    as a RubyGem
+    <2> Creates a new document
+    * Scans the lines for known blocks
+    * Converts the lines into blocks
+    <3> Renders the document
+    +
+    You can write this to file rather than printing to stdout.
     EOS
     output = convert_string_to_embedded input
     assert_xpath '//ol/li', output, 3
@@ -4521,23 +4725,23 @@ You can write this to file rather than printing to stdout.
   end
 
   test 'callout list retains block content when converted to DocBook' do
-    input = <<-EOS
-[source, ruby]
-----
-require 'asciidoctor' # <1>
-doc = Asciidoctor::Document.new('Hello, World!') # <2>
-puts doc.convert # <3>
-----
-<1> Imports the library
-as a RubyGem
-<2> Creates a new document
-* Scans the lines for known blocks
-* Converts the lines into blocks
-<3> Renders the document
-+
-You can write this to file rather than printing to stdout.
+    input = <<~'EOS'
+    [source, ruby]
+    ----
+    require 'asciidoctor' # <1>
+    doc = Asciidoctor::Document.new('Hello, World!') # <2>
+    puts doc.convert # <3>
+    ----
+    <1> Imports the library
+    as a RubyGem
+    <2> Creates a new document
+    * Scans the lines for known blocks
+    * Converts the lines into blocks
+    <3> Renders the document
+    +
+    You can write this to file rather than printing to stdout.
     EOS
-    output = convert_string input, :attributes => {'backend' => 'docbook45'}
+    output = convert_string input, attributes: { 'backend' => 'docbook' }
     assert_xpath '//calloutlist', output, 1
     assert_xpath '//calloutlist/callout', output, 3
     assert_xpath '(//calloutlist/callout)[1]/*', output, 1
@@ -4548,15 +4752,15 @@ You can write this to file rather than printing to stdout.
   end
 
   test 'escaped callout should not be interpreted as a callout' do
-    input = <<-EOS
-[source,text]
-----
-require 'asciidoctor' # \\<1>
-Asciidoctor.convert 'convert me!' \\<2>
-----
+    input = <<~'EOS'
+    [source,text]
+    ----
+    require 'asciidoctor' # \<1>
+    Asciidoctor.convert 'convert me!' \<2>
+    ----
     EOS
-    [{}, {'source-highlighter' => 'coderay'}].each do |attributes|
-      output = convert_string_to_embedded input, :attributes => attributes
+    [{}, { 'source-highlighter' => 'coderay' }].each do |attributes|
+      output = convert_string_to_embedded input, attributes: attributes
       assert_css 'pre b', output, 0
       assert_includes output, ' # &lt;1&gt;'
       assert_includes output, ' &lt;2&gt;'
@@ -4564,16 +4768,16 @@ Asciidoctor.convert 'convert me!' \\<2>
   end
 
   test 'should autonumber <.> callouts' do
-    input = <<-EOS
-[source, ruby]
-----
-require 'asciidoctor' # <.>
-doc = Asciidoctor::Document.new('Hello, World!') # <.>
-puts doc.convert # <.>
-----
-<.> Describe the first line
-<.> Describe the second line
-<.> Describe the third line
+    input = <<~'EOS'
+    [source, ruby]
+    ----
+    require 'asciidoctor' # <.>
+    doc = Asciidoctor::Document.new('Hello, World!') # <.>
+    puts doc.convert # <.>
+    ----
+    <.> Describe the first line
+    <.> Describe the second line
+    <.> Describe the third line
     EOS
     output = convert_string_to_embedded input
     pre_html = (xmlnodes_at_css 'pre', output)[0].inner_html
@@ -4585,31 +4789,31 @@ puts doc.convert # <.>
   end
 
   test 'should not recognize callouts in middle of line' do
-    input = <<-EOS
-[source, ruby]
-----
-puts "The syntax <1> at the end of the line makes a code callout"
-----
+    input = <<~'EOS'
+    [source, ruby]
+    ----
+    puts "The syntax <1> at the end of the line makes a code callout"
+    ----
     EOS
     output = convert_string_to_embedded input
     assert_xpath '//b', output, 0
   end
 
   test 'should allow multiple callouts on the same line' do
-    input = <<-EOS
-[source, ruby]
-----
-require 'asciidoctor' <1>
-doc = Asciidoctor.load('Hello, World!') # <2> <3> <4>
-puts doc.convert <5><6>
-exit 0
-----
-<1> Require library
-<2> Load document from String
-<3> Uses default backend and doctype
-<4> One more for good luck
-<5> Renders document to String
-<6> Prints output to stdout
+    input = <<~'EOS'
+    [source, ruby]
+    ----
+    require 'asciidoctor' <1>
+    doc = Asciidoctor.load('Hello, World!') # <2> <3> <4>
+    puts doc.convert <5><6>
+    exit 0
+    ----
+    <1> Require library
+    <2> Load document from String
+    <3> Uses default backend and doctype
+    <4> One more for good luck
+    <5> Renders document to String
+    <6> Prints output to stdout
     EOS
     output = convert_string_to_embedded input
     assert_xpath '//code/b', output, 6
@@ -4619,16 +4823,16 @@ exit 0
   end
 
   test 'should allow XML comment-style callouts' do
-    input = <<-EOS
-[source, xml]
-----
-<section>
-  <title>Section Title</title> <!--1-->
-  <simpara>Just a paragraph</simpara> <!--2-->
-</section>
-----
-<1> The title is required
-<2> The content isn't
+    input = <<~'EOS'
+    [source, xml]
+    ----
+    <section>
+      <title>Section Title</title> <!--1-->
+      <simpara>Just a paragraph</simpara> <!--2-->
+    </section>
+    ----
+    <1> The title is required
+    <2> The content isn't
     EOS
     output = convert_string_to_embedded input
     assert_xpath '//b', output, 2
@@ -4637,22 +4841,23 @@ exit 0
   end
 
   test 'should not allow callouts with half an XML comment' do
-    input = <<-EOS
-----
-First line <1-->
-Second line <2-->
-----
+    input = <<~'EOS'
+    ----
+    First line <1-->
+    Second line <2-->
+    ----
     EOS
     output = convert_string_to_embedded input
     assert_xpath '//b', output, 0
   end
 
   test 'should not recognize callouts in an indented description list paragraph' do
-    input = <<-EOS
-foo::
-  bar <1>
+    # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+    input = <<~EOS
+    foo::
+      bar <1>
 
-<1> Not pointing to a callout
+    <1> Not pointing to a callout
     EOS
     using_memory_logger do |logger|
       output = convert_string_to_embedded input
@@ -4664,11 +4869,12 @@ foo::
   end
 
   test 'should not recognize callouts in an indented outline list paragraph' do
-    input = <<-EOS
-* foo
-  bar <1>
+    # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+    input = <<~EOS
+    * foo
+      bar <1>
 
-<1> Not pointing to a callout
+    <1> Not pointing to a callout
     EOS
     using_memory_logger do |logger|
       output = convert_string_to_embedded input
@@ -4680,15 +4886,15 @@ foo::
   end
 
   test 'should warn if numbers in callout list are out of sequence' do
-    input = <<-EOS
-----
-<beans> <1>
-  <bean class="com.example.HelloWorld"/>
-</beans>
-----
-<1> Container of beans.
-Beans are fun.
-<3> An actual bean.
+    input = <<~'EOS'
+    ----
+    <beans> <1>
+      <bean class="com.example.HelloWorld"/>
+    </beans>
+    ----
+    <1> Container of beans.
+    Beans are fun.
+    <3> An actual bean.
     EOS
     using_memory_logger do |logger|
       output = convert_string_to_embedded input
@@ -4701,34 +4907,34 @@ Beans are fun.
   end
 
   test 'should preserve line comment chars that precede callout number if icons is not set' do
-    input = <<-EOS
-[source,ruby]
-----
-puts 'Hello, world!' # <1>
-----
-<1> Ruby
+    input = <<~'EOS'
+    [source,ruby]
+    ----
+    puts 'Hello, world!' # <1>
+    ----
+    <1> Ruby
 
-[source,groovy]
-----
-println 'Hello, world!' // <1>
-----
-<1> Groovy
+    [source,groovy]
+    ----
+    println 'Hello, world!' // <1>
+    ----
+    <1> Groovy
 
-[source,clojure]
-----
-(def hello (fn [] "Hello, world!")) ;; <1>
-(hello)
-----
-<1> Clojure
+    [source,clojure]
+    ----
+    (def hello (fn [] "Hello, world!")) ;; <1>
+    (hello)
+    ----
+    <1> Clojure
 
-[source,haskell]
-----
-main = putStrLn "Hello, World!" -- <1>
-----
-<1> Haskell
+    [source,haskell]
+    ----
+    main = putStrLn "Hello, World!" -- <1>
+    ----
+    <1> Haskell
     EOS
-    [{}, {'source-highlighter' => 'coderay'}].each do |attributes|
-      output = convert_string_to_embedded input, :attributes => attributes
+    [{}, { 'source-highlighter' => 'coderay' }].each do |attributes|
+      output = convert_string_to_embedded input, attributes: attributes
       assert_xpath '//b', output, 4
       nodes = xmlnodes_at_css 'pre', output
       assert_equal %(puts 'Hello, world!' # (1)), nodes[0].text
@@ -4739,34 +4945,34 @@ main = putStrLn "Hello, World!" -- <1>
   end
 
   test 'should remove line comment chars that precede callout number if icons is font' do
-    input = <<-EOS
-[source,ruby]
-----
-puts 'Hello, world!' # <1>
-----
-<1> Ruby
+    input = <<~'EOS'
+    [source,ruby]
+    ----
+    puts 'Hello, world!' # <1>
+    ----
+    <1> Ruby
 
-[source,groovy]
-----
-println 'Hello, world!' // <1>
-----
-<1> Groovy
+    [source,groovy]
+    ----
+    println 'Hello, world!' // <1>
+    ----
+    <1> Groovy
 
-[source,clojure]
-----
-(def hello (fn [] "Hello, world!")) ;; <1>
-(hello)
-----
-<1> Clojure
+    [source,clojure]
+    ----
+    (def hello (fn [] "Hello, world!")) ;; <1>
+    (hello)
+    ----
+    <1> Clojure
 
-[source,haskell]
-----
-main = putStrLn "Hello, World!" -- <1>
-----
-<1> Haskell
+    [source,haskell]
+    ----
+    main = putStrLn "Hello, World!" -- <1>
+    ----
+    <1> Haskell
     EOS
-    [{}, {'source-highlighter' => 'coderay'}].each do |attributes|
-      output = convert_string_to_embedded input, :attributes => attributes.merge({ 'icons' => 'font' })
+    [{}, { 'source-highlighter' => 'coderay' }].each do |attributes|
+      output = convert_string_to_embedded input, attributes: attributes.merge({ 'icons' => 'font' })
       assert_css 'pre b', output, 4
       assert_css 'pre i.conum', output, 4
       nodes = xmlnodes_at_css 'pre', output
@@ -4778,14 +4984,15 @@ main = putStrLn "Hello, World!" -- <1>
   end
 
   test 'should allow line comment chars that precede callout number to be specified' do
-    input = <<-EOS
-[source,erlang,line-comment=%]
-----
-hello_world() -> % <1>
-  io:fwrite("hello, world~n"). %<2>
-----
-<1> Erlang function clause head.
-<2> ~n adds a new line to the output.
+    # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+    input = <<~EOS
+    [source,erlang,line-comment=%]
+    ----
+    hello_world() -> % <1>
+      io:fwrite("hello, world~n"). %<2>
+    ----
+    <1> Erlang function clause head.
+    <2> ~n adds a new line to the output.
     EOS
     output = convert_string_to_embedded input
     assert_xpath '//b', output, 2
@@ -4794,54 +5001,66 @@ hello_world() -> % <1>
   end
 
   test 'should allow line comment chars preceding callout number to be configurable when source-highlighter is coderay' do
-    input = <<-EOS
-[source,html,line-comment=-#]
-----
--# <1>
-%p Hello
-----
-<1> Prints a paragraph with the text "Hello"
+    input = <<~'EOS'
+    [source,html,line-comment=-#]
+    ----
+    -# <1>
+    %p Hello
+    ----
+    <1> Prints a paragraph with the text "Hello"
     EOS
-    output = convert_string_to_embedded input, :attributes => { 'source-highlighter' => 'coderay' }
+    output = convert_string_to_embedded input, attributes: { 'source-highlighter' => 'coderay' }
     assert_xpath '//b', output, 1
     nodes = xmlnodes_at_css 'pre', output
     assert_equal %(-# (1)\n%p Hello), nodes[0].text
   end
 
-  test 'literal block with callouts' do
-    input = <<-EOS
-....
-Roses are red <1>
-Violets are blue <2>
-....
-
-
-<1> And so is Ruby
-<2> But violet is more like purple
+  test 'should not eat whitespace before callout number if line-comment attribute is empty' do
+    input = <<~'EOS'
+    [source,asciidoc,line-comment=]
+    ----
+    -- <1>
+    ----
+    <1> The start of an open block.
     EOS
-    output = convert_string input, :attributes => {'backend' => 'docbook45'}
+    output = convert_string_to_embedded input, attributes: { 'icons' => 'font' }
+    assert_includes output, '-- <i class="conum"'
+  end
+
+  test 'literal block with callouts' do
+    input = <<~'EOS'
+    ....
+    Roses are red <1>
+    Violets are blue <2>
+    ....
+
+
+    <1> And so is Ruby
+    <2> But violet is more like purple
+    EOS
+    output = convert_string input, attributes: { 'backend' => 'docbook' }
     assert_xpath '//literallayout', output, 1
     assert_xpath '//literallayout//co', output, 2
-    assert_xpath '(//literallayout//co)[1][@id = "CO1-1"]', output, 1
-    assert_xpath '(//literallayout//co)[2][@id = "CO1-2"]', output, 1
+    assert_xpath '(//literallayout//co)[1][@xml:id="CO1-1"]', output, 1
+    assert_xpath '(//literallayout//co)[2][@xml:id="CO1-2"]', output, 1
     assert_xpath '//literallayout/following-sibling::*[1][self::calloutlist]/callout', output, 2
     assert_xpath '(//literallayout/following-sibling::*[1][self::calloutlist]/callout)[1][@arearefs = "CO1-1"]', output, 1
     assert_xpath '(//literallayout/following-sibling::*[1][self::calloutlist]/callout)[2][@arearefs = "CO1-2"]', output, 1
   end
 
   test 'callout list with icons enabled' do
-    input = <<-EOS
-[source, ruby]
-----
-require 'asciidoctor' # <1>
-doc = Asciidoctor::Document.new('Hello, World!') # <2>
-puts doc.convert # <3>
-----
-<1> Describe the first line
-<2> Describe the second line
-<3> Describe the third line
+    input = <<~'EOS'
+    [source, ruby]
+    ----
+    require 'asciidoctor' # <1>
+    doc = Asciidoctor::Document.new('Hello, World!') # <2>
+    puts doc.convert # <3>
+    ----
+    <1> Describe the first line
+    <2> Describe the second line
+    <3> Describe the third line
     EOS
-    output = convert_string_to_embedded input, :attributes => {'icons' => ''}
+    output = convert_string_to_embedded input, attributes: { 'icons' => '' }
     assert_css '.listingblock code > img', output, 3
     (1..3).each do |i|
       assert_xpath %((/div[@class="listingblock"]//code/img)[#{i}][@src="./images/icons/callouts/#{i}.png"][@alt="#{i}"]), output, 1
@@ -4853,18 +5072,18 @@ puts doc.convert # <3>
   end
 
   test 'callout list with font-based icons enabled' do
-    input = <<-EOS
-[source]
-----
-require 'asciidoctor' # <1>
-doc = Asciidoctor::Document.new('Hello, World!') #<2>
-puts doc.convert #<3>
-----
-<1> Describe the first line
-<2> Describe the second line
-<3> Describe the third line
+    input = <<~'EOS'
+    [source]
+    ----
+    require 'asciidoctor' # <1>
+    doc = Asciidoctor::Document.new('Hello, World!') #<2>
+    puts doc.convert #<3>
+    ----
+    <1> Describe the first line
+    <2> Describe the second line
+    <3> Describe the third line
     EOS
-    output = convert_string_to_embedded input, :attributes => {'icons' => 'font'}
+    output = convert_string_to_embedded input, attributes: { 'icons' => 'font' }
     assert_css '.listingblock code > i', output, 3
     (1..3).each do |i|
       assert_xpath %((/div[@class="listingblock"]//code/i)[#{i}]), output, 1
@@ -4880,15 +5099,15 @@ puts doc.convert #<3>
   end
 
   test 'should match trailing line separator in text of list item' do
-    input = <<-EOS.chomp
-----
-A <1>
-B <2>
-C <3>
-----
-<1> a
-<2> b#{decode_char 8232}
-<3> c
+    input = <<~EOS.chop
+    ----
+    A <1>
+    B <2>
+    C <3>
+    ----
+    <1> a
+    <2> b#{decode_char 8232}
+    <3> c
     EOS
 
     output = convert_string input
@@ -4897,15 +5116,15 @@ C <3>
   end
 
   test 'should match line separator in text of list item' do
-    input = <<-EOS.chomp
-----
-A <1>
-B <2>
-C <3>
-----
-<1> a
-<2> b#{decode_char 8232}b
-<3> c
+    input = <<~EOS.chop
+    ----
+    A <1>
+    B <2>
+    C <3>
+    ----
+    <1> a
+    <2> b#{decode_char 8232}b
+    <3> c
     EOS
 
     output = convert_string input
@@ -4916,25 +5135,24 @@ end
 
 context 'Checklists' do
   test 'should create checklist if at least one item has checkbox syntax' do
-    input = <<-EOS
-- [ ] todo
-- [x] done
-- [ ] another todo
-- [*] another done
-- plain
+    input = <<~'EOS'
+    - [ ] todo
+    - [x] done
+    - [ ] another todo
+    - [*] another done
+    - plain
     EOS
 
     doc = document_from_string input
     checklist = doc.blocks[0]
     assert checklist.option?('checklist')
-    #assert_equal 'checklist', checklist.attributes['options']
     assert checklist.items[0].attr?('checkbox')
     refute checklist.items[0].attr?('checked')
     assert checklist.items[1].attr?('checkbox')
     assert checklist.items[1].attr?('checked')
     refute checklist.items[4].attr?('checkbox')
 
-    output = doc.convert :header_footer => false
+    output = doc.convert standalone: false
     assert_css '.ulist.checklist', output, 1
     assert_xpath %((/*[@class="ulist checklist"]/ul/li)[1]/p[text()="#{decode_char 10063} todo"]), output, 1
     assert_xpath %((/*[@class="ulist checklist"]/ul/li)[2]/p[text()="#{decode_char 10003} done"]), output, 1
@@ -4944,13 +5162,13 @@ context 'Checklists' do
   end
 
   test 'should create checklist with font icons if at least one item has checkbox syntax and icons attribute is font' do
-    input = <<-EOS
-- [ ] todo
-- [x] done
-- plain
+    input = <<~'EOS'
+    - [ ] todo
+    - [x] done
+    - plain
     EOS
 
-    output = convert_string_to_embedded input, :attributes => {'icons' => 'font'}
+    output = convert_string_to_embedded input, attributes: { 'icons' => 'font' }
     assert_css '.ulist.checklist', output, 1
     assert_css '.ulist.checklist li i.fa-check-square-o', output, 1
     assert_css '.ulist.checklist li i.fa-square-o', output, 1
@@ -4958,12 +5176,12 @@ context 'Checklists' do
   end
 
   test 'should create interactive checklist if interactive option is set even with icons attribute is font' do
-    input = <<-EOS
-:icons: font
+    input = <<~'EOS'
+    :icons: font
 
-[%interactive]
-- [ ] todo
-- [x] done
+    [%interactive]
+    - [ ] todo
+    - [x] done
     EOS
 
     doc = document_from_string input
@@ -4971,7 +5189,7 @@ context 'Checklists' do
     assert checklist.option?('checklist')
     assert checklist.option?('interactive')
 
-    output = doc.convert :header_footer => false
+    output = doc.convert standalone: false
     assert_css '.ulist.checklist', output, 1
     assert_css '.ulist.checklist li input[type="checkbox"]', output, 2
     assert_css '.ulist.checklist li input[type="checkbox"][disabled]', output, 0
@@ -4981,10 +5199,10 @@ end
 
 context 'Lists model' do
   test 'content should return items in list' do
-    input = <<-EOS
-* one
-* two
-* three
+    input = <<~'EOS'
+    * one
+    * two
+    * three
     EOS
 
     doc = document_from_string input
@@ -4996,12 +5214,12 @@ context 'Lists model' do
   end
 
   test 'list item should be the parent of block attached to a list item' do
-    input = <<-EOS
-* list item 1
-+
-----
-listing block in list item 1
-----
+    input = <<~'EOS'
+    * list item 1
+    +
+    ----
+    listing block in list item 1
+    ----
     EOS
 
     doc = document_from_string input
@@ -5013,10 +5231,10 @@ listing block in list item 1
   end
 
   test 'outline? should return true for unordered list' do
-    input = <<-EOS
-* one
-* two
-* three
+    input = <<~'EOS'
+    * one
+    * two
+    * three
     EOS
 
     doc = document_from_string input
@@ -5025,10 +5243,10 @@ listing block in list item 1
   end
 
   test 'outline? should return true for ordered list' do
-    input = <<-EOS
-. one
-. two
-. three
+    input = <<~'EOS'
+    . one
+    . two
+    . three
     EOS
 
     doc = document_from_string input
@@ -5037,20 +5255,17 @@ listing block in list item 1
   end
 
   test 'outline? should return false for description list' do
-    input = <<-EOS
-label:: desc
-    EOS
-
+    input = 'label:: desc'
     doc = document_from_string input
     list = doc.blocks.first
     refute list.outline?
   end
 
   test 'simple? should return true for list item with no nested blocks' do
-    input = <<-EOS
-* one
-* two
-* three
+    input = <<~'EOS'
+    * one
+    * two
+    * three
     EOS
 
     doc = document_from_string input
@@ -5060,12 +5275,13 @@ label:: desc
   end
 
   test 'simple? should return true for list item with nested outline list' do
-    input = <<-EOS
-* one
-  ** more about one
-  ** and more
-* two
-* three
+    # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+    input = <<~EOS
+    * one
+      ** more about one
+      ** and more
+    * two
+    * three
     EOS
 
     doc = document_from_string input
@@ -5075,14 +5291,14 @@ label:: desc
   end
 
   test 'simple? should return false for list item with block content' do
-    input = <<-EOS
-* one
-+
-----
-listing block in list item 1
-----
-* two
-* three
+    input = <<~'EOS'
+    * one
+    +
+    ----
+    listing block in list item 1
+    ----
+    * two
+    * three
     EOS
 
     doc = document_from_string input
@@ -5092,30 +5308,60 @@ listing block in list item 1
   end
 
   test 'should allow text of ListItem to be assigned' do
-    input = <<-EOS
-* one
-* two
-* three
+    input = <<~'EOS'
+    * one
+    * two
+    * three
     EOS
 
     doc = document_from_string input
-    list = (doc.find_by :context => :ulist).first
+    list = (doc.find_by context: :ulist).first
     assert_equal 3, list.items.size
     assert_equal 'one', list.items[0].text
     list.items[0].text = 'un'
     assert_equal 'un', list.items[0].text
   end
 
-  test 'should allow API control over substitutions applied to ListItem text' do
-    input = <<-EOS
-* *one*
-* _two_
-* `three`
-* #four#
+  test 'id and role assigned to ulist item in model are transmitted to output' do
+    input = <<~'EOS'
+		* one
+		* two
+		* three
     EOS
 
     doc = document_from_string input
-    list = (doc.find_by :context => :ulist).first
+    item_0 = doc.blocks[0].items[0]
+    item_0.id = 'one'
+    item_0.add_role 'item'
+    output = doc.convert
+    assert_css 'li#one.item', output, 1
+  end
+
+  test 'id and role assigned to olist item in model are transmitted to output' do
+    input = <<~'EOS'
+    . one
+    . two
+    . three
+    EOS
+
+    doc = document_from_string input
+    item_0 = doc.blocks[0].items[0]
+    item_0.id = 'one'
+    item_0.add_role 'item'
+    output = doc.convert
+    assert_css 'li#one.item', output, 1
+  end
+
+  test 'should allow API control over substitutions applied to ListItem text' do
+    input = <<~'EOS'
+    * *one*
+    * _two_
+    * `three`
+    * #four#
+    EOS
+
+    doc = document_from_string input
+    list = (doc.find_by context: :ulist).first
     assert_equal 4, list.items.size
     list.items[0].remove_sub :quotes
     assert_equal '*one*', list.items[0].text
@@ -5130,19 +5376,19 @@ listing block in list item 1
   end
 
   test 'should set lineno to line number in source where list starts' do
-    input = <<-EOS
-* bullet 1
-** bullet 1.1
-*** bullet 1.1.1
-* bullet 2
+    input = <<~'EOS'
+    * bullet 1
+    ** bullet 1.1
+    *** bullet 1.1.1
+    * bullet 2
     EOS
-    doc = document_from_string input, :sourcemap => true
-    lists = doc.find_by :context => :ulist
+    doc = document_from_string input, sourcemap: true
+    lists = doc.find_by context: :ulist
     assert_equal 1, lists[0].lineno
     assert_equal 2, lists[1].lineno
     assert_equal 3, lists[2].lineno
 
-    list_items = doc.find_by :context => :list_item
+    list_items = doc.find_by context: :list_item
     assert_equal 1, list_items[0].lineno
     assert_equal 2, list_items[1].lineno
     assert_equal 3, list_items[2].lineno

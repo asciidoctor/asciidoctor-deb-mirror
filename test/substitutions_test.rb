@@ -1,14 +1,11 @@
-# encoding: UTF-8
-unless defined? ASCIIDOCTOR_PROJECT_DIR
-  $: << File.dirname(__FILE__); $:.uniq!
-  require 'test_helper'
-end
+# frozen_string_literal: true
+require_relative 'test_helper'
 
 # TODO
 # - test negatives
 # - test role on every quote type
 context 'Substitutions' do
-  BACKSLASH = %(\x5c)
+  BACKSLASH = ?\\
   context 'Dispatcher' do
     test 'apply normal substitutions' do
       para = block_from_string("[blue]_http://asciidoc.org[AsciiDoc]_ & [red]*Ruby*\n&#167; Making +++<u>documentation</u>+++ together +\nsince (C) {inception_year}.")
@@ -37,7 +34,7 @@ context 'Substitutions' do
       assert_equal %(this<br>\nis<br>\n&#8594; Asciidoctor<br>\n<br>\n), result
     end
 
-    test 'should expand subs passe to expand_subs' do
+    test 'should expand subs passed to expand_subs' do
       para = block_from_string %({program}\n*bold*\n2 > 1)
       para.document.attributes['program'] = 'Asciidoctor'
       assert_equal [:specialcharacters], (para.expand_subs [:specialchars])
@@ -54,21 +51,21 @@ context 'Substitutions' do
 
   context 'Quotes' do
     test 'single-line double-quoted string' do
-      para = block_from_string(%q{``a few quoted words''}, :attributes => {'compat-mode' => ''})
+      para = block_from_string(%q{``a few quoted words''}, attributes: { 'compat-mode' => '' })
       assert_equal '&#8220;a few quoted words&#8221;', para.sub_quotes(para.source)
 
       para = block_from_string(%q{"`a few quoted words`"})
       assert_equal '&#8220;a few quoted words&#8221;', para.sub_quotes(para.source)
 
-      para = block_from_string(%q{"`a few quoted words`"}, :backend => 'docbook')
+      para = block_from_string(%q{"`a few quoted words`"}, backend: 'docbook')
       assert_equal '<quote>a few quoted words</quote>', para.sub_quotes(para.source)
     end
 
     test 'escaped single-line double-quoted string' do
-      para = block_from_string %(#{BACKSLASH}``a few quoted words''), :attributes => {'compat-mode' => ''}
+      para = block_from_string %(#{BACKSLASH}``a few quoted words''), attributes: { 'compat-mode' => '' }
       assert_equal %q(&#8216;`a few quoted words&#8217;'), para.sub_quotes(para.source)
 
-      para = block_from_string %(#{BACKSLASH * 2}``a few quoted words''), :attributes => {'compat-mode' => ''}
+      para = block_from_string %(#{BACKSLASH * 2}``a few quoted words''), attributes: { 'compat-mode' => '' }
       assert_equal %q(``a few quoted words''), para.sub_quotes(para.source)
 
       para = block_from_string(%(#{BACKSLASH}"`a few quoted words`"))
@@ -79,7 +76,7 @@ context 'Substitutions' do
     end
 
     test 'multi-line double-quoted string' do
-      para = block_from_string(%Q{``a few\nquoted words''}, :attributes => {'compat-mode' => ''})
+      para = block_from_string(%Q{``a few\nquoted words''}, attributes: { 'compat-mode' => '' })
       assert_equal "&#8220;a few\nquoted words&#8221;", para.sub_quotes(para.source)
 
       para = block_from_string(%Q{"`a few\nquoted words`"})
@@ -87,7 +84,7 @@ context 'Substitutions' do
     end
 
     test 'double-quoted string with inline single quote' do
-      para = block_from_string(%q{``Here's Johnny!''}, :attributes => {'compat-mode' => ''})
+      para = block_from_string(%q{``Here's Johnny!''}, attributes: { 'compat-mode' => '' })
       assert_equal %q{&#8220;Here's Johnny!&#8221;}, para.sub_quotes(para.source)
 
       para = block_from_string(%q{"`Here's Johnny!`"})
@@ -95,7 +92,7 @@ context 'Substitutions' do
     end
 
     test 'double-quoted string with inline backquote' do
-      para = block_from_string(%q{``Here`s Johnny!''}, :attributes => {'compat-mode' => ''})
+      para = block_from_string(%q{``Here`s Johnny!''}, attributes: { 'compat-mode' => '' })
       assert_equal %q{&#8220;Here`s Johnny!&#8221;}, para.sub_quotes(para.source)
 
       para = block_from_string(%q{"`Here`s Johnny!`"})
@@ -111,18 +108,18 @@ context 'Substitutions' do
     end
 
     test 'single-line single-quoted string' do
-      para = block_from_string(%q{`a few quoted words'}, :attributes => {'compat-mode' => ''})
+      para = block_from_string(%q{`a few quoted words'}, attributes: { 'compat-mode' => '' })
       assert_equal '&#8216;a few quoted words&#8217;', para.sub_quotes(para.source)
 
       para = block_from_string(%q{'`a few quoted words`'})
       assert_equal '&#8216;a few quoted words&#8217;', para.sub_quotes(para.source)
 
-      para = block_from_string(%q{'`a few quoted words`'}, :backend => 'docbook')
+      para = block_from_string(%q{'`a few quoted words`'}, backend: 'docbook')
       assert_equal '<quote>a few quoted words</quote>', para.sub_quotes(para.source)
     end
 
     test 'escaped single-line single-quoted string' do
-      para = block_from_string(%(#{BACKSLASH}`a few quoted words'), :attributes => {'compat-mode' => ''})
+      para = block_from_string(%(#{BACKSLASH}`a few quoted words'), attributes: { 'compat-mode' => '' })
       assert_equal %(`a few quoted words'), para.sub_quotes(para.source)
 
       para = block_from_string(%(#{BACKSLASH}'`a few quoted words`'))
@@ -130,7 +127,7 @@ context 'Substitutions' do
     end
 
     test 'multi-line single-quoted string' do
-      para = block_from_string(%Q{`a few\nquoted words'}, :attributes => {'compat-mode' => ''})
+      para = block_from_string(%Q{`a few\nquoted words'}, attributes: { 'compat-mode' => '' })
       assert_equal "&#8216;a few\nquoted words&#8217;", para.sub_quotes(para.source)
 
       para = block_from_string(%Q{'`a few\nquoted words`'})
@@ -138,7 +135,7 @@ context 'Substitutions' do
     end
 
     test 'single-quoted string with inline single quote' do
-      para = block_from_string(%q{`That isn't what I did.'}, :attributes => {'compat-mode' => ''})
+      para = block_from_string(%q{`That isn't what I did.'}, attributes: { 'compat-mode' => '' })
       assert_equal %q{&#8216;That isn't what I did.&#8217;}, para.sub_quotes(para.source)
 
       para = block_from_string(%q{'`That isn't what I did.`'})
@@ -146,7 +143,7 @@ context 'Substitutions' do
     end
 
     test 'single-quoted string with inline backquote' do
-      para = block_from_string(%q{`Here`s Johnny!'}, :attributes => {'compat-mode' => ''})
+      para = block_from_string(%q{`Here`s Johnny!'}, attributes: { 'compat-mode' => '' })
       assert_equal %q{&#8216;Here`s Johnny!&#8217;}, para.sub_quotes(para.source)
 
       para = block_from_string(%q{'`Here`s Johnny!`'})
@@ -154,7 +151,7 @@ context 'Substitutions' do
     end
 
     test 'single-line constrained marked string' do
-      #para = block_from_string(%q{#a few words#}, :attributes => {'compat-mode' => ''})
+      #para = block_from_string(%q{#a few words#}, attributes: { 'compat-mode' => '' })
       #assert_equal 'a few words', para.sub_quotes(para.source)
 
       para = block_from_string(%q{#a few words#})
@@ -167,7 +164,7 @@ context 'Substitutions' do
     end
 
     test 'multi-line constrained marked string' do
-      #para = block_from_string(%Q{#a few\nwords#}, :attributes => {'compat-mode' => ''})
+      #para = block_from_string(%Q{#a few\nwords#}, attributes: { 'compat-mode' => '' })
       #assert_equal "a few\nwords", para.sub_quotes(para.source)
 
       para = block_from_string(%Q{#a few\nwords#})
@@ -180,7 +177,7 @@ context 'Substitutions' do
     end
 
     test 'single-line unconstrained marked string' do
-      #para = block_from_string(%q{##--anything goes ##}, :attributes => {'compat-mode' => ''})
+      #para = block_from_string(%q{##--anything goes ##}, attributes: { 'compat-mode' => '' })
       #assert_equal '--anything goes ', para.sub_quotes(para.source)
 
       para = block_from_string(%q{##--anything goes ##})
@@ -193,7 +190,7 @@ context 'Substitutions' do
     end
 
     test 'multi-line unconstrained marked string' do
-      #para = block_from_string(%Q{##--anything\ngoes ##}, :attributes => {'compat-mode' => ''})
+      #para = block_from_string(%Q{##--anything\ngoes ##}, attributes: { 'compat-mode' => '' })
       #assert_equal "--anything\ngoes ", para.sub_quotes(para.source)
 
       para = block_from_string(%Q{##--anything\ngoes ##})
@@ -228,7 +225,7 @@ context 'Substitutions' do
     test 'constrained strong string containing an asterisk and multibyte word chars' do
       para = block_from_string(%q{*黑*眼圈*})
       assert_equal '<strong>黑*眼圈</strong>', para.sub_quotes(para.source)
-    end if ::RUBY_MIN_VERSION_1_9
+    end
 
     test 'single-line constrained quote variation emphasized string' do
       para = block_from_string(%q{_a few emphasized words_})
@@ -252,7 +249,7 @@ context 'Substitutions' do
     end
 
     test 'single-quoted string containing an emphasized phrase' do
-      para = block_from_string(%q{`I told him, 'Just go for it!''}, :attributes => {'compat-mode' => ''})
+      para = block_from_string(%q{`I told him, 'Just go for it!''}, attributes: { 'compat-mode' => '' })
       assert_equal '&#8216;I told him, <em>Just go for it!</em>&#8217;', para.sub_quotes(para.source)
 
       para = block_from_string(%q{'`I told him, 'Just go for it!'`'})
@@ -260,7 +257,7 @@ context 'Substitutions' do
     end
 
     test 'escaped single-quotes inside emphasized words are restored' do
-      para = block_from_string(%('Here#{BACKSLASH}'s Johnny!'), :attributes => {'compat-mode' => ''})
+      para = block_from_string(%('Here#{BACKSLASH}'s Johnny!'), attributes: { 'compat-mode' => '' })
       assert_equal %q(<em>Here's Johnny!</em>), para.apply_subs(para.source)
 
       para = block_from_string(%('Here#{BACKSLASH}'s Johnny!'))
@@ -284,25 +281,25 @@ context 'Substitutions' do
 
     # NOTE must use apply_subs because constrained monospaced is handled as a passthrough
     test 'single-line constrained monospaced string' do
-      para = block_from_string(%(`a few <{monospaced}> words`), :attributes => {'monospaced' => 'monospaced', 'compat-mode' => ''})
+      para = block_from_string(%(`a few <{monospaced}> words`), attributes: { 'monospaced' => 'monospaced', 'compat-mode' => '' })
       assert_equal '<code>a few &lt;{monospaced}&gt; words</code>', para.apply_subs(para.source)
 
-      para = block_from_string(%(`a few <{monospaced}> words`), :attributes => {'monospaced' => 'monospaced'})
+      para = block_from_string(%(`a few <{monospaced}> words`), attributes: { 'monospaced' => 'monospaced' })
       assert_equal '<code>a few &lt;monospaced&gt; words</code>', para.apply_subs(para.source)
     end
 
     # NOTE must use apply_subs because constrained monospaced is handled as a passthrough
     test 'single-line constrained monospaced string with role' do
-      para = block_from_string(%([input]`a few <{monospaced}> words`), :attributes => {'monospaced' => 'monospaced', 'compat-mode' => ''})
+      para = block_from_string(%([input]`a few <{monospaced}> words`), attributes: { 'monospaced' => 'monospaced', 'compat-mode' => '' })
       assert_equal '<code class="input">a few &lt;{monospaced}&gt; words</code>', para.apply_subs(para.source)
 
-      para = block_from_string(%([input]`a few <{monospaced}> words`), :attributes => {'monospaced' => 'monospaced'})
+      para = block_from_string(%([input]`a few <{monospaced}> words`), attributes: { 'monospaced' => 'monospaced' })
       assert_equal '<code class="input">a few &lt;monospaced&gt; words</code>', para.apply_subs(para.source)
     end
 
     # NOTE must use apply_subs because constrained monospaced is handled as a passthrough
     test 'escaped single-line constrained monospaced string' do
-      para = block_from_string(%(#{BACKSLASH}`a few <monospaced> words`), :attributes => {'compat-mode' => ''})
+      para = block_from_string(%(#{BACKSLASH}`a few <monospaced> words`), attributes: { 'compat-mode' => '' })
       assert_equal '`a few &lt;monospaced&gt; words`', para.apply_subs(para.source)
 
       para = block_from_string(%(#{BACKSLASH}`a few <monospaced> words`))
@@ -311,7 +308,7 @@ context 'Substitutions' do
 
     # NOTE must use apply_subs because constrained monospaced is handled as a passthrough
     test 'escaped single-line constrained monospaced string with role' do
-      para = block_from_string(%([input]#{BACKSLASH}`a few <monospaced> words`), :attributes => {'compat-mode' => ''})
+      para = block_from_string(%([input]#{BACKSLASH}`a few <monospaced> words`), attributes: { 'compat-mode' => '' })
       assert_equal '[input]`a few &lt;monospaced&gt; words`', para.apply_subs(para.source)
 
       para = block_from_string(%([input]#{BACKSLASH}`a few <monospaced> words`))
@@ -320,7 +317,7 @@ context 'Substitutions' do
 
     # NOTE must use apply_subs because constrained monospaced is handled as a passthrough
     test 'escaped role on single-line constrained monospaced string' do
-      para = block_from_string(%(#{BACKSLASH}[input]`a few <monospaced> words`), :attributes => {'compat-mode' => ''})
+      para = block_from_string(%(#{BACKSLASH}[input]`a few <monospaced> words`), attributes: { 'compat-mode' => '' })
       assert_equal '[input]<code>a few &lt;monospaced&gt; words</code>', para.apply_subs(para.source)
 
       para = block_from_string(%(#{BACKSLASH}[input]`a few <monospaced> words`))
@@ -329,7 +326,7 @@ context 'Substitutions' do
 
     # NOTE must use apply_subs because constrained monospaced is handled as a passthrough
     test 'escaped role on escaped single-line constrained monospaced string' do
-      para = block_from_string(%(#{BACKSLASH}[input]#{BACKSLASH}`a few <monospaced> words`), :attributes => {'compat-mode' => ''})
+      para = block_from_string(%(#{BACKSLASH}[input]#{BACKSLASH}`a few <monospaced> words`), attributes: { 'compat-mode' => '' })
       assert_equal %(#{BACKSLASH}[input]`a few &lt;monospaced&gt; words`), para.apply_subs(para.source)
 
       para = block_from_string(%(#{BACKSLASH}[input]#{BACKSLASH}`a few <monospaced> words`))
@@ -338,10 +335,10 @@ context 'Substitutions' do
 
     # NOTE must use apply_subs because constrained monospaced is handled as a passthrough
     test 'multi-line constrained monospaced string' do
-      para = block_from_string(%(`a few\n<{monospaced}> words`), :attributes => {'monospaced' => 'monospaced', 'compat-mode' => ''})
+      para = block_from_string(%(`a few\n<{monospaced}> words`), attributes: { 'monospaced' => 'monospaced', 'compat-mode' => '' })
       assert_equal "<code>a few\n&lt;{monospaced}&gt; words</code>", para.apply_subs(para.source)
 
-      para = block_from_string(%(`a few\n<{monospaced}> words`), :attributes => {'monospaced' => 'monospaced'})
+      para = block_from_string(%(`a few\n<{monospaced}> words`), attributes: { 'monospaced' => 'monospaced' })
       assert_equal "<code>a few\n&lt;monospaced&gt; words</code>", para.apply_subs(para.source)
     end
 
@@ -407,7 +404,7 @@ context 'Substitutions' do
     end
 
     test 'single-line constrained monospaced chars' do
-      para = block_from_string(%q{call +save()+ to persist the changes}, :attributes => {'compat-mode' => ''})
+      para = block_from_string(%q{call +save()+ to persist the changes}, attributes: { 'compat-mode' => '' })
       assert_equal 'call <code>save()</code> to persist the changes', para.sub_quotes(para.source)
 
       para = block_from_string(%q{call [x-]+save()+ to persist the changes})
@@ -418,7 +415,7 @@ context 'Substitutions' do
     end
 
     test 'single-line constrained monospaced chars with role' do
-      para = block_from_string(%q{call [method]+save()+ to persist the changes}, :attributes => {'compat-mode' => ''})
+      para = block_from_string(%q{call [method]+save()+ to persist the changes}, attributes: { 'compat-mode' => '' })
       assert_equal 'call <code class="method">save()</code> to persist the changes', para.sub_quotes(para.source)
 
       para = block_from_string(%q{call [method x-]+save()+ to persist the changes})
@@ -429,7 +426,7 @@ context 'Substitutions' do
     end
 
     test 'escaped single-line constrained monospaced chars' do
-      para = block_from_string(%(call #{BACKSLASH}+save()+ to persist the changes), :attributes => {'compat-mode' => ''})
+      para = block_from_string(%(call #{BACKSLASH}+save()+ to persist the changes), attributes: { 'compat-mode' => '' })
       assert_equal 'call +save()+ to persist the changes', para.sub_quotes(para.source)
 
       para = block_from_string(%(call #{BACKSLASH}`save()` to persist the changes))
@@ -437,7 +434,7 @@ context 'Substitutions' do
     end
 
     test 'escaped single-line constrained monospaced chars with role' do
-      para = block_from_string(%(call [method]#{BACKSLASH}+save()+ to persist the changes), :attributes => {'compat-mode' => ''})
+      para = block_from_string(%(call [method]#{BACKSLASH}+save()+ to persist the changes), attributes: { 'compat-mode' => '' })
       assert_equal 'call [method]+save()+ to persist the changes', para.sub_quotes(para.source)
 
       para = block_from_string(%(call [method]#{BACKSLASH}`save()` to persist the changes))
@@ -445,7 +442,7 @@ context 'Substitutions' do
     end
 
     test 'escaped role on single-line constrained monospaced chars' do
-      para = block_from_string(%(call #{BACKSLASH}[method]+save()+ to persist the changes), :attributes => {'compat-mode' => ''})
+      para = block_from_string(%(call #{BACKSLASH}[method]+save()+ to persist the changes), attributes: { 'compat-mode' => '' })
       assert_equal 'call [method]<code>save()</code> to persist the changes', para.sub_quotes(para.source)
 
       para = block_from_string(%(call #{BACKSLASH}[method]`save()` to persist the changes))
@@ -453,7 +450,7 @@ context 'Substitutions' do
     end
 
     test 'escaped role on escaped single-line constrained monospaced chars' do
-      para = block_from_string(%(call #{BACKSLASH}[method]#{BACKSLASH}+save()+ to persist the changes), :attributes => {'compat-mode' => ''})
+      para = block_from_string(%(call #{BACKSLASH}[method]#{BACKSLASH}+save()+ to persist the changes), attributes: { 'compat-mode' => '' })
       assert_equal %(call #{BACKSLASH}[method]+save()+ to persist the changes), para.sub_quotes(para.source)
 
       para = block_from_string(%(call #{BACKSLASH}[method]#{BACKSLASH}`save()` to persist the changes))
@@ -461,7 +458,7 @@ context 'Substitutions' do
     end
 
     test 'single-line unconstrained monospaced chars' do
-      para = block_from_string(%q{Git++Hub++}, :attributes => {'compat-mode' => ''})
+      para = block_from_string(%q{Git++Hub++}, attributes: { 'compat-mode' => '' })
       assert_equal 'Git<code>Hub</code>', para.sub_quotes(para.source)
 
       para = block_from_string(%q{Git[x-]++Hub++})
@@ -472,10 +469,10 @@ context 'Substitutions' do
     end
 
     test 'escaped single-line unconstrained monospaced chars' do
-      para = block_from_string(%(Git#{BACKSLASH}++Hub++), :attributes => {'compat-mode' => ''})
+      para = block_from_string(%(Git#{BACKSLASH}++Hub++), attributes: { 'compat-mode' => '' })
       assert_equal 'Git+<code>Hub</code>+', para.sub_quotes(para.source)
 
-      para = block_from_string(%(Git#{BACKSLASH * 2}++Hub++), :attributes => {'compat-mode' => ''})
+      para = block_from_string(%(Git#{BACKSLASH * 2}++Hub++), attributes: { 'compat-mode' => '' })
       assert_equal 'Git++Hub++', para.sub_quotes(para.source)
 
       para = block_from_string(%(Git#{BACKSLASH}``Hub``))
@@ -483,7 +480,7 @@ context 'Substitutions' do
     end
 
     test 'multi-line unconstrained monospaced chars' do
-      para = block_from_string(%Q{Git++\nH\nu\nb++}, :attributes => {'compat-mode' => ''})
+      para = block_from_string(%Q{Git++\nH\nu\nb++}, attributes: { 'compat-mode' => '' })
       assert_equal "Git<code>\nH\nu\nb</code>", para.sub_quotes(para.source)
 
       para = block_from_string(%Q{Git[x-]++\nH\nu\nb++})
@@ -559,8 +556,8 @@ context 'Substitutions' do
     end
 
     test 'quoted text with id and role shorthand using docbook backend' do
-      para = block_from_string(%q{[#bond.white.red-background]#007#}, :backend => 'docbook45')
-      assert_equal '<anchor id="bond" xreflabel="007"/><phrase role="white red-background">007</phrase>', para.sub_quotes(para.source)
+      para = block_from_string(%q{[#bond.white.red-background]#007#}, backend: 'docbook')
+      assert_equal '<anchor xml:id="bond" xreflabel="007"/><phrase role="white red-background">007</phrase>', para.sub_quotes(para.source)
     end
 
     test 'should ignore attributes after comma' do
@@ -569,23 +566,15 @@ context 'Substitutions' do
     end
 
     test 'inline passthrough with id and role set using shorthand' do
-      para = block_from_string '[#id.role]+pass+'
-      # FIXME id should be propogated
-      assert_equal '<span class="role">pass</span>', para.content
-    end
-
-    test 'should assign role attribute when shorthand style contains a role' do
-      para = block_from_string 'blah'
-      result = para.parse_quoted_text_attributes '.red#idref'
-      expect = {'id' => 'idref', 'role' => 'red'}
-      assert_equal expect, result
+      %w(#idname.rolename .rolename#idname).each do |attrlist|
+        para = block_from_string %([#{attrlist}]+pass+)
+        assert_equal '<span id="idname" class="rolename">pass</span>', para.content
+      end
     end
 
     test 'should not assign role attribute if shorthand style has no roles' do
-      para = block_from_string 'blah'
-      result = para.parse_quoted_text_attributes '#idref'
-      expect = {'id' => 'idref'}
-      assert_equal expect, result
+      para = block_from_string '[#idname]*blah*'
+      assert_equal '<strong id="idname">blah</strong>', para.content
     end
   end
 
@@ -612,23 +601,44 @@ context 'Substitutions' do
 
     test 'a mailto macro with text and subject should be interpreted as a mailto link' do
       para = block_from_string('mailto:doc.writer@asciidoc.org[Doc Writer, Pull request]')
-      assert_equal %q{<a href="mailto:doc.writer@asciidoc.org?subject=Pull%20request">Doc Writer</a>}, para.sub_macros(para.source)
+      assert_equal %q{<a href="mailto:doc.writer@asciidoc.org?subject=Pull+request">Doc Writer</a>}, para.sub_macros(para.source)
     end
 
     test 'a mailto macro with text, subject and body should be interpreted as a mailto link' do
       para = block_from_string('mailto:doc.writer@asciidoc.org[Doc Writer, Pull request, Please accept my pull request]')
-      assert_equal %q{<a href="mailto:doc.writer@asciidoc.org?subject=Pull%20request&amp;body=Please%20accept%20my%20pull%20request">Doc Writer</a>}, para.sub_macros(para.source)
+      assert_equal %q{<a href="mailto:doc.writer@asciidoc.org?subject=Pull+request&amp;body=Please+accept+my+pull+request">Doc Writer</a>}, para.sub_macros(para.source)
+    end
+
+    test 'a mailto macro with subject and body only should use e-mail as text' do
+      para = block_from_string('mailto:doc.writer@asciidoc.org[,Pull request,Please accept my pull request]')
+      assert_equal %q{<a href="mailto:doc.writer@asciidoc.org?subject=Pull+request&amp;body=Please+accept+my+pull+request">doc.writer@asciidoc.org</a>}, para.sub_macros(para.source)
     end
 
     test 'should recognize inline email addresses' do
-      para = block_from_string('doc.writer@asciidoc.org')
-      assert_equal %q{<a href="mailto:doc.writer@asciidoc.org">doc.writer@asciidoc.org</a>}, para.sub_macros(para.source)
+      %w(
+        doc.writer@asciidoc.org
+        author+website@4fs.no
+        john@domain.uk.co
+        name@somewhere.else.com
+        joe_bloggs@mail_server.com
+        joe-bloggs@mail-server.com
+        joe.bloggs@mail.server.com
+        FOO@BAR.COM
+        docs@writing.ninja
+      ).each do |input|
+        para = block_from_string input
+        assert_equal %(<a href="mailto:#{input}">#{input}</a>), (para.sub_macros para.source)
+      end
+    end
+
+    test 'should recognize inline email address containing an ampersand' do
+      para = block_from_string('bert&ernie@sesamestreet.com')
+      assert_equal %q{<a href="mailto:bert&amp;ernie@sesamestreet.com">bert&amp;ernie@sesamestreet.com</a>}, para.apply_subs(para.source)
+    end
+
+    test 'should recognize inline email address surrounded by angle brackets' do
       para = block_from_string('<doc.writer@asciidoc.org>')
       assert_equal %q{&lt;<a href="mailto:doc.writer@asciidoc.org">doc.writer@asciidoc.org</a>&gt;}, para.apply_subs(para.source)
-      para = block_from_string('author+website@4fs.no')
-      assert_equal %q{<a href="mailto:author+website@4fs.no">author+website@4fs.no</a>}, para.sub_macros(para.source)
-      para = block_from_string('john@domain.uk.co')
-      assert_equal %q{<a href="mailto:john@domain.uk.co">john@domain.uk.co</a>}, para.sub_macros(para.source)
     end
 
     test 'should ignore escaped inline email address' do
@@ -660,7 +670,7 @@ context 'Substitutions' do
     test 'should not resolve an escaped attribute in link text' do
       {
         'http://google.com' => "http://google.com[#{BACKSLASH}{google_homepage}]",
-        'http://google.com?q=,' => "link:http://google.com?q=,[#{BACKSLASH}{google_homepage}]"
+        'http://google.com?q=,' => "link:http://google.com?q=,[#{BACKSLASH}{google_homepage}]",
       }.each do |uri, macro|
         para = block_from_string macro
         para.document.attributes['google_homepage'] = 'Google Homepage'
@@ -706,17 +716,17 @@ context 'Substitutions' do
     end
 
     test 'an image macro with an interactive SVG image and alt text should be converted to an object element' do
-      para = block_from_string('image:tiger.svg[Tiger,opts=interactive]', :safe => Asciidoctor::SafeMode::SERVER, :attributes => { 'imagesdir' => 'images' })
+      para = block_from_string('image:tiger.svg[Tiger,opts=interactive]', safe: Asciidoctor::SafeMode::SERVER, attributes: { 'imagesdir' => 'images' })
       assert_equal %{<span class="image"><object type="image/svg+xml" data="images/tiger.svg"><span class="alt">Tiger</span></object></span>}, para.sub_macros(para.source).gsub(/>\s+</, '><')
     end
 
     test 'an image macro with an interactive SVG image, fallback and alt text should be converted to an object element' do
-      para = block_from_string('image:tiger.svg[Tiger,fallback=tiger.png,opts=interactive]', :safe => Asciidoctor::SafeMode::SERVER, :attributes => { 'imagesdir' => 'images' })
+      para = block_from_string('image:tiger.svg[Tiger,fallback=tiger.png,opts=interactive]', safe: Asciidoctor::SafeMode::SERVER, attributes: { 'imagesdir' => 'images' })
       assert_equal %{<span class="image"><object type="image/svg+xml" data="images/tiger.svg"><img src="images/tiger.png" alt="Tiger"></object></span>}, para.sub_macros(para.source).gsub(/>\s+</, '><')
     end
 
     test 'an image macro with an inline SVG image should be converted to an svg element' do
-      para = block_from_string('image:circle.svg[Tiger,100,opts=inline]', :safe => Asciidoctor::SafeMode::SERVER, :attributes => { 'imagesdir' => 'fixtures', 'docdir' => testdir })
+      para = block_from_string('image:circle.svg[Tiger,100,opts=inline]', safe: Asciidoctor::SafeMode::SERVER, attributes: { 'imagesdir' => 'fixtures', 'docdir' => testdir })
       result = para.sub_macros(para.source).gsub(/>\s+</, '><')
       assert_match(/<svg\s[^>]*width="100px"[^>]*>/, result)
       refute_match(/<svg\s[^>]*width="500px"[^>]*>/, result)
@@ -725,12 +735,12 @@ context 'Substitutions' do
     end
 
     test 'an image macro with an inline SVG image should be converted to an svg element even when data-uri is set' do
-      para = block_from_string('image:circle.svg[Tiger,100,opts=inline]', :safe => Asciidoctor::SafeMode::SERVER, :attributes => { 'data-uri' => '', 'imagesdir' => 'fixtures', 'docdir' => testdir })
+      para = block_from_string('image:circle.svg[Tiger,100,opts=inline]', safe: Asciidoctor::SafeMode::SERVER, attributes: { 'data-uri' => '', 'imagesdir' => 'fixtures', 'docdir' => testdir })
       assert_match(/<svg\s[^>]*width="100px">/, para.sub_macros(para.source).gsub(/>\s+</, '><'))
     end
 
     test 'an image macro with an SVG image should not use an object element when safe mode is secure' do
-      para = block_from_string('image:tiger.svg[Tiger,opts=interactive]', :attributes => { 'imagesdir' => 'images' })
+      para = block_from_string('image:tiger.svg[Tiger,opts=interactive]', attributes: { 'imagesdir' => 'images' })
       assert_equal %{<span class="image"><img src="images/tiger.svg" alt="Tiger"></span>}, para.sub_macros(para.source).gsub(/>\s+</, '><')
     end
 
@@ -746,7 +756,7 @@ context 'Substitutions' do
     end
 
     test 'a single-line image macro with text and dimensions should be interpreted as an image with alt text and dimensions in docbook' do
-      para = block_from_string 'image:tiger.png[Tiger, 200, 100]', :backend => 'docbook'
+      para = block_from_string 'image:tiger.png[Tiger, 200, 100]', backend: 'docbook'
       assert_equal %{<inlinemediaobject><imageobject><imagedata fileref="tiger.png" contentwidth="200" contentdepth="100"/></imageobject><textobject><phrase>Tiger</phrase></textobject></inlinemediaobject>},
           para.sub_macros(para.source).gsub(/>\s+</, '><')
     end
@@ -794,19 +804,19 @@ context 'Substitutions' do
     end
 
     test 'should prepend value of imagesdir attribute to inline image target if target is relative path' do
-      para = block_from_string %(Beware of the image:tiger.png[tiger].), :attributes => {'imagesdir' => './images'}
+      para = block_from_string %(Beware of the image:tiger.png[tiger].), attributes: { 'imagesdir' => './images' }
       assert_equal %{Beware of the <span class="image"><img src="./images/tiger.png" alt="tiger"></span>.},
           para.sub_macros(para.source).gsub(/>\s+</, '><')
     end
 
     test 'should not prepend value of imagesdir attribute to inline image target if target is absolute path' do
-      para = block_from_string %(Beware of the image:/tiger.png[tiger].), :attributes => {'imagesdir' => './images'}
+      para = block_from_string %(Beware of the image:/tiger.png[tiger].), attributes: { 'imagesdir' => './images' }
       assert_equal %{Beware of the <span class="image"><img src="/tiger.png" alt="tiger"></span>.},
           para.sub_macros(para.source).gsub(/>\s+</, '><')
     end
 
     test 'should not prepend value of imagesdir attribute to inline image target if target is url' do
-      para = block_from_string %(Beware of the image:http://example.com/images/tiger.png[tiger].), :attributes => {'imagesdir' => './images'}
+      para = block_from_string %(Beware of the image:http://example.com/images/tiger.png[tiger].), attributes: { 'imagesdir' => './images' }
       assert_equal %{Beware of the <span class="image"><img src="http://example.com/images/tiger.png" alt="tiger"></span>.},
           para.sub_macros(para.source).gsub(/>\s+</, '><')
     end
@@ -817,7 +827,7 @@ context 'Substitutions' do
           para.sub_macros(para.source).gsub(/>\s+</, '><')
     end
 
-    test 'should not match an inline image macro if target contains an endline character' do
+    test 'should not match an inline image macro if target contains a newline character' do
       para = block_from_string(%(Fear not. There are no image:big\ncats.png[] around here.))
       result = para.sub_macros(para.source)
       refute_includes result, '<img '
@@ -842,12 +852,10 @@ context 'Substitutions' do
 
     # NOTE this test verifies attributes get substituted eagerly in target of image in title
     test 'should substitute attributes in target of inline image in section title' do
-      input = <<-EOS
-== image:{iconsdir}/dot.gif[dot] Title
-      EOS
+      input = '== image:{iconsdir}/dot.gif[dot] Title'
 
       using_memory_logger do |logger|
-        sect = block_from_string input, :attributes => { 'data-uri' => '', 'iconsdir' => 'fixtures', 'docdir' => testdir }, :safe => :server, :catalog_assets => true
+        sect = block_from_string input, attributes: { 'data-uri' => '', 'iconsdir' => 'fixtures', 'docdir' => testdir }, safe: :server, catalog_assets: true
         assert 1, sect.document.catalog[:images].size
         assert_equal 'fixtures/dot.gif', sect.document.catalog[:images][0].to_s
         assert_nil sect.document.catalog[:images][0].imagesdir
@@ -856,7 +864,7 @@ context 'Substitutions' do
     end
 
     test 'an icon macro should be interpreted as an icon if icons are enabled' do
-      para = block_from_string 'icon:github[]', :attributes => {'icons' => ''}
+      para = block_from_string 'icon:github[]', attributes: { 'icons' => '' }
       assert_equal %{<span class="icon"><img src="./images/icons/github.png" alt="github"></span>}, para.sub_macros(para.source).gsub(/>\s+</, '><')
     end
 
@@ -871,17 +879,17 @@ context 'Substitutions' do
     end
 
     test 'an icon macro should be interpreted as a font-based icon when icons=font' do
-      para = block_from_string 'icon:github[]', :attributes => {'icons' => 'font'}
+      para = block_from_string 'icon:github[]', attributes: { 'icons' => 'font' }
       assert_equal %{<span class="icon"><i class="fa fa-github"></i></span>}, para.sub_macros(para.source).gsub(/>\s+</, '><')
     end
 
     test 'an icon macro with a size should be interpreted as a font-based icon with a size when icons=font' do
-      para = block_from_string 'icon:github[4x]', :attributes => {'icons' => 'font'}
+      para = block_from_string 'icon:github[4x]', attributes: { 'icons' => 'font' }
       assert_equal %{<span class="icon"><i class="fa fa-github fa-4x"></i></span>}, para.sub_macros(para.source).gsub(/>\s+</, '><')
     end
 
     test 'an icon macro with a role and title should be interpreted as a font-based icon with a class and title when icons=font' do
-      para = block_from_string 'icon:heart[role="red", title="Heart me"]', :attributes => {'icons' => 'font'}
+      para = block_from_string 'icon:heart[role="red", title="Heart me"]', attributes: { 'icons' => 'font' }
       assert_equal %{<span class="icon red"><i class="fa fa-heart" title="Heart me"></i></span>}, para.sub_macros(para.source).gsub(/>\s+</, '><')
     end
 
@@ -895,7 +903,7 @@ context 'Substitutions' do
       assert_equal 'An example footnote.', footnote.text
     end
 
-    test 'a multi-line footnote macro should be registered and output as a footnote without endline' do
+    test 'a multi-line footnote macro should be registered and output as a footnote without newline' do
       para = block_from_string("Sentence text footnote:[An example footnote\nwith wrapped text.].")
       assert_equal %(Sentence text <sup class="footnote">[<a id="_footnoteref_1" class="footnote" href="#_footnotedef_1" title="View footnote.">1</a>]</sup>.), para.sub_macros(para.source)
       assert_equal 1, para.document.catalog[:footnotes].size
@@ -956,11 +964,22 @@ context 'Substitutions' do
       assert_equal '<a href="https://github.com/jline/jline2" class="bare">https://github.com/jline/jline2</a>', fn1.text
     end
 
-    test 'a footnote macro may contain an xref macro' do
+    test 'a footnote macro may contain a shorthand xref' do
       # specialcharacters escaping is simulated
       para = block_from_string('text footnote:[&lt;&lt;_install,install&gt;&gt;]')
       doc = para.document
-      doc.register :refs, ['_install', (Asciidoctor::Inline.new doc, :anchor, 'Install', :type => :ref, :target => '_install'), 'Install']
+      doc.register :refs, ['_install', (Asciidoctor::Inline.new doc, :anchor, 'Install', type: :ref, target: '_install'), 'Install']
+      catalog = doc.catalog
+      assert_equal %(text <sup class="footnote">[<a id="_footnoteref_1" class="footnote" href="#_footnotedef_1" title="View footnote.">1</a>]</sup>), para.sub_macros(para.source)
+      assert_equal 1, catalog[:footnotes].size
+      footnote1 = catalog[:footnotes][0]
+      assert_equal '<a href="#_install">install</a>', footnote1.text
+    end
+
+    test 'a footnote macro may contain an xref macro' do
+      para = block_from_string('text footnote:[xref:_install[install]]')
+      doc = para.document
+      doc.register :refs, ['_install', (Asciidoctor::Inline.new doc, :anchor, 'Install', type: :ref, target: '_install'), 'Install']
       catalog = doc.catalog
       assert_equal %(text <sup class="footnote">[<a id="_footnoteref_1" class="footnote" href="#_footnotedef_1" title="View footnote.">1</a>]</sup>), para.sub_macros(para.source)
       assert_equal 1, catalog[:footnotes].size
@@ -969,7 +988,7 @@ context 'Substitutions' do
     end
 
     test 'a footnote macro may contain an anchor macro' do
-      para = block_from_string('text footnote:[a [[b\]\] \[[c\]\] d]')
+      para = block_from_string('text footnote:[a [[b]] [[c\]\] d]')
       assert_equal %(text <sup class="footnote">[<a id="_footnoteref_1" class="footnote" href="#_footnotedef_1" title="View footnote.">1</a>]</sup>), para.sub_macros(para.source)
       assert_equal 1, para.document.catalog[:footnotes].size
       footnote1 = para.document.catalog[:footnotes][0]
@@ -977,11 +996,9 @@ context 'Substitutions' do
     end
 
     test 'subsequent footnote macros with escaped URLs should be restored in DocBook' do
-      input = <<-EOS
-foofootnote:[+http://example.com+]barfootnote:[+http://acme.com+]baz
-      EOS
+      input = 'foofootnote:[+http://example.com+]barfootnote:[+http://acme.com+]baz'
 
-      result = convert_string_to_embedded input, :doctype => 'inline', :backend => 'docbook'
+      result = convert_string_to_embedded input, doctype: 'inline', backend: 'docbook'
       assert_equal 'foo<footnote><simpara>http://example.com</simpara></footnote>bar<footnote><simpara>http://acme.com</simpara></footnote>baz', result
     end
 
@@ -1000,7 +1017,7 @@ foofootnote:[+http://example.com+]barfootnote:[+http://acme.com+]baz
     end
 
     test 'a footnoteref macro with id and single-line text should be registered and output as a footnote' do
-      para = block_from_string('Sentence text footnoteref:[ex1, An example footnote.].')
+      para = block_from_string 'Sentence text footnoteref:[ex1, An example footnote.].', attributes: { 'compat-mode' => '' }
       assert_equal %(Sentence text <sup class="footnote" id="_footnote_ex1">[<a id="_footnoteref_1" class="footnote" href="#_footnotedef_1" title="View footnote.">1</a>]</sup>.), para.sub_macros(para.source)
       assert_equal 1, para.document.catalog[:footnotes].size
       footnote = para.document.catalog[:footnotes].first
@@ -1009,8 +1026,8 @@ foofootnote:[+http://example.com+]barfootnote:[+http://acme.com+]baz
       assert_equal 'An example footnote.', footnote.text
     end
 
-    test 'a footnoteref macro with id and multi-line text should be registered and output as a footnote without endlines' do
-      para = block_from_string("Sentence text footnoteref:[ex1, An example footnote\nwith wrapped text.].")
+    test 'a footnoteref macro with id and multi-line text should be registered and output as a footnote without newlines' do
+      para = block_from_string "Sentence text footnoteref:[ex1, An example footnote\nwith wrapped text.].", attributes: { 'compat-mode' => '' }
       assert_equal %(Sentence text <sup class="footnote" id="_footnote_ex1">[<a id="_footnoteref_1" class="footnote" href="#_footnotedef_1" title="View footnote.">1</a>]</sup>.), para.sub_macros(para.source)
       assert_equal 1, para.document.catalog[:footnotes].size
       footnote = para.document.catalog[:footnotes].first
@@ -1020,7 +1037,7 @@ foofootnote:[+http://example.com+]barfootnote:[+http://acme.com+]baz
     end
 
     test 'a footnoteref macro with id should refer to footnoteref with same id' do
-      para = block_from_string('Sentence text footnoteref:[ex1, An example footnote.]. Sentence text footnoteref:[ex1].')
+      para = block_from_string 'Sentence text footnoteref:[ex1, An example footnote.]. Sentence text footnoteref:[ex1].', attributes: { 'compat-mode' => '' }
       assert_equal %(Sentence text <sup class="footnote" id="_footnote_ex1">[<a id="_footnoteref_1" class="footnote" href="#_footnotedef_1" title="View footnote.">1</a>]</sup>. Sentence text <sup class="footnoteref">[<a class="footnote" href="#_footnotedef_1" title="View footnote.">1</a>]</sup>.), para.sub_macros(para.source)
       assert_equal 1, para.document.catalog[:footnotes].size
       footnote = para.document.catalog[:footnotes].first
@@ -1038,26 +1055,35 @@ foofootnote:[+http://example.com+]barfootnote:[+http://acme.com+]baz
       end
     end
 
+    test 'using a footnoteref macro should generate a warning when compat mode is not enabled' do
+      input = 'Sentence text.footnoteref:[fn1,Commentary on this sentence.]'
+      using_memory_logger do |logger|
+        para = block_from_string input
+        para.sub_macros para.source
+        assert_message logger, :WARN, 'found deprecated footnoteref macro: footnoteref:[fn1,Commentary on this sentence.]; use footnote macro with target instead'
+      end
+    end
+
     test 'inline footnote macro can be used to define and reference a footnote reference' do
-      input = <<-EOS
-You can download the software from the product page.footnote:sub[Option only available if you have an active subscription.]
+      input = <<~'EOS'
+      You can download the software from the product page.footnote:sub[Option only available if you have an active subscription.]
 
-You can also file a support request.footnote:sub[]
+      You can also file a support request.footnote:sub[]
 
-If all else fails, you can give us a call.footnoteref:[sub]
+      If all else fails, you can give us a call.footnoteref:[sub]
       EOS
 
-      output = convert_string_to_embedded input
-      assert_css '#_footnotedef_1', output, 1
-      assert_css 'p a[href="#_footnotedef_1"]', output, 3
-      assert_css '#footnotes .footnote', output, 1
+      using_memory_logger do |logger|
+        output = convert_string_to_embedded input, attributes: { 'compat-mode' => '' }
+        assert_css '#_footnotedef_1', output, 1
+        assert_css 'p a[href="#_footnotedef_1"]', output, 3
+        assert_css '#footnotes .footnote', output, 1
+        assert logger.empty?
+      end
     end
 
     test 'should parse multiple footnote references in a single line' do
-      input = <<-'EOS'
-notable text.footnote:id[about this [text\]], footnote:id[], footnote:id[]
-      EOS
-
+      input = 'notable text.footnote:id[about this [text\]], footnote:id[], footnote:id[]'
       output = convert_string_to_embedded input
       assert_xpath '(//p)[1]/sup[starts-with(@class,"footnote")]', output, 3
       assert_xpath '(//p)[1]/sup[@class="footnote"]', output, 1
@@ -1067,10 +1093,10 @@ notable text.footnote:id[about this [text\]], footnote:id[], footnote:id[]
     end
 
     test 'should not resolve an inline footnote macro missing both id and text' do
-      input = <<-EOS
-The footnote:[] macro can be used for defining and referencing footnotes.
+      input = <<~'EOS'
+      The footnote:[] macro can be used for defining and referencing footnotes.
 
-The footnoteref:[] macro is now deprecated.
+      The footnoteref:[] macro is now deprecated.
       EOS
 
       output = convert_string_to_embedded input
@@ -1079,9 +1105,7 @@ The footnoteref:[] macro is now deprecated.
     end
 
     test 'inline footnote macro can define a numeric id without conflicting with auto-generated ID' do
-      input = <<-EOS
-You can download the software from the product page.footnote:1[Option only available if you have an active subscription.]
-      EOS
+      input = 'You can download the software from the product page.footnote:1[Option only available if you have an active subscription.]'
 
       output = convert_string_to_embedded input
       assert_css '#_footnote_1', output, 1
@@ -1091,6 +1115,18 @@ You can download the software from the product page.footnote:1[Option only avail
       assert_css '#footnotes #_footnotedef_1', output, 1
     end
 
+    test 'inline footnote macro can define an id that uses any word characters in Unicode' do
+      input = <<~'EOS'
+      L'origine du mot forêt{blank}footnote:forêt[un massif forestier] est complexe.
+
+      Qu'est-ce qu'une forêt ?{blank}footnote:forêt[]
+      EOS
+      output = convert_string_to_embedded input
+      assert_css '#_footnote_forêt', output, 1
+      assert_css '#_footnotedef_1', output, 1
+      assert_xpath '//a[@class="footnote"][text()="1"]', output, 2
+    end
+
     test 'a single-line index term macro with a primary term should be registered as an index reference' do
       sentence = "The tiger (Panthera tigris) is the largest cat species.\n"
       macros = ['indexterm:[Tigers]', '(((Tigers)))']
@@ -1098,8 +1134,8 @@ You can download the software from the product page.footnote:1[Option only avail
         para = block_from_string("#{sentence}#{macro}")
         output = para.sub_macros(para.source)
         assert_equal sentence, output
-        assert_equal 1, para.document.catalog[:indexterms].size
-        assert_equal ['Tigers'], para.document.catalog[:indexterms].first
+        #assert_equal 1, para.document.catalog[:indexterms].size
+        #assert_equal ['Tigers'], para.document.catalog[:indexterms].first
       end
     end
 
@@ -1110,8 +1146,8 @@ You can download the software from the product page.footnote:1[Option only avail
         para = block_from_string("#{sentence}#{macro}")
         output = para.sub_macros(para.source)
         assert_equal sentence, output
-        assert_equal 1, para.document.catalog[:indexterms].size
-        assert_equal ['Big cats', 'Tigers'], para.document.catalog[:indexterms].first
+        #assert_equal 1, para.document.catalog[:indexterms].size
+        #assert_equal ['Big cats', 'Tigers'], para.document.catalog[:indexterms].first
       end
     end
 
@@ -1122,8 +1158,8 @@ You can download the software from the product page.footnote:1[Option only avail
         para = block_from_string("#{sentence}#{macro}")
         output = para.sub_macros(para.source)
         assert_equal sentence, output
-        assert_equal 1, para.document.catalog[:indexterms].size
-        assert_equal ['Big cats', 'Tigers', 'Panthera tigris'], para.document.catalog[:indexterms].first
+        #assert_equal 1, para.document.catalog[:indexterms].size
+        #assert_equal ['Big cats', 'Tigers', 'Panthera tigris'], para.document.catalog[:indexterms].first
       end
     end
 
@@ -1134,51 +1170,51 @@ You can download the software from the product page.footnote:1[Option only avail
         para = block_from_string("#{sentence}#{macro}")
         output = para.sub_macros(para.source)
         assert_equal sentence, output
-        assert_equal 1, para.document.catalog[:indexterms].size
-        assert_equal ['Panthera tigris'], para.document.catalog[:indexterms].first
+        #assert_equal 1, para.document.catalog[:indexterms].size
+        #assert_equal ['Panthera tigris'], para.document.catalog[:indexterms].first
       end
     end
 
     test 'should escape concealed index term if second bracket is preceded by a backslash' do
       input = %[National Institute of Science and Technology (#{BACKSLASH}((NIST)))]
-      doc = document_from_string input, :header_footer => false
+      doc = document_from_string input, standalone: false
       output = doc.convert
       assert_xpath '//p[text()="National Institute of Science and Technology (((NIST)))"]', output, 1
-      assert doc.catalog[:indexterms].empty?
+      #assert doc.catalog[:indexterms].empty?
     end
 
     test 'should only escape enclosing brackets if concealed index term is preceded by a backslash' do
       input = %[National Institute of Science and Technology #{BACKSLASH}(((NIST)))]
-      doc = document_from_string input, :header_footer => false
+      doc = document_from_string input, standalone: false
       output = doc.convert
       assert_xpath '//p[text()="National Institute of Science and Technology (NIST)"]', output, 1
-      term = doc.catalog[:indexterms].first
-      assert_equal 1, term.size
-      assert_equal 'NIST', term.first
+      #term = doc.catalog[:indexterms].first
+      #assert_equal 1, term.size
+      #assert_equal 'NIST', term.first
     end
 
     test 'should not split index terms on commas inside of quoted terms' do
       inputs = []
-      inputs.push <<-EOS
-Tigers are big, scary cats.
-indexterm:[Tigers, "[Big\\],
-scary cats"]
-EOS
-      inputs.push <<-EOS
-Tigers are big, scary cats.
-(((Tigers, "[Big],
-scary cats")))
-EOS
+      inputs.push <<~'EOS'
+      Tigers are big, scary cats.
+      indexterm:[Tigers, "[Big\],
+      scary cats"]
+      EOS
+      inputs.push <<~'EOS'
+      Tigers are big, scary cats.
+      (((Tigers, "[Big],
+      scary cats")))
+      EOS
 
       inputs.each do |input|
         para = block_from_string input
         output = para.sub_macros(para.source)
         assert_equal input.lines.first, output
-        assert_equal 1, para.document.catalog[:indexterms].size
-        terms = para.document.catalog[:indexterms].first
-        assert_equal 2, terms.size
-        assert_equal 'Tigers', terms.first
-        assert_equal '[Big], scary cats', terms.last
+        #assert_equal 1, para.document.catalog[:indexterms].size
+        #terms = para.document.catalog[:indexterms].first
+        #assert_equal 2, terms.size
+        #assert_equal 'Tigers', terms.first
+        #assert_equal '[Big], scary cats', terms.last
       end
     end
 
@@ -1189,8 +1225,8 @@ EOS
         para = block_from_string("#{sentence}#{macro}")
         output = para.apply_subs(para.source)
         assert_equal sentence, output
-        assert_equal 1, para.document.catalog[:indexterms].size
-        assert_equal ['<strong>Tigers</strong>'], para.document.catalog[:indexterms].first
+        #assert_equal 1, para.document.catalog[:indexterms].size
+        #assert_equal ['<strong>Tigers</strong>'], para.document.catalog[:indexterms].first
       end
     end
 
@@ -1200,9 +1236,9 @@ EOS
       para = block_from_string("#{sentence}\n#{macros}")
       output = para.sub_macros(para.source)
       assert_equal sentence, output.rstrip
-      assert_equal 2, para.document.catalog[:indexterms].size
-      assert_equal ['Tigers'], para.document.catalog[:indexterms][0]
-      assert_equal ['Animals', 'Cats'], para.document.catalog[:indexterms][1]
+      #assert_equal 2, para.document.catalog[:indexterms].size
+      #assert_equal ['Tigers'], para.document.catalog[:indexterms][0]
+      #assert_equal ['Animals', 'Cats'], para.document.catalog[:indexterms][1]
     end
 
     test 'an index term macro with round bracket syntax may contain round brackets in term' do
@@ -1211,32 +1247,40 @@ EOS
       para = block_from_string("#{sentence}#{macro}")
       output = para.sub_macros(para.source)
       assert_equal sentence, output
-      assert_equal 1, para.document.catalog[:indexterms].size
-      assert_equal ['Tiger (Panthera tigris)'], para.document.catalog[:indexterms].first
+      #assert_equal 1, para.document.catalog[:indexterms].size
+      #assert_equal ['Tiger (Panthera tigris)'], para.document.catalog[:indexterms].first
     end
 
     test 'visible shorthand index term macro should not consume trailing round bracket' do
       input = '(text with ((index term)))'
-      expected = '(text with <indexterm><primary>index term</primary></indexterm>index term)'
-      expected_term = ['index term']
-      para = block_from_string input, :backend => :docbook
+      expected = <<~'EOS'.chop
+      (text with <indexterm>
+      <primary>index term</primary>
+      </indexterm>index term)
+      EOS
+      #expected_term = ['index term']
+      para = block_from_string input, backend: :docbook
       output = para.sub_macros para.source
-      indexterms_table = para.document.catalog[:indexterms]
-      assert_equal 1, indexterms_table.size
-      assert_equal expected_term, indexterms_table[0]
       assert_equal expected, output
+      #indexterms_table = para.document.catalog[:indexterms]
+      #assert_equal 1, indexterms_table.size
+      #assert_equal expected_term, indexterms_table[0]
     end
 
     test 'visible shorthand index term macro should not consume leading round bracket' do
       input = '(((index term)) for text)'
-      expected = '(<indexterm><primary>index term</primary></indexterm>index term for text)'
-      expected_term = ['index term']
-      para = block_from_string input, :backend => :docbook
+      expected = <<~'EOS'.chop
+      (<indexterm>
+      <primary>index term</primary>
+      </indexterm>index term for text)
+      EOS
+      #expected_term = ['index term']
+      para = block_from_string input, backend: :docbook
       output = para.sub_macros para.source
-      indexterms_table = para.document.catalog[:indexterms]
-      assert_equal 1, indexterms_table.size
-      assert_equal expected_term, indexterms_table[0]
       assert_equal expected, output
+      #indexterms_table = para.document.catalog[:indexterms]
+      #assert_equal 1, indexterms_table.size
+      #assert_equal expected_term, indexterms_table[0]
     end
 
     test 'an index term macro with square bracket syntax may contain square brackets in term' do
@@ -1245,8 +1289,8 @@ EOS
       para = block_from_string("#{sentence}#{macro}")
       output = para.sub_macros(para.source)
       assert_equal sentence, output
-      assert_equal 1, para.document.catalog[:indexterms].size
-      assert_equal ['Tiger [Panthera tigris]'], para.document.catalog[:indexterms].first
+      #assert_equal 1, para.document.catalog[:indexterms].size
+      #assert_equal ['Tiger [Panthera tigris]'], para.document.catalog[:indexterms].first
     end
 
     test 'a single-line index term 2 macro should be registered as an index reference and retain term inline' do
@@ -1256,8 +1300,8 @@ EOS
         para = block_from_string(macro)
         output = para.sub_macros(para.source)
         assert_equal sentence, output
-        assert_equal 1, para.document.catalog[:indexterms].size
-        assert_equal ['tiger'], para.document.catalog[:indexterms].first
+        #assert_equal 1, para.document.catalog[:indexterms].size
+        #assert_equal ['tiger'], para.document.catalog[:indexterms].first
       end
     end
 
@@ -1268,8 +1312,8 @@ EOS
         para = block_from_string(macro)
         output = para.sub_macros(para.source)
         assert_equal sentence, output
-        assert_equal 1, para.document.catalog[:indexterms].size
-        assert_equal ['panthera tigris'], para.document.catalog[:indexterms].first
+        #assert_equal 1, para.document.catalog[:indexterms].size
+        #assert_equal ['panthera tigris'], para.document.catalog[:indexterms].first
       end
     end
 
@@ -1278,9 +1322,9 @@ EOS
       para = block_from_string(sentence)
       output = para.sub_macros(para.source)
       assert_equal 'The tiger (Panthera tigris) is the largest cat species.', output
-      assert_equal 2, para.document.catalog[:indexterms].size
-      assert_equal ['tiger'], para.document.catalog[:indexterms][0]
-      assert_equal ['cat'], para.document.catalog[:indexterms][1]
+      #assert_equal 2, para.document.catalog[:indexterms].size
+      #assert_equal ['tiger'], para.document.catalog[:indexterms][0]
+      #assert_equal ['cat'], para.document.catalog[:indexterms][1]
     end
 
     test 'should escape visible index term if preceded by a backslash' do
@@ -1288,7 +1332,7 @@ EOS
       para = block_from_string(sentence)
       output = para.sub_macros(para.source)
       assert_equal 'The ((tiger)) (Panthera tigris) is the largest ((cat)) species.', output
-      assert para.document.catalog[:indexterms].empty?
+      #assert para.document.catalog[:indexterms].empty?
     end
 
     test 'normal substitutions are performed on an index term 2 macro' do
@@ -1296,8 +1340,8 @@ EOS
       para = block_from_string sentence
       output = para.apply_subs(para.source)
       assert_equal 'The <strong>tiger</strong> (Panthera tigris) is the largest cat species.', output
-      assert_equal 1, para.document.catalog[:indexterms].size
-      assert_equal ['<strong>tiger</strong>'], para.document.catalog[:indexterms].first
+      #assert_equal 1, para.document.catalog[:indexterms].size
+      #assert_equal ['<strong>tiger</strong>'], para.document.catalog[:indexterms].first
     end
 
     test 'index term 2 macro with round bracket syntex should not interfer with index term macro with round bracket syntax' do
@@ -1305,209 +1349,294 @@ EOS
       para = block_from_string sentence
       output = para.sub_macros(para.source)
       assert_equal "The panthera tigris is the largest cat species.\n", output
-      terms = para.document.catalog[:indexterms]
-      assert_equal 2, terms.size
-      assert_equal ['panthera tigris'], terms[0]
-      assert_equal ['Big cats', 'Tigers'], terms[1]
+      #terms = para.document.catalog[:indexterms]
+      #assert_equal 2, terms.size
+      #assert_equal ['panthera tigris'], terms[0]
+      #assert_equal ['Big cats', 'Tigers'], terms[1]
+    end
+
+    test 'should parse visible shorthand index term with see and seealso' do
+      sentence = '((Flash >> HTML 5)) has been supplanted by ((HTML 5 &> CSS 3 &> SVG)).'
+      output = convert_string_to_embedded sentence, backend: 'docbook'
+      indexterm_flash = <<~'EOS'.chop
+      <indexterm>
+      <primary>Flash</primary>
+      <see>HTML 5</see>
+      </indexterm>
+      EOS
+      indexterm_html5 = <<~'EOS'.chop
+      <indexterm>
+      <primary>HTML 5</primary>
+      <seealso>CSS 3</seealso>
+      <seealso>SVG</seealso>
+      </indexterm>
+      EOS
+      assert_includes output, indexterm_flash
+      assert_includes output, indexterm_html5
+    end
+
+    test 'should parse concealed shorthand index term with see and seealso' do
+      sentence = 'Flash(((Flash >> HTML 5))) has been supplanted by HTML 5(((HTML 5 &> CSS 3 &> SVG))).'
+      output = convert_string_to_embedded sentence, backend: 'docbook'
+      indexterm_flash = <<~'EOS'.chop
+      <indexterm>
+      <primary>Flash</primary>
+      <see>HTML 5</see>
+      </indexterm>
+      EOS
+      indexterm_html5 = <<~'EOS'.chop
+      <indexterm>
+      <primary>HTML 5</primary>
+      <seealso>CSS 3</seealso>
+      <seealso>SVG</seealso>
+      </indexterm>
+      EOS
+      assert_includes output, indexterm_flash
+      assert_includes output, indexterm_html5
+    end
+
+    test 'should parse visible index term macro with see and seealso' do
+      sentence = 'indexterm2:[Flash,see=HTML 5] has been supplanted by indexterm2:[HTML 5,see-also="CSS 3, SVG"].'
+      output = convert_string_to_embedded sentence, backend: 'docbook'
+      indexterm_flash = <<~'EOS'.chop
+      <indexterm>
+      <primary>Flash</primary>
+      <see>HTML 5</see>
+      </indexterm>
+      EOS
+      indexterm_html5 = <<~'EOS'.chop
+      <indexterm>
+      <primary>HTML 5</primary>
+      <seealso>CSS 3</seealso>
+      <seealso>SVG</seealso>
+      </indexterm>
+      EOS
+      assert_includes output, indexterm_flash
+      assert_includes output, indexterm_html5
+    end
+
+    test 'should parse concealed index term macro with see and seealso' do
+      sentence = 'Flashindexterm:[Flash,see=HTML 5] has been supplanted by HTML 5indexterm:[HTML 5,see-also="CSS 3, SVG"].'
+      output = convert_string_to_embedded sentence, backend: 'docbook'
+      indexterm_flash = <<~'EOS'.chop
+      <indexterm>
+      <primary>Flash</primary>
+      <see>HTML 5</see>
+      </indexterm>
+      EOS
+      indexterm_html5 = <<~'EOS'.chop
+      <indexterm>
+      <primary>HTML 5</primary>
+      <seealso>CSS 3</seealso>
+      <seealso>SVG</seealso>
+      </indexterm>
+      EOS
+      assert_includes output, indexterm_flash
+      assert_includes output, indexterm_html5
     end
 
     context 'Button macro' do
       test 'btn macro' do
-        para = block_from_string('btn:[Save]', :attributes => {'experimental' => ''})
+        para = block_from_string('btn:[Save]', attributes: { 'experimental' => '' })
         assert_equal %q{<b class="button">Save</b>}, para.sub_macros(para.source)
       end
 
       test 'btn macro that spans multiple lines' do
-        para = block_from_string(%(btn:[Rebase and\nmerge]), :attributes => {'experimental' => ''})
+        para = block_from_string(%(btn:[Rebase and\nmerge]), attributes: { 'experimental' => '' })
         assert_equal %q{<b class="button">Rebase and merge</b>}, para.sub_macros(para.source)
       end
 
       test 'btn macro for docbook backend' do
-        para = block_from_string('btn:[Save]', :backend => 'docbook', :attributes => {'experimental' => ''})
+        para = block_from_string('btn:[Save]', backend: 'docbook', attributes: { 'experimental' => '' })
         assert_equal %q{<guibutton>Save</guibutton>}, para.sub_macros(para.source)
       end
     end
 
     context 'Keyboard macro' do
       test 'kbd macro with single key' do
-        para = block_from_string('kbd:[F3]', :attributes => {'experimental' => ''})
+        para = block_from_string('kbd:[F3]', attributes: { 'experimental' => '' })
         assert_equal %q{<kbd>F3</kbd>}, para.sub_macros(para.source)
       end
 
       test 'kbd macro with single backslash key' do
-        para = block_from_string("kbd:[#{BACKSLASH} ]", :attributes => {'experimental' => ''})
+        para = block_from_string("kbd:[#{BACKSLASH} ]", attributes: { 'experimental' => '' })
         assert_equal %q(<kbd>\</kbd>), para.sub_macros(para.source)
       end
 
       test 'kbd macro with single key, docbook backend' do
-        para = block_from_string('kbd:[F3]', :backend => 'docbook', :attributes => {'experimental' => ''})
+        para = block_from_string('kbd:[F3]', backend: 'docbook', attributes: { 'experimental' => '' })
         assert_equal %q{<keycap>F3</keycap>}, para.sub_macros(para.source)
       end
 
       test 'kbd macro with key combination' do
-        para = block_from_string('kbd:[Ctrl+Shift+T]', :attributes => {'experimental' => ''})
+        para = block_from_string('kbd:[Ctrl+Shift+T]', attributes: { 'experimental' => '' })
         assert_equal %q{<span class="keyseq"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd></span>}, para.sub_macros(para.source)
       end
 
       test 'kbd macro with key combination that spans multiple lines' do
-        para = block_from_string(%(kbd:[Ctrl +\nT]), :attributes => {'experimental' => ''})
+        para = block_from_string(%(kbd:[Ctrl +\nT]), attributes: { 'experimental' => '' })
         assert_equal %q{<span class="keyseq"><kbd>Ctrl</kbd>+<kbd>T</kbd></span>}, para.sub_macros(para.source)
       end
 
       test 'kbd macro with key combination, docbook backend' do
-        para = block_from_string('kbd:[Ctrl+Shift+T]', :backend => 'docbook', :attributes => {'experimental' => ''})
+        para = block_from_string('kbd:[Ctrl+Shift+T]', backend: 'docbook', attributes: { 'experimental' => '' })
         assert_equal %q{<keycombo><keycap>Ctrl</keycap><keycap>Shift</keycap><keycap>T</keycap></keycombo>}, para.sub_macros(para.source)
       end
 
       test 'kbd macro with key combination delimited by pluses with spaces' do
-        para = block_from_string('kbd:[Ctrl + Shift + T]', :attributes => {'experimental' => ''})
+        para = block_from_string('kbd:[Ctrl + Shift + T]', attributes: { 'experimental' => '' })
         assert_equal %q{<span class="keyseq"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd></span>}, para.sub_macros(para.source)
       end
 
       test 'kbd macro with key combination delimited by commas' do
-        para = block_from_string('kbd:[Ctrl,Shift,T]', :attributes => {'experimental' => ''})
+        para = block_from_string('kbd:[Ctrl,Shift,T]', attributes: { 'experimental' => '' })
         assert_equal %q{<span class="keyseq"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd></span>}, para.sub_macros(para.source)
       end
 
       test 'kbd macro with key combination delimited by commas with spaces' do
-        para = block_from_string('kbd:[Ctrl, Shift, T]', :attributes => {'experimental' => ''})
+        para = block_from_string('kbd:[Ctrl, Shift, T]', attributes: { 'experimental' => '' })
         assert_equal %q{<span class="keyseq"><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd></span>}, para.sub_macros(para.source)
       end
 
       test 'kbd macro with key combination delimited by plus containing a comma key' do
-        para = block_from_string('kbd:[Ctrl+,]', :attributes => {'experimental' => ''})
+        para = block_from_string('kbd:[Ctrl+,]', attributes: { 'experimental' => '' })
         assert_equal %q{<span class="keyseq"><kbd>Ctrl</kbd>+<kbd>,</kbd></span>}, para.sub_macros(para.source)
       end
 
       test 'kbd macro with key combination delimited by commas containing a plus key' do
-        para = block_from_string('kbd:[Ctrl, +, Shift]', :attributes => {'experimental' => ''})
+        para = block_from_string('kbd:[Ctrl, +, Shift]', attributes: { 'experimental' => '' })
         assert_equal %q{<span class="keyseq"><kbd>Ctrl</kbd>+<kbd>+</kbd>+<kbd>Shift</kbd></span>}, para.sub_macros(para.source)
       end
 
       test 'kbd macro with key combination where last key matches plus delimiter' do
-        para = block_from_string('kbd:[Ctrl + +]', :attributes => {'experimental' => ''})
+        para = block_from_string('kbd:[Ctrl + +]', attributes: { 'experimental' => '' })
         assert_equal %q{<span class="keyseq"><kbd>Ctrl</kbd>+<kbd>+</kbd></span>}, para.sub_macros(para.source)
       end
 
       test 'kbd macro with key combination where last key matches comma delimiter' do
-        para = block_from_string('kbd:[Ctrl, ,]', :attributes => {'experimental' => ''})
+        para = block_from_string('kbd:[Ctrl, ,]', attributes: { 'experimental' => '' })
         assert_equal %q{<span class="keyseq"><kbd>Ctrl</kbd>+<kbd>,</kbd></span>}, para.sub_macros(para.source)
       end
 
       test 'kbd macro with key combination containing escaped bracket' do
-        para = block_from_string('kbd:[Ctrl + \]]', :attributes => {'experimental' => ''})
+        para = block_from_string('kbd:[Ctrl + \]]', attributes: { 'experimental' => '' })
         assert_equal %q{<span class="keyseq"><kbd>Ctrl</kbd>+<kbd>]</kbd></span>}, para.sub_macros(para.source)
       end
 
       test 'kbd macro with key combination ending in backslash' do
-        para = block_from_string("kbd:[Ctrl + #{BACKSLASH} ]", :attributes => {'experimental' => ''})
+        para = block_from_string("kbd:[Ctrl + #{BACKSLASH} ]", attributes: { 'experimental' => '' })
         assert_equal %q(<span class="keyseq"><kbd>Ctrl</kbd>+<kbd>\\</kbd></span>), para.sub_macros(para.source)
       end
 
       test 'kbd macro looks for delimiter beyond first character' do
-        para = block_from_string('kbd:[,te]', :attributes => {'experimental' => ''})
+        para = block_from_string('kbd:[,te]', attributes: { 'experimental' => '' })
         assert_equal %q(<kbd>,te</kbd>), para.sub_macros(para.source)
       end
 
       test 'kbd macro restores trailing delimiter as key value' do
-        para = block_from_string('kbd:[te,]', :attributes => {'experimental' => ''})
+        para = block_from_string('kbd:[te,]', attributes: { 'experimental' => '' })
         assert_equal %q(<kbd>te,</kbd>), para.sub_macros(para.source)
       end
     end
 
     context 'Menu macro' do
       test 'should process menu using macro sytnax' do
-        para = block_from_string('menu:File[]', :attributes => {'experimental' => ''})
+        para = block_from_string('menu:File[]', attributes: { 'experimental' => '' })
         assert_equal %q{<b class="menuref">File</b>}, para.sub_macros(para.source)
       end
 
       test 'should process menu for docbook backend' do
-        para = block_from_string('menu:File[]', :backend => 'docbook', :attributes => {'experimental' => ''})
+        para = block_from_string('menu:File[]', backend: 'docbook', attributes: { 'experimental' => '' })
         assert_equal %q{<guimenu>File</guimenu>}, para.sub_macros(para.source)
       end
 
+      test 'should process multiple menu macros in same line' do
+        para = block_from_string('menu:File[] and menu:Edit[]', attributes: { 'experimental' => '' })
+        assert_equal '<b class="menuref">File</b> and <b class="menuref">Edit</b>', para.sub_macros(para.source)
+      end
+
       test 'should process menu with menu item using macro syntax' do
-        para = block_from_string('menu:File[Save As&#8230;]', :attributes => {'experimental' => ''})
+        para = block_from_string('menu:File[Save As&#8230;]', attributes: { 'experimental' => '' })
         assert_equal %q{<span class="menuseq"><b class="menu">File</b>&#160;<b class="caret">&#8250;</b> <b class="menuitem">Save As&#8230;</b></span>}, para.sub_macros(para.source)
       end
 
       test 'should process menu macro that spans multiple lines' do
         input = %(menu:Preferences[Compile\non\nSave])
-        para = block_from_string input, :attributes => {'experimental' => ''}
+        para = block_from_string input, attributes: { 'experimental' => '' }
         assert_equal %(<span class="menuseq"><b class="menu">Preferences</b>&#160;<b class="caret">&#8250;</b> <b class="menuitem">Compile\non\nSave</b></span>), para.sub_macros(para.source)
       end
 
       test 'should unescape escaped closing bracket in menu macro' do
         input = 'menu:Preferences[Compile [on\\] Save]'
-        para = block_from_string input, :attributes => {'experimental' => ''}
+        para = block_from_string input, attributes: { 'experimental' => '' }
         assert_equal %q(<span class="menuseq"><b class="menu">Preferences</b>&#160;<b class="caret">&#8250;</b> <b class="menuitem">Compile [on] Save</b></span>), para.sub_macros(para.source)
       end
 
       test 'should process menu with menu item using macro syntax when fonts icons are enabled' do
-        para = block_from_string('menu:Tools[More Tools &gt; Extensions]', :attributes => {'experimental' => '', 'icons' => 'font'})
+        para = block_from_string('menu:Tools[More Tools &gt; Extensions]', attributes: { 'experimental' => '', 'icons' => 'font' })
         assert_equal %q{<span class="menuseq"><b class="menu">Tools</b>&#160;<i class="fa fa-angle-right caret"></i> <b class="submenu">More Tools</b>&#160;<i class="fa fa-angle-right caret"></i> <b class="menuitem">Extensions</b></span>}, para.sub_macros(para.source)
       end
 
       test 'should process menu with menu item for docbook backend' do
-        para = block_from_string('menu:File[Save As&#8230;]', :backend => 'docbook', :attributes => {'experimental' => ''})
+        para = block_from_string('menu:File[Save As&#8230;]', backend: 'docbook', attributes: { 'experimental' => '' })
         assert_equal %q{<menuchoice><guimenu>File</guimenu> <guimenuitem>Save As&#8230;</guimenuitem></menuchoice>}, para.sub_macros(para.source)
       end
 
       test 'should process menu with menu item in submenu using macro syntax' do
-        para = block_from_string('menu:Tools[Project &gt; Build]', :attributes => {'experimental' => ''})
+        para = block_from_string('menu:Tools[Project &gt; Build]', attributes: { 'experimental' => '' })
         assert_equal %q{<span class="menuseq"><b class="menu">Tools</b>&#160;<b class="caret">&#8250;</b> <b class="submenu">Project</b>&#160;<b class="caret">&#8250;</b> <b class="menuitem">Build</b></span>}, para.sub_macros(para.source)
       end
 
       test 'should process menu with menu item in submenu for docbook backend' do
-        para = block_from_string('menu:Tools[Project &gt; Build]', :backend => 'docbook', :attributes => {'experimental' => ''})
+        para = block_from_string('menu:Tools[Project &gt; Build]', backend: 'docbook', attributes: { 'experimental' => '' })
         assert_equal %q{<menuchoice><guimenu>Tools</guimenu> <guisubmenu>Project</guisubmenu> <guimenuitem>Build</guimenuitem></menuchoice>}, para.sub_macros(para.source)
       end
 
       test 'should process menu with menu item in submenu using macro syntax and comma delimiter' do
-        para = block_from_string('menu:Tools[Project, Build]', :attributes => {'experimental' => ''})
+        para = block_from_string('menu:Tools[Project, Build]', attributes: { 'experimental' => '' })
         assert_equal %q{<span class="menuseq"><b class="menu">Tools</b>&#160;<b class="caret">&#8250;</b> <b class="submenu">Project</b>&#160;<b class="caret">&#8250;</b> <b class="menuitem">Build</b></span>}, para.sub_macros(para.source)
       end
 
       test 'should process menu with menu item using inline syntax' do
-        para = block_from_string('"File &gt; Save As&#8230;"', :attributes => {'experimental' => ''})
+        para = block_from_string('"File &gt; Save As&#8230;"', attributes: { 'experimental' => '' })
         assert_equal %q{<span class="menuseq"><b class="menu">File</b>&#160;<b class="caret">&#8250;</b> <b class="menuitem">Save As&#8230;</b></span>}, para.sub_macros(para.source)
       end
 
       test 'should process menu with menu item in submenu using inline syntax' do
-        para = block_from_string('"Tools &gt; Project &gt; Build"', :attributes => {'experimental' => ''})
+        para = block_from_string('"Tools &gt; Project &gt; Build"', attributes: { 'experimental' => '' })
         assert_equal %q{<span class="menuseq"><b class="menu">Tools</b>&#160;<b class="caret">&#8250;</b> <b class="submenu">Project</b>&#160;<b class="caret">&#8250;</b> <b class="menuitem">Build</b></span>}, para.sub_macros(para.source)
       end
 
       test 'inline menu syntax should not match closing quote of XML attribute' do
-        para = block_from_string('<span class="xmltag">&lt;node&gt;</span><span class="classname">r</span>', :attributes => {'experimental' => ''})
+        para = block_from_string('<span class="xmltag">&lt;node&gt;</span><span class="classname">r</span>', attributes: { 'experimental' => '' })
         assert_equal %q{<span class="xmltag">&lt;node&gt;</span><span class="classname">r</span>}, para.sub_macros(para.source)
       end
 
       test 'should process menu macro with items containing multibyte characters' do
-        para = block_from_string('menu:视图[放大, 重置]', :attributes => {'experimental' => ''})
+        para = block_from_string('menu:视图[放大, 重置]', attributes: { 'experimental' => '' })
         assert_equal %q{<span class="menuseq"><b class="menu">视图</b>&#160;<b class="caret">&#8250;</b> <b class="submenu">放大</b>&#160;<b class="caret">&#8250;</b> <b class="menuitem">重置</b></span>}, para.sub_macros(para.source)
-      end if ::RUBY_MIN_VERSION_1_9
+      end
 
       test 'should process inline menu with items containing multibyte characters' do
-        para = block_from_string('"视图 &gt; 放大 &gt; 重置"', :attributes => {'experimental' => ''})
+        para = block_from_string('"视图 &gt; 放大 &gt; 重置"', attributes: { 'experimental' => '' })
         assert_equal %q{<span class="menuseq"><b class="menu">视图</b>&#160;<b class="caret">&#8250;</b> <b class="submenu">放大</b>&#160;<b class="caret">&#8250;</b> <b class="menuitem">重置</b></span>}, para.sub_macros(para.source)
-      end if ::RUBY_MIN_VERSION_1_9
+      end
 
       test 'should process a menu macro with a target that begins with a character reference' do
-        para = block_from_string('menu:&#8942;[More Tools, Extensions]', :attributes => {'experimental' => ''})
+        para = block_from_string('menu:&#8942;[More Tools, Extensions]', attributes: { 'experimental' => '' })
         assert_equal %q{<span class="menuseq"><b class="menu">&#8942;</b>&#160;<b class="caret">&#8250;</b> <b class="submenu">More Tools</b>&#160;<b class="caret">&#8250;</b> <b class="menuitem">Extensions</b></span>}, para.sub_macros(para.source)
       end
 
       test 'should not process a menu macro with a target that ends with a space' do
         input = 'menu:foo [bar] menu:File[Save]'
-        para = block_from_string input, :attributes => {'experimental' => ''}
+        para = block_from_string input, attributes: { 'experimental' => '' }
         result = para.sub_macros para.source
         assert_xpath '/span[@class="menuseq"]', result, 1
         assert_xpath '//b[@class="menu"][text()="File"]', result, 1
       end
 
       test 'should process an inline menu that begins with a character reference' do
-        para = block_from_string('"&#8942; &gt; More Tools &gt; Extensions"', :attributes => {'experimental' => ''})
+        para = block_from_string('"&#8942; &gt; More Tools &gt; Extensions"', attributes: { 'experimental' => '' })
         assert_equal %q{<span class="menuseq"><b class="menu">&#8942;</b>&#160;<b class="caret">&#8250;</b> <b class="submenu">More Tools</b>&#160;<b class="caret">&#8250;</b> <b class="menuitem">Extensions</b></span>}, para.sub_macros(para.source)
       end
     end
@@ -1517,37 +1646,41 @@ EOS
     test 'collect inline triple plus passthroughs' do
       para = block_from_string('+++<code>inline code</code>+++')
       result = para.extract_passthroughs(para.source)
+      passthroughs = para.instance_variable_get :@passthroughs
       assert_equal Asciidoctor::Substitutors::PASS_START + '0' + Asciidoctor::Substitutors::PASS_END, result
-      assert_equal 1, para.passthroughs.size
-      assert_equal '<code>inline code</code>', para.passthroughs[0][:text]
-      assert_empty para.passthroughs[0][:subs]
+      assert_equal 1, passthroughs.size
+      assert_equal '<code>inline code</code>', passthroughs[0][:text]
+      assert_empty passthroughs[0][:subs]
     end
 
     test 'collect multi-line inline triple plus passthroughs' do
       para = block_from_string("+++<code>inline\ncode</code>+++")
       result = para.extract_passthroughs(para.source)
+      passthroughs = para.instance_variable_get :@passthroughs
       assert_equal Asciidoctor::Substitutors::PASS_START + '0' + Asciidoctor::Substitutors::PASS_END, result
-      assert_equal 1, para.passthroughs.size
-      assert_equal "<code>inline\ncode</code>", para.passthroughs[0][:text]
-      assert_empty para.passthroughs[0][:subs]
+      assert_equal 1, passthroughs.size
+      assert_equal "<code>inline\ncode</code>", passthroughs[0][:text]
+      assert_empty passthroughs[0][:subs]
     end
 
     test 'collect inline double dollar passthroughs' do
       para = block_from_string('$$<code>{code}</code>$$')
       result = para.extract_passthroughs(para.source)
+      passthroughs = para.instance_variable_get :@passthroughs
       assert_equal Asciidoctor::Substitutors::PASS_START + '0' + Asciidoctor::Substitutors::PASS_END, result
-      assert_equal 1, para.passthroughs.size
-      assert_equal '<code>{code}</code>', para.passthroughs[0][:text]
-      assert_equal [:specialcharacters], para.passthroughs[0][:subs]
+      assert_equal 1, passthroughs.size
+      assert_equal '<code>{code}</code>', passthroughs[0][:text]
+      assert_equal [:specialcharacters], passthroughs[0][:subs]
     end
 
     test 'collect inline double plus passthroughs' do
       para = block_from_string('++<code>{code}</code>++')
       result = para.extract_passthroughs(para.source)
+      passthroughs = para.instance_variable_get :@passthroughs
       assert_equal Asciidoctor::Substitutors::PASS_START + '0' + Asciidoctor::Substitutors::PASS_END, result
-      assert_equal 1, para.passthroughs.size
-      assert_equal '<code>{code}</code>', para.passthroughs[0][:text]
-      assert_equal [:specialcharacters], para.passthroughs[0][:subs]
+      assert_equal 1, passthroughs.size
+      assert_equal '<code>{code}</code>', passthroughs[0][:text]
+      assert_equal [:specialcharacters], passthroughs[0][:subs]
     end
 
     test 'should not crash if role on passthrough is enclosed in quotes' do
@@ -1575,37 +1708,41 @@ EOS
     test 'collect multi-line inline double dollar passthroughs' do
       para = block_from_string("$$<code>\n{code}\n</code>$$")
       result = para.extract_passthroughs(para.source)
+      passthroughs = para.instance_variable_get :@passthroughs
       assert_equal Asciidoctor::Substitutors::PASS_START + '0' + Asciidoctor::Substitutors::PASS_END, result
-      assert_equal 1, para.passthroughs.size
-      assert_equal "<code>\n{code}\n</code>", para.passthroughs[0][:text]
-      assert_equal [:specialcharacters], para.passthroughs[0][:subs]
+      assert_equal 1, passthroughs.size
+      assert_equal "<code>\n{code}\n</code>", passthroughs[0][:text]
+      assert_equal [:specialcharacters], passthroughs[0][:subs]
     end
 
     test 'collect multi-line inline double plus passthroughs' do
       para = block_from_string("++<code>\n{code}\n</code>++")
       result = para.extract_passthroughs(para.source)
+      passthroughs = para.instance_variable_get :@passthroughs
       assert_equal Asciidoctor::Substitutors::PASS_START + '0' + Asciidoctor::Substitutors::PASS_END, result
-      assert_equal 1, para.passthroughs.size
-      assert_equal "<code>\n{code}\n</code>", para.passthroughs[0][:text]
-      assert_equal [:specialcharacters], para.passthroughs[0][:subs]
+      assert_equal 1, passthroughs.size
+      assert_equal "<code>\n{code}\n</code>", passthroughs[0][:text]
+      assert_equal [:specialcharacters], passthroughs[0][:subs]
     end
 
     test 'collect passthroughs from inline pass macro' do
       para = block_from_string(%Q{pass:specialcharacters,quotes[<code>['code'\\]</code>]})
       result = para.extract_passthroughs(para.source)
+      passthroughs = para.instance_variable_get :@passthroughs
       assert_equal Asciidoctor::Substitutors::PASS_START + '0' + Asciidoctor::Substitutors::PASS_END, result
-      assert_equal 1, para.passthroughs.size
-      assert_equal %q{<code>['code']</code>}, para.passthroughs[0][:text]
-      assert_equal [:specialcharacters, :quotes], para.passthroughs[0][:subs]
+      assert_equal 1, passthroughs.size
+      assert_equal %q{<code>['code']</code>}, passthroughs[0][:text]
+      assert_equal [:specialcharacters, :quotes], passthroughs[0][:subs]
     end
 
     test 'collect multi-line passthroughs from inline pass macro' do
       para = block_from_string(%Q{pass:specialcharacters,quotes[<code>['more\ncode'\\]</code>]})
       result = para.extract_passthroughs(para.source)
+      passthroughs = para.instance_variable_get :@passthroughs
       assert_equal Asciidoctor::Substitutors::PASS_START + '0' + Asciidoctor::Substitutors::PASS_END, result
-      assert_equal 1, para.passthroughs.size
-      assert_equal %Q{<code>['more\ncode']</code>}, para.passthroughs[0][:text]
-      assert_equal [:specialcharacters, :quotes], para.passthroughs[0][:subs]
+      assert_equal 1, passthroughs.size
+      assert_equal %Q{<code>['more\ncode']</code>}, passthroughs[0][:text]
+      assert_equal [:specialcharacters, :quotes], passthroughs[0][:subs]
     end
 
     test 'should find and replace placeholder duplicated by substitution' do
@@ -1617,10 +1754,20 @@ EOS
     test 'resolves sub shorthands on inline pass macro' do
       para = block_from_string 'pass:q,a[*<{backend}>*]'
       result = para.extract_passthroughs para.source
-      assert_equal 1, para.passthroughs.size
-      assert_equal [:quotes, :attributes], para.passthroughs[0][:subs]
+      passthroughs = para.instance_variable_get :@passthroughs
+      assert_equal 1, passthroughs.size
+      assert_equal [:quotes, :attributes], passthroughs[0][:subs]
       result = para.restore_passthroughs result
       assert_equal '<strong><html5></strong>', result
+    end
+
+    test 'inline pass macro supports incremental subs' do
+      para = block_from_string 'pass:n,-a[<{backend}>]'
+      result = para.extract_passthroughs para.source
+      passthroughs = para.instance_variable_get :@passthroughs
+      assert_equal 1, passthroughs.size
+      result = para.restore_passthroughs result
+      assert_equal '&lt;{backend}&gt;', result
     end
 
     test 'should not recognize pass macro with invalid subsitution list' do
@@ -1634,14 +1781,17 @@ EOS
     test 'should allow content of inline pass macro to be empty' do
       para = block_from_string 'pass:[]'
       result = para.extract_passthroughs para.source
-      assert_equal 1, para.passthroughs.size
+      passthroughs = para.instance_variable_get :@passthroughs
+      assert_equal 1, passthroughs.size
       assert_equal '', para.restore_passthroughs(result)
     end
 
     # NOTE placeholder is surrounded by text to prevent reader from stripping trailing boundary char (unique to test scenario)
     test 'restore inline passthroughs without subs' do
       para = block_from_string("some #{Asciidoctor::Substitutors::PASS_START}" + '0' + "#{Asciidoctor::Substitutors::PASS_END} to study")
-      para.passthroughs[0] = {:text => '<code>inline code</code>', :subs => []}
+      para.extract_passthroughs ''
+      passthroughs = para.instance_variable_get :@passthroughs
+      passthroughs[0] = { text: '<code>inline code</code>', subs: [] }
       result = para.restore_passthroughs(para.source)
       assert_equal "some <code>inline code</code> to study", result
     end
@@ -1649,8 +1799,10 @@ EOS
     # NOTE placeholder is surrounded by text to prevent reader from stripping trailing boundary char (unique to test scenario)
     test 'restore inline passthroughs with subs' do
       para = block_from_string("some #{Asciidoctor::Substitutors::PASS_START}" + '0' + "#{Asciidoctor::Substitutors::PASS_END} to study in the #{Asciidoctor::Substitutors::PASS_START}" + '1' + "#{Asciidoctor::Substitutors::PASS_END} programming language")
-      para.passthroughs[0] = {:text => '<code>{code}</code>', :subs => [:specialcharacters]}
-      para.passthroughs[1] = {:text => '{language}', :subs => [:specialcharacters]}
+      para.extract_passthroughs ''
+      passthroughs = para.instance_variable_get :@passthroughs
+      passthroughs[0] = { text: '<code>{code}</code>', subs: [:specialcharacters] }
+      passthroughs[1] = { text: '{language}', subs: [:specialcharacters] }
       result = para.restore_passthroughs(para.source)
       assert_equal 'some &lt;code&gt;{code}&lt;/code&gt; to study in the {language} programming language', result
     end
@@ -1658,6 +1810,11 @@ EOS
     test 'should restore nested passthroughs' do
       result = convert_inline_string %q(+Sometimes you feel pass:q[`mono`].+ Sometimes you +$$don't$$+.)
       assert_equal %q(Sometimes you feel <code>mono</code>. Sometimes you don't.), result
+    end
+
+    test 'should not fail to restore remaining passthroughs after processing inline passthrough with macro substitution' do
+      input = 'pass:m[.] pass:[.]'
+      assert_equal '. .', (convert_inline_string input)
     end
 
     test 'should honor role on double plus passthrough' do
@@ -1669,14 +1826,16 @@ EOS
       text_to_escape = %q{[(] <'basic form'> <'logical operator'> <'basic form'> [)]}
       para = block_from_string %($$#{text_to_escape}$$)
       para.extract_passthroughs(para.source)
-      assert_equal 1, para.passthroughs.size
-      assert_equal text_to_escape, para.passthroughs[0][:text]
+      passthroughs = para.instance_variable_get :@passthroughs
+      assert_equal 1, passthroughs.size
+      assert_equal text_to_escape, passthroughs[0][:text]
 
       text_to_escape_escaped = %q{[(\] <'basic form'> <'logical operator'> <'basic form'> [)\]}
       para = block_from_string %(pass:specialcharacters[#{text_to_escape_escaped}])
       para.extract_passthroughs(para.source)
-      assert_equal 1, para.passthroughs.size
-      assert_equal text_to_escape, para.passthroughs[0][:text]
+      passthroughs = para.instance_variable_get :@passthroughs
+      assert_equal 1, passthroughs.size
+      assert_equal text_to_escape, passthroughs[0][:text]
     end
 
     test 'inline pass macro with a composite sub' do
@@ -1706,16 +1865,16 @@ EOS
       test 'should convert contents of asciimath macro to MathML in DocBook output if asciimath gem is available' do
         asciimath_available = !(Asciidoctor::Helpers.require_library 'asciimath', true, :ignore).nil?
         input = 'asciimath:[a < b]'
-        expected = '<inlineequation><mml:math xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>a</mml:mi><mml:mo>&#x003C;</mml:mo><mml:mi>b</mml:mi></mml:math></inlineequation>'
+        expected = '<inlineequation><mml:math xmlns:mml="http://www.w3.org/1998/Math/MathML"><mml:mi>a</mml:mi><mml:mo>&lt;</mml:mo><mml:mi>b</mml:mi></mml:math></inlineequation>'
         using_memory_logger do |logger|
-          para = block_from_string input, :backend => :docbook
+          para = block_from_string input, backend: :docbook
           actual = para.content
           if asciimath_available
             assert_equal expected, actual
-            assert_equal :loaded, para.document.converter.instance_variable_get(:@asciimath)
+            assert_equal :loaded, para.document.converter.instance_variable_get(:@asciimath_status)
           else
-            assert_message logger, :WARN, 'optional gem \'asciimath\' is not installed. Functionality disabled.'
-            assert_equal :unavailable, para.document.converter.instance_variable_get(:@asciimath)
+            assert_message logger, :WARN, 'optional gem \'asciimath\' is not available. Functionality disabled.'
+            assert_equal :unavailable, para.document.converter.instance_variable_get(:@asciimath_status)
           end
         end
       end
@@ -1723,8 +1882,8 @@ EOS
       test 'should not perform specialcharacters subs on asciimath macro content in Docbook output if asciimath gem not available' do
         asciimath_available = !(Asciidoctor::Helpers.require_library 'asciimath', true, :ignore).nil?
         input = 'asciimath:[a < b]'
-        para = block_from_string input, :backend => :docbook
-        para.document.converter.instance_variable_set :@asciimath, :unavailable
+        para = block_from_string input, backend: :docbook
+        para.document.converter.instance_variable_set :@asciimath_status, :unavailable
         if asciimath_available
           old_asciimath = ::AsciiMath
           Object.send :remove_const, 'AsciiMath'
@@ -1735,12 +1894,18 @@ EOS
 
       test 'should honor explicit subslist on asciimath macro' do
         input = 'asciimath:attributes[{expr}]'
-        para = block_from_string input, :attributes => {'expr' => 'x != 0'}
+        para = block_from_string input, attributes: { 'expr' => 'x != 0' }
         assert_equal '\$x != 0\$', para.content
       end
 
       test 'should passthrough text in latexmath macro and surround with LaTeX math delimiters' do
         input = 'latexmath:[C = \alpha + \beta Y^{\gamma} + \epsilon]'
+        para = block_from_string input
+        assert_equal '\(C = \alpha + \beta Y^{\gamma} + \epsilon\)', para.content
+      end
+
+      test 'should strip legacy LaTeX math delimiters around latexmath content if present' do
+        input = 'latexmath:[$C = \alpha + \beta Y^{\gamma} + \epsilon$]'
         para = block_from_string input
         assert_equal '\(C = \alpha + \beta Y^{\gamma} + \epsilon\)', para.content
       end
@@ -1751,6 +1916,12 @@ EOS
         assert_equal 'latexmath:[]', para.content
       end
 
+      test 'should unescape escaped square bracket in equation' do
+        input = 'latexmath:[\sqrt[3\]{x}]'
+        para = block_from_string input
+        assert_equal '\(\sqrt[3]{x}\)', para.content
+      end
+
       test 'should perform specialcharacters subs on latexmath macro in html backend by default' do
         input = 'latexmath:[a < b]'
         para = block_from_string input
@@ -1759,19 +1930,19 @@ EOS
 
       test 'should not perform specialcharacters subs on latexmath macro content in docbook backend by default' do
         input = 'latexmath:[a < b]'
-        para = block_from_string input, :backend => :docbook
+        para = block_from_string input, backend: :docbook
         assert_equal '<inlineequation><alt><![CDATA[a < b]]></alt><mathphrase><![CDATA[a < b]]></mathphrase></inlineequation>', para.content
       end
 
       test 'should honor explicit subslist on latexmath macro' do
         input = 'latexmath:attributes[{expr}]'
-        para = block_from_string input, :attributes => {'expr' => '\sqrt{4} = 2'}
+        para = block_from_string input, attributes: { 'expr' => '\sqrt{4} = 2' }
         assert_equal '\(\sqrt{4} = 2\)', para.content
       end
 
       test 'should passthrough math macro inside another passthrough' do
         input = 'the text `asciimath:[x = y]` should be passed through as +literal+ text'
-        para = block_from_string input, :attributes => {'compat-mode' => ''}
+        para = block_from_string input, attributes: { 'compat-mode' => '' }
         assert_equal 'the text <code>asciimath:[x = y]</code> should be passed through as <code>literal</code> text', para.content
 
         input = 'the text [x-]`asciimath:[x = y]` should be passed through as `literal` text'
@@ -1781,6 +1952,12 @@ EOS
         input = 'the text `+asciimath:[x = y]+` should be passed through as `literal` text'
         para = block_from_string input
         assert_equal 'the text <code>asciimath:[x = y]</code> should be passed through as <code>literal</code> text', para.content
+      end
+
+      test 'should support attrlist on a literal monospace phrase' do
+        input = '[.baz]`+foo--bar+`'
+        para = block_from_string input
+        assert_equal '<code class="baz">foo--bar</code>', para.content
       end
 
       test 'should not process an escaped passthrough macro inside a monospaced phrase' do
@@ -1810,38 +1987,39 @@ EOS
       test 'should passthrough text in stem macro and surround with AsciiMath delimiters if stem attribute is asciimath, empty, or not set' do
         [
           {},
-          {'stem' => ''},
-          {'stem' => 'asciimath'},
-          {'stem' => 'bogus'}
+          { 'stem' => '' },
+          { 'stem' => 'asciimath' },
+          { 'stem' => 'bogus' },
         ].each do |attributes|
           input = 'stem:[x/x={(1,if x!=0),(text{undefined},if x=0):}]'
-          para = block_from_string input, :attributes => attributes
+          para = block_from_string input, attributes: attributes
           assert_equal '\$x/x={(1,if x!=0),(text{undefined},if x=0):}\$', para.content
         end
       end
 
       test 'should passthrough text in stem macro and surround with LaTeX math delimiters if stem attribute is latexmath, latex, or tex' do
         [
-          {'stem' => 'latexmath'},
-          {'stem' => 'latex'},
-          {'stem' => 'tex'}
+          { 'stem' => 'latexmath' },
+          { 'stem' => 'latex' },
+          { 'stem' => 'tex' },
         ].each do |attributes|
           input = 'stem:[C = \alpha + \beta Y^{\gamma} + \epsilon]'
-          para = block_from_string input, :attributes => attributes
+          para = block_from_string input, attributes: attributes
           assert_equal '\(C = \alpha + \beta Y^{\gamma} + \epsilon\)', para.content
         end
       end
 
       test 'should apply substitutions specified on stem macro' do
-        input = 'stem:c,a[sqrt(x) <=> {solve-for-x}]'
-        para = block_from_string input, :attributes => {'stem' => 'asciimath', 'solve-for-x' => '13'}
-        assert_equal '\$sqrt(x) &lt;=&gt; 13\$', para.content
+        ['stem:c,a[sqrt(x) <=> {solve-for-x}]', 'stem:n,-r[sqrt(x) <=> {solve-for-x}]'].each do |input|
+          para = block_from_string input, attributes: { 'stem' => 'asciimath', 'solve-for-x' => '13' }
+          assert_equal '\$sqrt(x) &lt;=&gt; 13\$', para.content
+        end
       end
 
       test 'should not recognize stem macro with invalid substitution list' do
         [',', '42', 'a,'].each do |subs|
           input = %(stem:#{subs}[x^2])
-          para = block_from_string input, :attributes => {'stem' => 'asciimath'}
+          para = block_from_string input, attributes: { 'stem' => 'asciimath' }
           assert_equal %(stem:#{subs}[x^2]), para.content
         end
       end
@@ -1860,18 +2038,23 @@ EOS
     end
 
     test 'replaces dashes' do
-      para = block_from_string %(-- foo foo--bar foo\\--bar foo -- bar foo \\-- bar
-stuff in between
--- foo
-stuff in between
-foo --
-stuff in between
-foo --)
-      expected = '&#8201;&#8212;&#8201;foo foo&#8212;&#8203;bar foo--bar foo&#8201;&#8212;&#8201;bar foo -- bar
-stuff in between&#8201;&#8212;&#8201;foo
-stuff in between
-foo&#8201;&#8212;&#8201;stuff in between
-foo&#8201;&#8212;&#8201;'
+      input = <<~'EOS'
+      -- foo foo--bar foo\--bar foo -- bar foo \-- bar
+      stuff in between
+      -- foo
+      stuff in between
+      foo --
+      stuff in between
+      foo --
+      EOS
+      expected = <<~'EOS'.chop
+      &#8201;&#8212;&#8201;foo foo&#8212;&#8203;bar foo--bar foo&#8201;&#8212;&#8201;bar foo -- bar
+      stuff in between&#8201;&#8212;&#8201;foo
+      stuff in between
+      foo&#8201;&#8212;&#8201;stuff in between
+      foo&#8201;&#8212;&#8201;
+      EOS
+      para = block_from_string input
       assert_equal expected, para.sub_replacements(para.source)
     end
 
@@ -1879,7 +2062,7 @@ foo&#8201;&#8212;&#8201;'
       para = block_from_string %(富--巴)
       expected = '富&#8212;&#8203;巴'
       assert_equal expected, para.sub_replacements(para.source)
-    end if ::RUBY_MIN_VERSION_1_9
+    end
 
     test 'replaces marks' do
       para = block_from_string '(C) (R) (TM) \(C) \(R) \(TM)'
@@ -1928,10 +2111,10 @@ foo&#8201;&#8212;&#8201;'
         %(he is 6' tall),
         %(`')
       ]
-      given.size.times {|i|
+      given.size.times do |i|
         para = block_from_string given[i]
         assert_equal expected[i], para.sub_replacements(para.source)
-      }
+      end
     end
   end
 
@@ -1943,19 +2126,19 @@ foo&#8201;&#8212;&#8201;'
     end
 
     test 'line break inserted after line wrap with hardbreaks enabled' do
-      para = block_from_string("First line\nSecond line", :attributes => {'hardbreaks' => ''})
+      para = block_from_string("First line\nSecond line", attributes: { 'hardbreaks' => '' })
       result = para.apply_subs para.lines, (para.expand_subs :post_replacements)
       assert_equal 'First line<br>', result.first
     end
 
     test 'line break character stripped from end of line with hardbreaks enabled' do
-      para = block_from_string("First line +\nSecond line", :attributes => {'hardbreaks' => ''})
+      para = block_from_string("First line +\nSecond line", attributes: { 'hardbreaks' => '' })
       result = para.apply_subs para.lines, (para.expand_subs :post_replacements)
       assert_equal 'First line<br>', result.first
     end
 
     test 'line break not inserted for single line with hardbreaks enabled' do
-      para = block_from_string('First line', :attributes => {'hardbreaks' => ''})
+      para = block_from_string('First line', attributes: { 'hardbreaks' => '' })
       result = para.apply_subs para.lines, (para.expand_subs :post_replacements)
       assert_equal 'First line', result.first
     end
@@ -1963,104 +2146,90 @@ foo&#8201;&#8212;&#8201;'
 
   context 'Resolve subs' do
     test 'should resolve subs for block' do
-      block = Asciidoctor::Block.new(empty_document, :paragraph)
+      doc = empty_document parse: true
+      block = Asciidoctor::Block.new doc, :paragraph
       block.attributes['subs'] = 'quotes,normal'
-      block.lock_in_subs
+      block.commit_subs
       assert_equal [:quotes, :specialcharacters, :attributes, :replacements, :macros, :post_replacements], block.subs
     end
 
     test 'should resolve specialcharacters sub as highlight for source block when source highlighter is coderay' do
-      doc = empty_document :attributes => {'source-highlighter' => 'coderay'}
-      block = Asciidoctor::Block.new(doc, :listing, :content_model => :verbatim)
+      doc = empty_document attributes: { 'source-highlighter' => 'coderay' }, parse: true
+      block = Asciidoctor::Block.new doc, :listing, content_model: :verbatim
       block.style = 'source'
       block.attributes['subs'] = 'specialcharacters'
       block.attributes['language'] = 'ruby'
-      block.lock_in_subs
+      block.commit_subs
       assert_equal [:highlight], block.subs
     end
 
     test 'should resolve specialcharacters sub as highlight for source block when source highlighter is pygments' do
-      doc = empty_document :attributes => {'source-highlighter' => 'pygments'}
-      block = Asciidoctor::Block.new(doc, :listing, :content_model => :verbatim)
+      doc = empty_document attributes: { 'source-highlighter' => 'pygments' }, parse: true
+      block = Asciidoctor::Block.new doc, :listing, content_model: :verbatim
       block.style = 'source'
       block.attributes['subs'] = 'specialcharacters'
       block.attributes['language'] = 'ruby'
-      block.lock_in_subs
+      block.commit_subs
       assert_equal [:highlight], block.subs
-    end
+    end if ENV['PYGMENTS']
 
-    test 'should not resolve specialcharacters sub as highlight for source block when source highlighter is not set' do
-      doc = empty_document
-      block = Asciidoctor::Block.new(doc, :listing, :content_model => :verbatim)
+    test 'should not replace specialcharacters sub with highlight for source block when source highlighter is not set' do
+      doc = empty_document parse: true
+      block = Asciidoctor::Block.new doc, :listing, content_model: :verbatim
       block.style = 'source'
       block.attributes['subs'] = 'specialcharacters'
       block.attributes['language'] = 'ruby'
-      block.lock_in_subs
+      block.commit_subs
       assert_equal [:specialcharacters], block.subs
     end
 
     test 'should not use subs if subs option passed to block constructor is nil' do
-      doc = empty_document
-      block = Asciidoctor::Block.new doc, :paragraph, :source => '*bold* _italic_', :subs => nil, :attributes => {'subs' => 'quotes'}
+      doc = empty_document parse: true
+      block = Asciidoctor::Block.new doc, :paragraph, source: '*bold* _italic_', subs: nil, attributes: { 'subs' => 'quotes' }
       assert_empty block.subs
-      block.lock_in_subs
+      block.commit_subs
       assert_empty block.subs
     end
 
     test 'should not use subs if subs option passed to block constructor is empty array' do
-      doc = empty_document
-      block = Asciidoctor::Block.new doc, :paragraph, :source => '*bold* _italic_', :subs => [], :attributes => {'subs' => 'quotes'}
+      doc = empty_document parse: true
+      block = Asciidoctor::Block.new doc, :paragraph, source: '*bold* _italic_', subs: [], attributes: { 'subs' => 'quotes' }
       assert_empty block.subs
-      block.lock_in_subs
+      block.commit_subs
       assert_empty block.subs
     end
 
     test 'should use subs from subs option passed to block constructor' do
-      doc = empty_document
-      block = Asciidoctor::Block.new doc, :paragraph, :source => '*bold* _italic_', :subs => [:specialcharacters], :attributes => {'subs' => 'quotes'}
+      doc = empty_document parse: true
+      block = Asciidoctor::Block.new doc, :paragraph, source: '*bold* _italic_', subs: [:specialcharacters], attributes: { 'subs' => 'quotes' }
       assert_equal [:specialcharacters], block.subs
-      block.lock_in_subs
+      block.commit_subs
       assert_equal [:specialcharacters], block.subs
     end
 
     test 'should use subs from subs attribute if subs option is not passed to block constructor' do
-      doc = empty_document
-      block = Asciidoctor::Block.new doc, :paragraph, :source => '*bold* _italic_', :attributes => {'subs' => 'quotes'}
+      doc = empty_document parse: true
+      block = Asciidoctor::Block.new doc, :paragraph, source: '*bold* _italic_', attributes: { 'subs' => 'quotes' }
       assert_empty block.subs
-      # in this case, we have to call lock_in_subs to resolve the subs
-      block.lock_in_subs
+      # in this case, we have to call commit_subs to resolve the subs
+      block.commit_subs
       assert_equal [:quotes], block.subs
     end
 
     test 'should use subs from subs attribute if subs option passed to block constructor is :default' do
-      doc = empty_document
-      block = Asciidoctor::Block.new doc, :paragraph, :source => '*bold* _italic_', :subs => :default, :attributes => {'subs' => 'quotes'}
+      doc = empty_document parse: true
+      block = Asciidoctor::Block.new doc, :paragraph, source: '*bold* _italic_', subs: :default, attributes: { 'subs' => 'quotes' }
       assert_equal [:quotes], block.subs
-      block.lock_in_subs
+      block.commit_subs
       assert_equal [:quotes], block.subs
     end
 
     test 'should use built-in subs if subs option passed to block constructor is :default and subs attribute is absent' do
-      doc = empty_document
-      block = Asciidoctor::Block.new doc, :paragraph, :source => '*bold* _italic_', :subs => :default
+      doc = empty_document parse: true
+      block = Asciidoctor::Block.new doc, :paragraph, source: '*bold* _italic_', subs: :default
       assert_equal [:specialcharacters, :quotes, :attributes, :replacements, :macros, :post_replacements], block.subs
-      block.lock_in_subs
+      block.commit_subs
       assert_equal [:specialcharacters, :quotes, :attributes, :replacements, :macros, :post_replacements], block.subs
-    end
-  end
-
-  # TODO move to helpers_test.rb
-  context 'Helpers' do
-    test 'should URI encode non-word characters generally' do
-      given = ' /%&?\\'
-      expect = '%20%2F%25%26%3F%5C'
-      assert_equal expect, (Asciidoctor::Helpers.uri_encode given)
-    end
-
-    test 'should not URI select non-word characters' do
-      given = '-.!~*\';:@=+$,()[]'
-      expect = given
-      assert_equal expect, (Asciidoctor::Helpers.uri_encode given)
     end
   end
 end

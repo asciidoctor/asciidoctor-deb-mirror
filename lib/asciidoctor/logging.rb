@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 require 'logger'
 
 module Asciidoctor
@@ -22,7 +23,7 @@ class Logger < ::Logger
     SEVERITY_LABELS = { 'WARN' => 'WARNING', 'FATAL' => 'FAILED' }
 
     def call severity, _, progname, msg
-      %(#{progname}: #{SEVERITY_LABELS[severity] || severity}: #{::String === msg ? msg : msg.inspect}\n)
+      %(#{progname}: #{SEVERITY_LABELS[severity] || severity}: #{::String === msg ? msg : msg.inspect}#{LF})
     end
   end
 
@@ -34,8 +35,7 @@ class Logger < ::Logger
 end
 
 class MemoryLogger < ::Logger
-  # NOTE Ruby 1.8.7 returns constants as strings instead of symbols
-  SEVERITY_LABELS = ::Hash[Severity.constants.map {|c| [(Severity.const_get c), c.to_sym] }]
+  SEVERITY_LABELS = {}.tap {|accum| (Severity.constants false).each {|c| accum[Severity.const_get c, false] = c } }
 
   attr_reader :messages
 
@@ -46,7 +46,7 @@ class MemoryLogger < ::Logger
 
   def add severity, message = nil, progname = nil
     message = block_given? ? yield : progname unless message
-    @messages << { :severity => SEVERITY_LABELS[severity || UNKNOWN], :message => message }
+    @messages << { severity: SEVERITY_LABELS[severity || UNKNOWN], message: message }
     true
   end
 
@@ -59,14 +59,16 @@ class MemoryLogger < ::Logger
   end
 
   def max_severity
-    empty? ? nil : @messages.map {|m| Severity.const_get m[:severity] }.max
+    empty? ? nil : @messages.map {|m| Severity.const_get m[:severity], false }.max
   end
 end
 
 class NullLogger < ::Logger
   attr_reader :max_severity
 
-  def initialize; end
+  def initialize
+    self.level = WARN
+  end
 
   def add severity, message = nil, progname = nil
     if (severity ||= UNKNOWN) > (@max_severity ||= severity)
@@ -87,36 +89,37 @@ module LoggerManager
       @logger ||= (@logger_class.new pipe)
     end
 
-    def logger= logger
-      @logger = logger || (@logger_class.new $stderr)
+    def logger= new_logger
+      @logger = new_logger || (@logger_class.new $stderr)
     end
 
     private
+
     def memoize_logger
       class << self
-        alias_method :logger, :logger
-        if RUBY_ENGINE == 'opal'
-          define_method :logger do @logger end
-        else
-          attr_reader :logger
-        end
+        alias logger logger # suppresses warning from CRuby
+        attr_reader :logger
       end
     end
   end
 end
 
 module Logging
-  def self.included into
+  # Private: Mixes the {Logging} module as static methods into any class that includes the {Logging} module.
+  #
+  # into - The Class that includes the {Logging} module
+  #
+  # Returns nothing
+  private_class_method def self.included into
     into.extend Logging
-  end
+  end || :included
 
-  private
   def logger
     LoggerManager.logger
   end
 
   def message_with_context text, context = {}
-    ({ :text => text }.merge context).extend Logger::AutoFormattingMessage
+    ({ text: text }.merge context).extend Logger::AutoFormattingMessage
   end
 end
 end

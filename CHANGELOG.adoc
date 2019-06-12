@@ -1,5 +1,5 @@
 = Asciidoctor Changelog
-:uri-asciidoctor: http://asciidoctor.org
+:uri-asciidoctor: https://asciidoctor.org
 :uri-asciidoc: {uri-asciidoctor}/docs/what-is-asciidoc
 :uri-repo: https://github.com/asciidoctor/asciidoctor
 :icons: font
@@ -8,10 +8,310 @@ ifndef::icons[]
 :star: &#9733;
 endif::[]
 
-{uri-asciidoctor}[Asciidoctor] is a _fast_, open source text processor and publishing toolchain for converting {uri-asciidoc}[AsciiDoc] content into HTML5, DocBook 5 (or 4.5) and other formats.
+{uri-asciidoctor}[Asciidoctor] is a _fast_, open source text processor and publishing toolchain for converting {uri-asciidoc}[AsciiDoc] content into HTML 5, DocBook 5, and other formats.
 
 This document provides a high-level view of the changes introduced in Asciidoctor by release.
 For a detailed view of what has changed, refer to the {uri-repo}/commits/master[commit history] on GitHub.
+
+// tag::compact[]
+== 2.0.10 (2019-05-31) - @mojavelinux
+
+Bug Fixes::
+
+  * fix Asciidoctor.convert_file to honor `header_footer: false` option when writing to file (#3316)
+  * fix placement of title on excerpt block (#3289)
+  * always pass same options to SyntaxHighlighter#docinfo, regardless of value of location argument
+  * fix signature of SyntaxHighlighter#docinfo method (#3300)
+  * when `icons` is set to `image`, enable image icons, but don't use it as the value of the `icontype` attribute (#3308)
+
+// end::compact[]
+== 2.0.9 (2019-04-30) - @mojavelinux
+
+Bug Fixes::
+
+  * process multiple single-item menu macros in same line (#3279)
+  * register images in catalog correctly (#3283)
+  * rename AbstractNode#options method to AbstractNode#enabled_options so it doesn't get shadowed by Document#options (#3282)
+  * don't fail to convert document if alt attribute is not set on block or inline image (typically by an extension)
+  * fix lineno of source location on blocks that follow a detached list continuation (#3281)
+  * assume inline image type is "image" if not set (typically by an extension)
+
+== 2.0.8 (2019-04-22) - @mojavelinux
+
+Bug Fixes::
+
+  * restore background color applied to literal blocks by default stylesheet (#3258)
+  * use portability constants (CC_ALL, CC_ANY) in regular expressions defined in built-in converters (DocBook5 and ManPage)
+  * use portability constant (CC_ANY) in regular expression for custom inline macros
+  * use smarter margin collapsing for AsciiDoc table cell content; prevent passthrough content from being cut off (#3256)
+  * don't limit footnote ref to ASCII charset; allow any word character in Unicode to be used (#3269)
+
+Improvements::
+
+  * register_for methods accept arguments as symbols (#3274)
+  * use Concurrent::Map instead of Concurrent::Hash in template converter
+  * use module_function keyword to define methods in Helpers
+  * move regular expression definitions to separate source file (internal change)
+
+== 2.0.7 (2019-04-13) - @mojavelinux
+
+Bug Fixes::
+
+  * fix crash when resolving ID from text and at least one candidate contains an unresolved xref (#3254)
+  * fix compatibility with Rouge 2.0
+
+Improvements::
+
+  * improve documentation for the `-a` CLI option; explain that `@` modifier can be placed at end of name as alternative to end of value
+  * move source for main API entry points (load, load_file, convert, convert_file) to separate files (internal change)
+  * define main API entry points (load, load_file, convert, convert_file) as module functions
+
+Also see https://github.com/asciidoctor/asciidoctor/milestone/33?closed=1[issues resolved in 2.0.x] (cumulative).
+
+== 2.0.6 (2019-04-04) - @mojavelinux
+
+Bug Fixes::
+
+  * assume implicit AsciiDoc extension on interdoc xref macro target with no extension (e.g., `document#`); restores 1.5.x behavior (#3231)
+  * don't fail to load application if call to Dir.home fails; use a rescue with fallback values (#3238)
+  * Helpers.rootname should only consider final path segment when dropping file extension
+
+Improvements::
+
+  * implement Helpers.extname as a more efficient and flexible File.extname method
+  * check for AsciiDoc file extension using end_with? instead of resolving the extname and using a lookup
+
+Also see https://github.com/asciidoctor/asciidoctor/milestone/33?closed=1[issues resolved in 2.0.x] (cumulative).
+
+== 2.0.5 (2019-04-01) - @mojavelinux
+
+Bug Fixes::
+
+  * fix crash when source highlighter is Rouge and source language is not set on block (#3223)
+  * update CLI and SyntaxHighlighter to allow Asciidoctor to load cleanly on Ruby 2.0 - 2.2
+  * CLI should use $stdin instead of STDIN to be consistent with the use of $stdout
+  * mark encoding of stdio objects used in CLI as UTF-8 (#3225)
+  * make Asciidoctor::SyntaxHighlighter::Config.register_for method public as documented
+
+Also see https://github.com/asciidoctor/asciidoctor/milestone/33?closed=1[issues resolved in 2.0.x] (cumulative).
+
+== 2.0.4 (2019-03-31) - @mojavelinux
+
+Bug Fixes::
+
+  * allow Asciidoctor to load cleanly on Ruby 2.0 - 2.2 for distributions that provide support for these older Ruby versions
+  * make Asciidoctor::Converter::Config.register_for method public as documented
+  * remove unused Asciidoctor::Converter::BackendTraits#derive_backend_traits private method
+  * move Asciidoctor::Converter::BackendTraits.derive_backend_traits method to Asciidoctor::Converter
+  * mark render and render_file methods as deprecated in API docs
+
+Also see https://github.com/asciidoctor/asciidoctor/milestone/33?closed=1[issues resolved in 2.0.x] (cumulative).
+
+== 2.0.3 (2019-03-28) - @mojavelinux
+
+Bug Fixes::
+
+  * fix crash when attrlist is used on literal monospace phrase (#3216)
+  * update use of magic regexp variables to fix compatibility with Opal / Asciidoctor.js (#3214)
+
+Also see https://github.com/asciidoctor/asciidoctor/milestone/33?closed=1[issues resolved in 2.0.x] (cumulative).
+
+== 2.0.2 (2019-03-26) - @mojavelinux
+
+Bug Fixes::
+
+  * apply verbatim substitutions to literal paragraphs attached to list item (#3205)
+  * implement #lines and #source methods on Table::Cell based on cell text (#3207)
+
+Also see https://github.com/asciidoctor/asciidoctor/milestone/33?closed=1[issues resolved in 2.0.x] (cumulative).
+
+== 2.0.1 (2019-03-25) - @mojavelinux
+
+Bug Fixes::
+
+  * convert titles of cataloged block and section nodes containing attribute references eagerly to resolve attributes while in scope (#3202)
+  * customize MathJax (using a postfilter hook) to apply displaymath formatting to AsciiMath block (#2498)
+  * fix misspelling of deprecated default_attrs DSL function (missing trailing "s")
+  * remove unused location property (attr_accessor :location) on DocinfoProcessor class
+  * look for deprecated extension option :pos_attrs if :positional_attrs option is missing (#3199)
+  * add detail to load error message if path differs from gem name (#1884)
+
+Build / Infrastructure::
+
+  * bundle .yardopts in RubyGem (#3193)
+
+Also see https://github.com/asciidoctor/asciidoctor/milestone/33?closed=1[issues resolved in 2.0.x] (cumulative).
+
+== 2.0.0 (2019-03-22) - @mojavelinux
+
+Enhancements / Compliance::
+
+  * drop support for Ruby < 2.3 and JRuby < 9.1 and remove workarounds (#2764)
+  * drop support for Slim < 3 (#2998)
+  * drop the converter for the docbook45 backend (#3005)
+  * apply substitutions to section and block titles in normal substitution order (#1173)
+  * make syntax highlighter pluggable; extract all logic into adapter classes (#2106)
+  * add syntax highlighter adapter for Rouge (#1040)
+  * redesign Converter API based on SyntaxHighlighter API; remap deprecated API to new API to ensure compatibility (#2891)
+  * repurpose built-in converters as regular converters (#2891)
+  * make registration and resolution of global converters thread-safe (#2891)
+  * fold the default converter factory into the Converter module (#2891)
+  * add a default implementation for Converter#convert in the Base converter (#2891)
+  * rename Converter::BackendInfo to Converter::BackendTraits; map backend_info to new backend_traits method (#2891)
+  * allow built-in converter classes to be resolved using Converter#for and instantiated using Converter#create (#2891)
+  * allow converter factory to be passed using :converter_factory API option (#2891)
+  * honor htmlsyntax if defined on converter (#2891)
+  * add backend_traits_source keyword argument to CompositeConverter constructor (#2891)
+  * add support for start attribute when using prettify to highlight source blocks with line numbering enabled
+  * use String#encode to encode String as UTF-8 instead of using String#force_encoding (#2764)
+  * add FILE_READ_MODE, URI_READ_MODE, and FILE_WRITE_MODE constants to control open mode when reading files and URIs and writing files (#2764)
+  * set visibility of private and protected methods (#2764)
+  * always run docinfo processor extensions regardless of safe mode (gives control to extension) (#2966)
+  * use infinitive verb form for extension DSL method names; map deprecated method names where appropriate
+  * add docinfo insertion slot for header location to built-in converters (#1720)
+  * add support for the `muted` option on vimeo videos (allows autoplay to work in Chrome) (#3014)
+  * use value of prettify-theme attribute as is if it starts with http:// or https:// (#3020)
+  * allow icontype to be set using icons attribute (#2953)
+  * when using a server-side syntax highlighter, highlight content of source block even if source language is not set (#3027)
+  * automatically promote a listing block without an explicit style to a source block if language is set (#1117)
+  * remove the 2-character (i.e., `""`) quote block syntax
+  * don't allow block role to inherit from document attribute; only look for role in block attributes (#1944)
+  * split out functionality of -w CLI flag (script warnings) from -v CLI flag (verbose logging) (#3030)
+  * log possible invalid references at info level (#3030)
+  * log dropped lines at info level when attribute-missing=drop-line (#2861)
+  * honor attribute-missing setting when processing include directives and block macros (#2855)
+  * log warning when include directive is not resolved due to missing attribute or blank target; always include warning in output document (#2868)
+  * use the third argument of AbstractNode#attr / AbstractNode#attr? to set the name of a fallback attribute to look for on the document (#1934)
+  * change default value of third argument to Abstractnode#attr / AbstractNode#attr? to nil so attribute doesn't inherit by default (#3059)
+  * look for table-frame, table-grid, and table-stripes attributes on document as fallback for frame, grid, and stripes attributes on table (#3059)
+  * add support for hover mode for table stripes (stripes=hover) (#3110)
+  * always assume the target of a shorthand interdocument xref is a reference to an AsciiDoc document (source-to-source) (#3021)
+  * if the target of a formal xref macro has a file extension, assume it's a path reference (#3021)
+  * never assume target of a formal xref macro is a path reference unless a file extension or fragment is present (#3021)
+  * encode characters in URI to comply with RFC-3986
+  * implement full support for styled xreftext in manpage converter (#3077)
+  * allow the ID and role properties to be set on a list item of ordered and unordered lists via the API (#2840)
+  * yield processor instance to registration block for document processor if block has non-zero arity (i.e., has parameters)
+  * add Document#parsed? method to check whether document has been parsed
+  * modify Cell class to extend from AbstractBlock instead of AbstractNode (#2963)
+  * implement block? and inline? methods on Column, both which return false (#2963)
+  * drop verse table cell style (treat as normal table cell) (#3111)
+  * allow negated subs to be specified on inline pass macro (#2191)
+  * log warning if footnoteref macro is found and compat mode is not enabled (#3114)
+  * log info message if inline macro processor returns a String value (#3176)
+  * apply subs to Inline node returned by inline macro processor if subs attribute is specified (#3178)
+  * add create_inline_pass helper method to base extension processor class (#3178)
+  * log debug message instead of warning if block style is unknown (#3092)
+  * allow backend to delegate to a registered backend using the syntax synthetic:delegate when using custom templates (e.g., slides:html) (#891)
+  * AbstractBlock#find_by looks inside AsciiDoc table cells if traverse_documents selector option is true (#3101)
+  * AbstractBlock#find_by finds table cells, which can be selected using the :table_cell context in the selector (#2524)
+  * allow ampersand to be used in e-mail address (#2553)
+  * propogate ID assigned to inline passthrough (#2912)
+  * rename control keywords in find_by to better align with the standard NodeFilter terminology
+  * stop find_by iteration if filter block returns :stop directive
+  * rename header_footer option to standalone (while still honoring header_footer for backwards compatibility) (#1444)
+  * replace anchors and xrefs before footnotes (replace footnotes last in macros substitution group)
+  * apply substitution for custom inline macro before all other macros
+  * only promote index terms automatically (A, B, C becomes A > B > C + B > C + C) if indexterm-promotion option is set on document (#1487)
+  * add support for see and see-also on index terms; parse attributes on indexterm macros if text contains `=` (#2047)
+  * drop :indexterms table from document catalog (in preparation for solution to #450 in a 2.x release)
+  * load additional languages for highlight.js as defined in the comma-separated highlightjs-languages attribute (#3036)
+  * log warning if conditional expression in ifeval directive is invalid (#3161)
+  * drop lines that contain an invalid preprocessor directive (#3161)
+  * rename AbstractBlock#find_by directives; use :prune in place of :skip_children and :reject in place of :skip
+  * convert example block into details/summary tag set if collapsible option is set; open by default if open option is set (#1699)
+  * substitute replacements in author values used in document header (#2441)
+  * require space after semi-colon that separates multiple authors (#2441)
+  * catalog inline anchors at start of callout list items (#2818) (*@owenh000*)
+  * add parse_attributes helper method to base extension Processor class (#2134)
+
+Improvements::
+
+  * propagate document ID to DocBook output (#3011)
+  * always store section numeral as string; compute roman numeral for part at assignment time (@vmj)
+  * refactor code to use modern Hash syntax
+  * define LIB_DIR constant; rename *_PATH constants to *_DIR constants to be consistent with RubyGems terminology (#2764)
+  * only define ROOT_DIR if not already defined (for compatibility with Asciidoctor.js)
+  * move custom docinfo content in footer below built-in docinfo content in footer in HTML converter (#3017)
+  * read and write files using File methods instead of IO methods (#2995)
+  * value comparison in AbstractNode#attr? is only performed if expected value is truthy
+  * align default CodeRay style with style for other syntax highlighters (#2106)
+  * ensure linenos class is added to linenos column when source highlighter is pygments and pygments-css=style
+  * disable table stripes by default (#3110)
+  * rename CSS class of Pygments line numbering table to linenotable (to align with Rouge) (#1040)
+  * remove unused Converter#convert_with_options method (#2891)
+  * add -e, --embedded CLI flag as alias for -s, --no-header-footer (require long option to specify eRuby impl) (#1444)
+  * don't store the options attribute on the block once the options are parsed (#3051)
+  * add an options method on AbstractNode to retrieve the set of option names (#3051)
+  * pass :input_mtime option to Document constructor; let Document constructor assign docdate/time/year attributes (#3029)
+  * never mutate strings; add a `frozen_string_literal: true` magic comment to top of all Ruby source files (#3054)
+  * always use docdate and doctime to compute docyear and docdatetime (#3064)
+  * rename PreprocessorReader#exceeded_max_depth? to PreprocessorReader#exceeds_max_depth? and return nil if includes are disabled
+  * stop populating :ids table in document catalog (#3084)
+  * always use :refs table in document catalog to look for registered IDs (#3084)
+  * don't compute and store reference text in document catalog (#3084)
+  * populate reference text table lazily for resolving ID by reference text (#3084)
+  * don't store fallback reference text on :bibref node (#3085)
+  * call AbstractNode#reftext instead of AbstractNode#text to retrieve reference text for bibref node (#3085)
+  * only map unparsed attrlist of inline macro to target when format is short
+  * add clearer exception message when source data is binary or has invalid encoding (#2884)
+  * rename context for table cell and table column to :table_cell and :table_column, respectively
+  * rename hardbreaks document attribute to hardbreaks-option; retain hardbreaks as a deprecated alias (#3123)
+  * extend TLD for implicit e-mail addresses to 5 characters (#3154)
+  * truncate with precision (instead of rounding) when computing absolute width for columns in DocBook output (#3131)
+  * drop legacy LaTeX math delimiters (e.g, `$..$`) if present (#1339)
+  * use proper terminology in warning message about mismatched preprocessor directive (#3165)
+  * rename low-level extension attribute name :pos_attrs to :positional_attrs
+  * mark default_attrs extension DSL method deprecated in favor of default_attributes
+  * upgrade MathJax to 2.7.5
+
+Bug Fixes::
+
+  * fix crash caused by inline passthrough macro with the macros sub clearing the remaining passthrough placeholders (#3089)
+  * fix crash if ifeval directive is missing expression (#3164)
+  * prevent relative leveloffset from making section level negative and causing hang (#3152)
+  * don't fail to parse Markdown-style quote block that only contains attribution line (#2989)
+  * enforce rule that Setext section title must have at least one alphanumeric character; fixes problem w/ block nested inside quote block (#3060)
+  * apply header subs to doctitle value when assigning it back to the doctitle document attribute (#3106)
+  * don't fail if value of pygments-style attribute is not recognized; gracefully fallback to default style (#2106)
+  * do not alter the $LOAD_PATH (#2764)
+  * fix crash if stem block is empty (#3118)
+  * remove conditional comment for IE in output of built-in HTML converter; fixes sidebar table of contents (#2983)
+  * fix styling of source blocks with linenums enabled when using prettify as syntax highlighter (#640)
+  * update default stylesheet to support prettify themes (#3020)
+  * remove hard-coded color values on source blocks in default stylesheet (#3020)
+  * add fallback if relative path cannot be computed because the paths are located on different drives (#2944)
+  * ignore explicit section level style (#1852)
+  * don't eat space before callout number in source block if line-comment attribute is empty (#3121)
+  * check if type is defined in a way that's compatible with autoload
+  * fix invalid check for DSL in extension class (previously always returned true)
+  * scope constant lookups (#2764)
+  * use byteslice instead of slice to remove BOM from string (#2764)
+  * don't fail if value of -a CLI option is empty string or equals sign (#2997)
+  * allow failure level of CLI to be set to info
+  * Reader#push_include should not fail if data is nil
+  * fix deprecated ERB trim mode that was causing warning (#3006)
+  * move time anchor after query string on vimeo video to avoid dropping options
+  * allow color for generic text, line numbers, and line number border to inherit from Pygments style (#2106)
+  * enforce and report relative include depth properly (depth=0 rather than depth=1 disables nested includes)
+  * allow outfilesuffix to be soft set from API (#2640)
+  * don't split paragraphs in table cell at line that resolves to blank if adjacent to other non-blank lines (#2963)
+  * initialize the level to WARN when instantiating the NullLogger
+  * next_adjacent_block should not fail when called on dlist item (#3133)
+  * don't suppress browser styles for summary tag; add pointer cursor and panel margin bottom (#3155)
+  * only consider TLDs in e-mail address that have ASCII alpha characters
+  * allow underscore in domain of e-mail address
+
+Build / Infrastructure::
+
+  * clear SOURCE_DATE_EPOCH env var when testing timezones (PR #2969) (*@aerostitch*)
+  * remove compat folder (removes the AsciiDoc Python config file that provides pseudo-compliance with Asciidoctor and a stylesheet for an old Font Awesome migration)
+  * add Ruby 2.6.0 to build matrix
+  * stop running CI job on unsupported versions of Ruby
+  * exclude test suite, build script, and Gemfile from gem (#3044)
+  * split build tasks out into individual files
+
+Also see https://github.com/asciidoctor/asciidoctor/milestone/33?closed=1[issues resolved in 2.0.x] (cumulative).
 
 == 1.5.8 (2018-10-28) - @mojavelinux
 
@@ -39,7 +339,7 @@ Enhancements::
   * allow starting line number to be set using start attribute when highighting source block with Pygments or CodeRay (#1742)
   * upgrade highlight.js to 9.13.1
 
-Fixes::
+Bug Fixes::
 
   * don't hang on description list item that begins with /// (#2888)
   * don't crash when using AsciiDoc table cell style on column in CSV table (#2817)
@@ -102,10 +402,9 @@ Build / Infrastructure::
 
   * replace thread_safe with concurrent-ruby (PR #2822) (*@junaruga*)
 
-// tag::compact[]
 == 1.5.7.1 (2018-05-10) - @mojavelinux
 
-Fixes::
+Bug Fixes::
 
   * fix regression where block attributes where being inherited by sibling blocks in a complex list item (#2771)
   * don't apply lead styling to first paragraph in nested document (AsciiDoc table cell) if role is present (#2624)
@@ -142,6 +441,7 @@ Enhancements::
   * number parts if `partnums` attribute is set (#2298)
   * allow footnote macro to define or reference footnote reference (footnoteref macro now deprecated) (#2347, PR #2362)
   * allow custom converter to be used with custom templates; converter must declare that it supports templates (#2619)
+  * add syntax help topic to CLI (`-h syntax`) (#1573)
   * allow manpage path for manpage help topic to be specified using ASCIIDOCTOR_MANPAGE_PATH environment variable (PR #2653) (*@aerostitch*)
   * if manpage cannot be found in default path inside gem, use `man -w asciidoctor` to resolve installed path (PR #2653)
   * uncompress contents of manpage for manpage help topic if path ends with .gz (PR #2653) (*@aerostitch*)
@@ -170,7 +470,7 @@ Enhancements::
   * upgrade to Font Awesome 4.7.0 (#2569)
   * upgrade to MathJax 4.7.4
 
-Bug fixes::
+Bug Fixes::
 
   * set `:to_dir` option value correctly when output file is specified (#2382)
   * preserve leading indentation in contents of AsciiDoc table cell if contents starts with a newline (#2712)
@@ -293,11 +593,10 @@ Distribution Packages::
   * https://packages.ubuntu.com/search?keywords=asciidoctor[Ubuntu (asciidoctor)]
   * https://pkgs.alpinelinux.org/packages?name=asciidoctor[Alpine Linux (asciidoctor)]
   * https://software.opensuse.org/package/rubygem-asciidoctor[OpenSUSE (rubygem-asciidoctor)]
-// end::compact[]
 
 == 1.5.6.2 (2018-03-20) - @mojavelinux
 
-Bug fixes::
+Bug Fixes::
 
   * fix match for multiple xref macros w/ implicit text in same line (#2450)
   * PathResolver#root? returns true for absolute URL in browser env (#2595)
@@ -336,7 +635,7 @@ Enhancements::
 
   * Don't include title of special section in DocBook output if untitled option is set (e.g., dedication%untitled)
 
-Bug fixes::
+Bug Fixes::
 
   * continue to read blocks inside a delimited block after content is skipped (PR #2318)
   * don't create an empty paragraph for skipped content inside a delimited block (PR #2319)
@@ -390,6 +689,7 @@ https://github.com/asciidoctor/asciidoctor/compare/v1.5.6\...v1.5.6.1[full diff]
 == 1.5.6 (2017-07-12) - @mojavelinux
 
 Enhancements::
+
   * use custom cross reference text if xrefstyle attribute is set (full, short, basic) (#858, #1132)
   * store referenceable nodes under refs key in document catalog (PR #2220)
   * apply reftext substitutions (specialchars, quotes, replacements) to value returned by reftext method (PR #2220)
@@ -426,6 +726,7 @@ Enhancements::
   * add Cell#text= method
 
 Improvements::
+
   * significant improvements to performance, especially in parser and substitutors
   * process include directive inside text of short form preprocessor conditional (#2146)
   * add support for include tags in languages that only support only circumfix comments (#1729)
@@ -487,6 +788,7 @@ Improvements::
   * rename macro regexp constants so name follows type (e.g., InlineImageMacroRx)
 
 Compliance::
+
   * retain block content in items of callout list when converting to HTML and man page (#1478)
   * only substitute specialchars for content in literal table cells (#1912)
   * fix operator logic for ifndef directive with multiple attributes (#1983)
@@ -530,7 +832,8 @@ Compliance::
   * remove regexp hacks for Opal (#2110)
   * drop outdated quoting exceptions for Opal (PR #2081)
 
-Bug fixes::
+Bug Fixes::
+
   * don't allow table borders to cascade to nested tables (#2151)
   * escape special characters in reftext of anchor (#1694)
   * sanitize content of authors meta tag in HTML output (#2112)
@@ -566,6 +869,7 @@ Bug fixes::
   * handle cases when there are no lines for include directive to select
 
 Documentation::
+
   * enable admonition icons in README when displayed on GitHub
   * add German translation of chapter-label (PR #1920) (*@fapdash*)
   * add Ukrainian translation of built-in attributes (PR #1955) (*@hedrok*)
@@ -576,6 +880,7 @@ Documentation::
   * add Bahasa Indonesia translation of built-in labels (*@triyanwn*)
 
 Build / Infrastructure::
+
   * upgrade highlight.js to 9.12.0 (#1652)
   * include entire test suite in gem (PR #1952) (*@voxik*)
   * upgrade Slim development dependency to 3.0.x (PR #1953) (*@voxik*)
@@ -607,6 +912,7 @@ https://github.com/asciidoctor/asciidoctor/compare/v1.5.5\...v1.5.6[full diff]
 == 1.5.5 (2016-10-05) - @mojavelinux
 
 Enhancements::
+
   * Add preference to limit the maximum size of an attribute value (#1861)
   * Honor SOURCE_DATE_EPOCH environment variable to accomodate reproducible builds (#1721) (*@JojoBoulix*)
   * Add reversed attribute to ordered list if reversed option is enabled (#1830)
@@ -618,6 +924,7 @@ Enhancements::
   * Translate README to Japanese (*@Mizuho32*)
 
 Improvements::
+
   * Style nested emphasized phrases properly when using default stylesheet (#1691)
   * Honor explicit table width even when autowidth option is set (#1843)
   * Only explicit noheader option on table should disable implicit table header (#1849)
@@ -638,11 +945,12 @@ Improvements::
   * Rename definition list to description list internally
 
 Compliance::
+
   * Support 6-digit decimal char refs, 5-digit hexidecimal char refs (#1824)
   * Compatibility fixes for Opal
   * Check for number using Integer instead of Fixnum class for compatibility with Ruby 2.4
 
-Bug fixes::
+Bug Fixes::
   * Use method_defined? instead of respond_to? to check if method is already defined when patching (#1838)
   * Fix invalid conditional in HTML5 converter when handling of SVG
   * Processor#parse_content helper no longer shares attribute list between blocks (#1651)
@@ -654,6 +962,7 @@ Bug fixes::
   * Don't duplicate forward slash for path relative to root (#1822)
 
 Infrastructure::
+
   * Build gem properly in the absense of a git workspace, make compatible with JRuby (#1779)
   * Run tests in CI using latest versions of Ruby, including Ruby 2.3 (*@ferdinandrosario*)
 
@@ -672,10 +981,12 @@ https://github.com/asciidoctor/asciidoctor/compare/v1.5.4\...v1.5.5[full diff]
 == 1.5.4 (2016-01-03) - @mojavelinux
 
 Enhancements::
+
   * translate README into French (#1630) (*@anthonny*, *@mogztter*, *@gscheibel*, *@mgreau*)
   * allow linkstyle in manpage output to be configured (#1610)
 
 Improvements::
+
   * upgrade to MathJax 2.6.0 and disable loading messages
   * upgrade to Font Awesome 4.5.0
   * disable toc if document has no sections (#1633)
@@ -687,12 +998,14 @@ Improvements::
   * allow asciidoctor cli to resolve library path when invoked without leading ./
 
 Compliance::
+
   * allow special section to be nested at any depth (#1591)
   * ensure colpcwidth values add up to 100%; increase precision of values to 4 decimal places (#1647)
   * ignore blank cols attribute on table (#1647)
   * support shorthand syntax for block attributes on document title (#1650)
 
-Bug fixes::
+Bug Fixes::
+
   * don't include default toc in AsciiDoc table cell; don't pass toc location attributes to nested document (#1582)
   * guard against nil dlist list item in find_by (#1618)
   * don't swallow trailing line when include file is not readable (#1602)
@@ -710,7 +1023,8 @@ Bug fixes::
   * don't fail if library is loaded more than once
 
 Infrastructure::
-  * remove trailing endlines in project source code
+
+  * remove trailing newlines in project source code
   * update contributing guidelines
   * explicitly test ifeval scenario raised in issue #1585
   * remove backreference substitution hack for Opal/Asciidoctor.js
@@ -731,6 +1045,7 @@ https://github.com/asciidoctor/asciidoctor/compare/v1.5.3\...v1.5.4[full diff]
 == 1.5.3 (2015-10-31) - @mojavelinux
 
 Enhancements::
+
   * add support for interactive & inline SVGs (#1301, #1224)
   * add built-in manpage backend (#651) (*@davidgamba*)
   * create Mallard backend; asciidoctor/asciidoctor-mallard (#425) (*@bk2204*)
@@ -743,6 +1058,7 @@ Enhancements::
   * make XrefInlineRx regexp more permissive (Mathieu Boespflug) (#844)
 
 Improvements::
+
   * load JavaScript and CSS at bottom of HTML document (#1238) (*@mogztter*)
   * list available backends in help text (#1271) (*@plaindocs*)
   * properly expand tabs in literal text (#1170, #841)
@@ -785,6 +1101,7 @@ Improvements::
   * prevent CodeRay from bolding every 10th line number
 
 Compliance::
+
   * use `<sup>` for footnote reference in text instead of `<span>` (#1523)
   * fix alignment of wrapped text in footnote (#1524)
   * include full stop after footnote number in embeddable HTML
@@ -792,7 +1109,8 @@ Compliance::
   * resolve missing attribute in ifeval to empty string (#1387)
   * support unbreakable & breakable options on table (rockyallen) (#1140)
 
-Bug fixes::
+Bug Fixes::
+
   * don't truncate exception stack in `Asciidoctor.load` (#1248)
   * don't fail to save cause of Java exception (#1458) (*@robertpanzer*)
   * fix precision error in timings report (#1342)
@@ -819,6 +1137,7 @@ Bug fixes::
   * fix grammar in warning messages regarding thread_safe gem
 
 Infrastructure::
+
   * migrate opal_ext from core to Asciidoctor.js (#1517)
   * add Ruby 2.2 to CI build; only specify minor Ruby versions
   * enable containerized builds on Travis CI
@@ -873,7 +1192,7 @@ Compliance::
   * allow empty cell to appear at end of table row (#1106)
   * only produce one row for table in CSV or DSV format with a single cell (#1180)
 
-Bug fixes::
+Bug Fixes::
 
   * add explicit to_s call to generate delimiter settings for MathJax config (#1198)
   * fix includes that reference absolute Windows paths (#1144)
@@ -892,7 +1211,7 @@ https://github.com/asciidoctor/asciidoctor/compare/v1.5.1\...v1.5.2[full diff]
 
 == 1.5.1 (2014-09-29) - @mojavelinux
 
-Bug fixes::
+Bug Fixes::
 
   * recognize tag directives inside comments within XML files for including tagged regions
   * restore passthroughs inside footnotes when more than one footnote appears on the same line
@@ -999,7 +1318,7 @@ Improvements::
   * print runtime environment in version output, support -v as version flag (#785)
   * unwrap preamble if standalone (#533)
   * drop leading & trailing blank lines in verbatim & raw content (#724)
-  * remove trailing endlines from source data (#727)
+  * remove trailing newlines from source data (#727)
   * add flag to cli to suppress warnings (#557)
   * emit warning if tag(s) not found in include file (#639)
   * use <th> element for vertical table headers instead of header class (#738) (*@davidgamba*)
@@ -1309,7 +1628,7 @@ Distribution Packages::
   * https://rubygems.org/gems/asciidoctor[RubyGem (asciidoctor)]
   * https://apps.fedoraproject.org/packages/rubygem-asciidoctor[Fedora (rubygem-asciidoctor)]
 
-http://asciidoctor.org/news/2013/05/31/asciidoctor-0-1-3-released[release notes] |
+https://asciidoctor.org/news/2013/05/31/asciidoctor-0-1-3-released[release notes] |
 https://github.com/asciidoctor/asciidoctor/issues?milestone=4&state=closed[issues resolved] |
 https://github.com/asciidoctor/asciidoctor/releases/tag/v0.1.3[git tag] |
 https://github.com/asciidoctor/asciidoctor/compare/v0.1.2\...v0.1.3[full diff]
@@ -1322,7 +1641,7 @@ Performance::
 
 Enhancements::
 
-  * new website at http://asciidoctor.org
+  * new website at https://asciidoctor.org
   * added a default stylesheet (#76)
   * added viewport meta tag for mobile browsers (#238)
   * set attributes based on safe mode (#244)
@@ -1364,7 +1683,7 @@ Distribution Packages::
 
   * https://rubygems.org/gems/asciidoctor[RubyGem (asciidoctor)]
 
-http://asciidoctor.org/news/2013/04/25/asciidoctor-0-1-2-released[release notes] |
+https://asciidoctor.org/news/2013/04/25/asciidoctor-0-1-2-released[release notes] |
 https://github.com/asciidoctor/asciidoctor/issues?milestone=3&state=closed[issues resolved] |
 https://github.com/asciidoctor/asciidoctor/releases/tag/v0.1.2[git tag] |
 https://github.com/asciidoctor/asciidoctor/compare/v0.1.1\...v0.1.2[full diff]
@@ -1445,7 +1764,7 @@ Compliance::
   * added support for name=value@ attribute syntax passed via cli (#97)
   * attr refs no longer case sensitive (#109)
   * fixed several cases of incorrect list handling
-  * don't allow links to consume endlines or surrounding angled brackets
+  * don't allow links to consume newlines or surrounding angled brackets
   * recognize single quote in author name
   * support horizontal labeled list style
   * added support for the d cell style

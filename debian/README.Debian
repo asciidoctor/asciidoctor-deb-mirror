@@ -1,0 +1,8 @@
+Since version 2.0.0 of the package the tests have been removed from the gem
+by upstream, so we switched to using the github source for fetching the tarball.
+But as gem2deb still fetches the gem during the build, the tests are not
+injected in the package. As they don't bring anything really to the package
+for the end-user, we're fine with that. We just use the tests that are in the
+source package in autopkgtest.
+
+  -- Joseph Herlant <aerostitch@debian.org>  Mon, 19 Aug 2019 10:36:15 -0800

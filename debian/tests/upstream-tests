@@ -1,0 +1,22 @@
+#!/bin/sh
+
+set -exu
+
+# Since upstream don't distribute test files anymore and gem2deb still pull things from rubygems.org, tests are not in
+# the package anymore so we only keep the tests in the source package for now and copy them for autopkgtest
+cp -rv test features $AUTOPKGTEST_TMP
+
+cat > ${AUTOPKGTEST_TMP}/Rakefile << __EOF__
+require 'gem2deb/rake/testtask'
+
+Gem2Deb::Rake::TestTask.new do |t|
+  t.libs = ['test']
+  t.test_files = FileList['test/**/*_test.rb'] + FileList['test/**/test_*.rb']
+end
+__EOF__
+
+cd $AUTOPKGTEST_TMP
+export ASCIIDOCTOR_MANPAGE_PATH='/usr/share/man/man1/asciidoctor.1.gz'
+export ASCIIDOCTOR_LIB_DIR='/usr/lib/ruby/vendor_ruby'
+export RUBYOPT=-w
+rake test

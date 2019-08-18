@@ -1,0 +1,122 @@
+#!/bin/sh
+
+set -exu
+
+# This is a test that generates a man page and compares the output to what's expected.
+cd ${AUTOPKGTEST_TMP}
+
+export SOURCE_DATE_EPOCH=1566164804
+cat > example.adoc << __EOF__
+= example(1)
+Joseph Herlant
+v1.0.0
+:doctype: manpage
+:manmanual: EXAMPLE
+:mansource: EXAMPLE
+
+== Name
+
+example - an example of manpage
+
+== Synopsis
+
+*example* [_OPTION_]... _FILE_...
+
+== Options
+
+*-o, --out-file*=_OUT_FILE_::
+  Write result to file _OUT_FILE_.
+
+== Exit status
+
+*0*::
+  Success.
+  Foo!
+
+*1*::
+  Failure.
+  Bar :(
+
+== Resources
+
+*Project web site:* http://example.org
+
+== Copying
+
+Copyright (C) 2019 {author}. +
+Free use of this software is granted under the terms of the MIT License.
+__EOF__
+
+cat > example.ref << __EOF__
+'\" t
+.\"     Title: example
+.\"    Author: Joseph Herlant
+.\"      Date: 2019-08-18
+.\"    Manual: EXAMPLE
+.\"    Source: EXAMPLE
+.\"  Language: English
+.\"
+.TH "EXAMPLE" "1" "2019-08-18" "EXAMPLE" "EXAMPLE"
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
+.ss \n[.ss] 0
+.nh
+.ad l
+.de URL
+\fI\\\\\$2\fP <\\\\\$1>\\\\\$3
+..
+.als MTO URL
+.if \n[.g] \{\\
+.  mso www.tmac
+.  am URL
+.    ad l
+.  .
+.  am MTO
+.    ad l
+.  .
+.  LINKSTYLE blue R < >
+.\}
+.SH "NAME"
+example \- an example of manpage
+.SH "SYNOPSIS"
+.sp
+\fBexample\fP [\fIOPTION\fP]... \fIFILE\fP...
+.SH "OPTIONS"
+.sp
+\fB\-o, \-\-out\-file\fP=\fIOUT_FILE\fP
+.RS 4
+Write result to file \fIOUT_FILE\fP.
+.RE
+.SH "EXIT STATUS"
+.sp
+\fB0\fP
+.RS 4
+Success.
+Foo!
+.RE
+.sp
+\fB1\fP
+.RS 4
+Failure.
+Bar :(
+.RE
+.SH "RESOURCES"
+.sp
+\fBProject web site:\fP \c
+.URL "http://example.org" "" ""
+.SH "COPYING"
+.sp
+Copyright \(co 2019 Joseph Herlant.
+.br
+Free use of this software is granted under the terms of the MIT License.
+.SH "AUTHOR"
+.sp
+Joseph Herlant
+__EOF__
+
+asciidoctor -b manpage example.adoc
+# Removing the generator as it contains the version so we would have to change that all the time
+sed '/Generator/d' -i example.1
+# Remove the newline character at the end of the ref file
+truncate -s -1 example.ref
+diff example.ref example.1

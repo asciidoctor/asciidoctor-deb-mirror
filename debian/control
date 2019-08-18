@@ -6,7 +6,7 @@ Uploaders: Per Andersson <avtobiff@gmail.com>,
            Guillaume Grossetie <ggrossetie@gmail.com>,
            Joseph Herlant <aerostitch@debian.org>
 Build-Depends: coderay,
-               debhelper-compat (= 11),
+               debhelper-compat (= 12),
                erubis,
                gem2deb,
                locales,

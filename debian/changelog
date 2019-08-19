@@ -1,14 +1,18 @@
-asciidoctor (1.5.8-2) UNRELEASED; urgency=medium
+asciidoctor (2.0.10-1) unstable; urgency=medium
 
-  [ Joseph Herlant ]
+  * New upstream version 2.0.10 (Closes: #934998)
   * d/watch: move to use github as source
-  * New upstream version 2.0.10
-  * Removing myself from the uploaders
+  * Refresh the patch list for the new version
+  * Fix issue with missing test suite from gem and add autopkgtest cases
+  * d/control:
+    * New dependency on ruby-rouge
+    * bump compat to 12
+    * bump standards to 4.4.0.1
 
   [ Utkarsh Gupta ]
   * Add salsa-ci.yml
 
- -- Utkarsh Gupta <guptautkarsh2102@gmail.com>  Tue, 13 Aug 2019 03:01:15 +0530
+ -- Joseph Herlant <aerostitch@debian.org>  Mon, 19 Aug 2019 15:43:53 -0700
 
 asciidoctor (1.5.8-1) unstable; urgency=medium
 

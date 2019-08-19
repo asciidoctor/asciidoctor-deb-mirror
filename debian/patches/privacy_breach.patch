@@ -45,3 +45,13 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  Discussionsliste (Nabble):: {uri-discuss}
  Twitter:: https://twitter.com/search?f=tweets&q=%23asciidoctor[#asciidoctor] hashtag or https://twitter.com/asciidoctor[@asciidoctor] mention
  
+--- a/README-jp.adoc
++++ b/README-jp.adoc
+@@ -442,7 +442,6 @@
+ しかしあなたからのフィードバックがなくてはAsciidoctorの開発は進みません!
+ ディスカッションリスト, Twitter, チャットルームを使って, 質問をしたりプロジェクトのさまざまな側面について話し合ったりすることをお勧めします.
+ 
+-チャット(Gitter):: image:https://badges.gitter.im/Join%20In.svg[Gitter, link=https://gitter.im/asciidoctor/asciidoctor]
+ ディスカッションリスト(Nabble):: {uri-discuss}
+ Twitter:: ハッシュタグ https://twitter.com/search?f=tweets&q=%23asciidoctor[#asciidoctor] またはメンション https://twitter.com/asciidoctor[@asciidoctor]
+ 

@@ -1,3 +1,9 @@
+asciidoctor (2.0.10-2) unstable; urgency=medium
+
+  * Patch to fix the autoload of the syntax_highlighter (Closes: #935196)
+
+ -- Joseph Herlant <aerostitch@debian.org>  Tue, 20 Aug 2019 15:53:25 -0700
+
 asciidoctor (2.0.10-1) unstable; urgency=medium
 
   * New upstream version 2.0.10 (Closes: #934998)

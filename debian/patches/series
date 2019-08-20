@@ -1,3 +1,4 @@
 data_path.patch
 skip-unreadable-file.patch
 privacy_breach.patch
+syntax_hightlighter.patch

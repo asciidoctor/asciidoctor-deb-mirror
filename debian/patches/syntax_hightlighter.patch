@@ -1,0 +1,20 @@
+Description: Fix an issue with the load of syntax_highlighter
+Author: Joseph Herlant<aerostitch@debian.org>
+Bug: https://github.com/asciidoctor/asciidoctor/issues/3394
+Bug-Debian: https://bugs.debian.org/935196
+Last-Update: 2019-08-20
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- a/lib/asciidoctor.rb
++++ b/lib/asciidoctor.rb
+@@ -511,8 +511,8 @@
+   end unless RUBY_ENGINE == 'opal'
+ 
+   unless RUBY_ENGINE == 'opal'
+-    autoload :SyntaxHighlighter, %(#{LIB_DIR}/asciidoctor/syntax_highlighter)
+-    autoload :Timings, %(#{LIB_DIR}/asciidoctor/timings)
++    autoload :SyntaxHighlighter, %(#{__dir__}/asciidoctor/syntax_highlighter)
++    autoload :Timings, %(#{__dir__}/asciidoctor/timings)
+   end
+ end
+ 

@@ -22,7 +22,7 @@ Build-Depends: coderay,
 Standards-Version: 4.4.0.1
 Vcs-Git: https://salsa.debian.org/ruby-team/asciidoctor.git
 Vcs-Browser: https://salsa.debian.org/ruby-team/asciidoctor
-Homepage: http://asciidoctor.org
+Homepage: https://asciidoctor.org
 XS-Ruby-Versions: all
 
 Package: ruby-asciidoctor

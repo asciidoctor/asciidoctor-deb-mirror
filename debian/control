@@ -6,11 +6,12 @@ Uploaders: Per Andersson <avtobiff@gmail.com>,
            Guillaume Grossetie <ggrossetie@gmail.com>,
            Joseph Herlant <aerostitch@debian.org>
 Build-Depends: coderay,
-               debhelper-compat (= 12),
+               debhelper-compat (= 13),
                erubis,
                gem2deb,
                locales,
                rake,
+               ruby,
                ruby-haml,
                ruby-htmlentities,
                ruby-mocha,
@@ -19,11 +20,13 @@ Build-Depends: coderay,
                ruby-slim,
                ruby-concurrent,
                ruby-tilt
-Standards-Version: 4.4.0.1
+Standards-Version: 4.5.1
 Vcs-Git: https://salsa.debian.org/ruby-team/asciidoctor.git
 Vcs-Browser: https://salsa.debian.org/ruby-team/asciidoctor
 Homepage: https://asciidoctor.org
+Testsuite: autopkgtest-pkg-ruby
 XS-Ruby-Versions: all
+Rules-Requires-Root: no
 
 Package: ruby-asciidoctor
 Section: ruby

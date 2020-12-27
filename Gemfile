@@ -4,10 +4,12 @@ source 'https://rubygems.org'
 gemspec
 
 group :development do
-  gem 'pygments.rb' if ENV['PYGMENTS']
+  gem 'pygments.rb', ENV['PYGMENTS_VERSION'] if ENV.key? 'PYGMENTS_VERSION'
+  gem 'rouge', ENV['ROUGE_VERSION'] if ENV.key? 'ROUGE_VERSION'
+  gem 'haml', '~> 4.0' if RUBY_ENGINE == 'truffleruby'
 end
 
-group :doc do
+group :docs do
   gem 'yard'
   gem 'yard-tomdoc'
 end
@@ -23,4 +25,5 @@ end
 
 group :ci do
   gem 'simplecov', '~> 0.16.0'
+  gem 'json', '~> 2.2.0' if RUBY_ENGINE == 'truffleruby'
 end

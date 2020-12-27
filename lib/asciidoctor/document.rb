@@ -326,7 +326,7 @@ class Document < AbstractBlock
       @sourcemap = options[:sourcemap]
       @timings = options.delete :timings
       @path_resolver = PathResolver.new
-      initialize_extensions = (defined? ::Asciidoctor::Extensions) ? true : nil
+      initialize_extensions = (defined? ::Asciidoctor::Extensions) || (options.key? :extensions) ? ::Asciidoctor::Extensions : nil
       @extensions = nil # initialize furthur down if initialize_extensions is true
       options[:standalone] = options[:header_footer] if (options.key? :header_footer) && !(options.key? :standalone)
     end
@@ -339,51 +339,36 @@ class Document < AbstractBlock
     (@options = options).freeze
 
     attrs = @attributes
-    #attrs['encoding'] = 'UTF-8'
-    attrs['sectids'] = ''
-    attrs['toc-placement'] = 'auto'
-    if standalone
-      attrs['copycss'] = ''
-      # sync embedded attribute with :standalone option value
-      attr_overrides['embedded'] = nil
-    else
-      attrs['notitle'] = ''
-      # sync embedded attribute with :standalone option value
-      attr_overrides['embedded'] = ''
-    end
-    attrs['stylesheet'] = ''
-    attrs['webfonts'] = ''
-    attrs['prewrap'] = ''
     attrs['attribute-undefined'] = Compliance.attribute_undefined
     attrs['attribute-missing'] = Compliance.attribute_missing
-    attrs['iconfont-remote'] = ''
+    attrs.update DEFAULT_ATTRIBUTES
+    # TODO if lang attribute is set, @safe mode < SafeMode::SERVER, and !parent_doc,
+    # load attributes from data/locale/attributes-<lang>.adoc
 
-    # language strings
-    # TODO load these based on language settings
-    attrs['caution-caption'] = 'Caution'
-    attrs['important-caption'] = 'Important'
-    attrs['note-caption'] = 'Note'
-    attrs['tip-caption'] = 'Tip'
-    attrs['warning-caption'] = 'Warning'
-    attrs['example-caption'] = 'Example'
-    attrs['figure-caption'] = 'Figure'
-    #attrs['listing-caption'] = 'Listing'
-    attrs['table-caption'] = 'Table'
-    attrs['toc-title'] = 'Table of Contents'
-    #attrs['preface-title'] = 'Preface'
-    attrs['section-refsig'] = 'Section'
-    attrs['part-refsig'] = 'Part'
-    attrs['chapter-refsig'] = 'Chapter'
-    attrs['appendix-caption'] = attrs['appendix-refsig'] = 'Appendix'
-    attrs['untitled-label'] = 'Untitled'
-    attrs['version-label'] = 'Version'
-    attrs['last-update-label'] = 'Last updated'
+    if standalone
+      # sync embedded attribute with :standalone option value
+      attr_overrides['embedded'] = nil
+      attrs['copycss'] = ''
+      attrs['iconfont-remote'] = ''
+      attrs['stylesheet'] = ''
+      attrs['webfonts'] = ''
+    else
+      # sync embedded attribute with :standalone option value
+      attr_overrides['embedded'] = ''
+      if (attr_overrides.key? 'showtitle') && (attr_overrides.keys & %w(notitle showtitle))[-1] == 'showtitle'
+        attr_overrides['notitle'] = { nil => '', false => '@', '@' => false}[attr_overrides['showtitle']]
+      elsif attr_overrides.key? 'notitle'
+        attr_overrides['showtitle'] = { nil => '', false => '@', '@' => false}[attr_overrides['notitle']]
+      else
+        attrs['notitle'] = ''
+      end
+    end
 
     attr_overrides['asciidoctor'] = ''
     attr_overrides['asciidoctor-version'] = ::Asciidoctor::VERSION
 
     attr_overrides['safe-mode-name'] = (safe_mode_name = SafeMode.name_for_value @safe)
-    attr_overrides["safe-mode-#{safe_mode_name}"] = ''
+    attr_overrides[%(safe-mode-#{safe_mode_name})] = ''
     attr_overrides['safe-mode-level'] = @safe
 
     # the only way to set the max-include-depth attribute is via the API; default to 64 like AsciiDoc Python
@@ -505,10 +490,10 @@ class Document < AbstractBlock
               ::AsciidoctorJ::Extensions::ExtensionRegistry === ext_registry)
             @extensions = ext_registry.activate self
           end
-        elsif ::Proc === (ext_block = options[:extensions])
+        elsif (ext_block = options[:extensions]).nil?
+          @extensions = Extensions::Registry.new.activate self unless Extensions.groups.empty?
+        elsif ::Proc === ext_block
           @extensions = Extensions.create(&ext_block).activate self
-        elsif !Extensions.groups.empty?
-          @extensions = Extensions::Registry.new.activate self
         end
       end
 
@@ -772,7 +757,7 @@ class Document < AbstractBlock
   end
 
   def notitle
-    !@attributes.key?('showtitle') && @attributes.key?('notitle')
+    @attributes.key? 'notitle'
   end
 
   def noheader

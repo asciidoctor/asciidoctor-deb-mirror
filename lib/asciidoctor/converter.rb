@@ -85,23 +85,24 @@ module Converter
   # Public: Derive backend traits (basebackend, filetype, outfilesuffix, htmlsyntax) from the given backend.
   #
   # backend - the String backend from which to derive the traits
+  # basebackend - the String basebackend to use in favor of deriving one from the backend (optional, default: nil)
   #
   # Returns the backend traits for the given backend as a [Hash].
-  def self.derive_backend_traits backend
+  def self.derive_backend_traits backend, basebackend = nil
     return {} unless backend
-    if (t_outfilesuffix = DEFAULT_EXTENSIONS[(t_basebackend = backend.sub TrailingDigitsRx, '')])
-      t_filetype = t_outfilesuffix.slice 1, t_outfilesuffix.length
+    if (outfilesuffix = DEFAULT_EXTENSIONS[(basebackend ||= backend.sub TrailingDigitsRx, '')])
+      filetype = outfilesuffix.slice 1, outfilesuffix.length
     else
-      t_outfilesuffix = %(.#{t_filetype = t_basebackend})
+      outfilesuffix = %(.#{filetype = basebackend})
     end
-    t_filetype == 'html' ?
-      { basebackend: t_basebackend, filetype: t_filetype, htmlsyntax: 'html', outfilesuffix: t_outfilesuffix } :
-      { basebackend: t_basebackend, filetype: t_filetype, outfilesuffix: t_outfilesuffix }
+    filetype == 'html' ?
+      { basebackend: basebackend, filetype: filetype, htmlsyntax: 'html', outfilesuffix: outfilesuffix } :
+      { basebackend: basebackend, filetype: filetype, outfilesuffix: outfilesuffix }
   end
 
   module BackendTraits
     def basebackend value = nil
-      value ? (backend_traits[:basebackend] = value) : backend_traits[:basebackend]
+      value ? ((backend_traits value)[:basebackend] = value) : backend_traits[:basebackend]
     end
 
     def filetype value = nil
@@ -128,15 +129,15 @@ module Converter
       @backend_traits = value || {}
     end
 
-    def backend_traits
-      @backend_traits ||= Converter.derive_backend_traits @backend
+    def backend_traits basebackend = nil
+      @backend_traits ||= Converter.derive_backend_traits @backend, basebackend
     end
 
     alias backend_info backend_traits
 
     # Deprecated: Use {Converter.derive_backend_traits} instead.
-    def self.derive_backend_traits backend
-      Converter.derive_backend_traits backend
+    def self.derive_backend_traits backend, basebackend = nil
+      Converter.derive_backend_traits backend, basebackend
     end
   end
 

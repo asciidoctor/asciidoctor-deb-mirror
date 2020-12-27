@@ -20,7 +20,7 @@ module SyntaxHighlighter
   end
 
   # Public: Indicates whether this syntax highlighter has docinfo (i.e., markup) to insert into the output document at
-  # the specified location.
+  # the specified location. Should be called by converter after main content has been converted.
   #
   # location - The Symbol representing the location slot (:head or :footer).
   #
@@ -28,6 +28,7 @@ module SyntaxHighlighter
   def docinfo? location; end
 
   # Public: Generates docinfo markup for this syntax highlighter to insert at the specified location in the output document.
+  # Should be called by converter after main content has been converted.
   #
   # location - The Symbol representing the location slot (:head or :footer).
   # doc      - The Document in which this syntax highlighter is being used.
@@ -139,7 +140,7 @@ module SyntaxHighlighter
     # name    - The String name of the syntax highlighter to create.
     # backend - The String name of the backend for which this syntax highlighter is being used (default: 'html5').
     # opts    - A Hash of options providing information about the context in which this syntax highlighter is used:
-    #           :doc - The Document for which this syntax highlighter was created.
+    #           :document - The Document for which this syntax highlighter was created.
     #
     # Returns a [SyntaxHighlighter] instance for the specified name.
     def create name, backend = 'html5', opts = {}
@@ -235,9 +236,11 @@ module SyntaxHighlighter
     def format node, lang, opts
       class_attr_val = opts[:nowrap] ? %(#{@pre_class} highlight nowrap) : %(#{@pre_class} highlight)
       if (transform = opts[:transform])
-        pre = { 'class' => class_attr_val }
-        code = lang ? { 'data-lang' => lang } : {}
-        transform[pre, code]
+        transform[(pre = { 'class' => class_attr_val }), (code = lang ? { 'data-lang' => lang } : {})]
+        # NOTE: make sure data-lang is the last attribute on the code tag to remain consistent with 1.5.x
+        if (lang = code.delete 'data-lang')
+          code['data-lang'] = lang
+        end
         %(<pre#{pre.map {|k, v| %[ #{k}="#{v}"] }.join}><code#{code.map {|k, v| %[ #{k}="#{v}"] }.join}>#{node.content}</code></pre>)
       else
         %(<pre class="#{class_attr_val}"><code#{lang ? %[ data-lang="#{lang}"] : ''}>#{node.content}</code></pre>)

@@ -433,8 +433,10 @@ class Parser
     # is treated like an untitled section
     elsif preamble # implies parent == document
       if preamble.blocks?
+        if book || document.blocks[1] || !Compliance.unwrap_standalone_preamble
+          preamble.source_location = preamble.blocks[0].source_location if document.sourcemap
         # unwrap standalone preamble (i.e., document has no sections) except for books, if permissible
-        unless book || document.blocks[1] || !Compliance.unwrap_standalone_preamble
+        else
           document.blocks.shift
           while (child_block = preamble.blocks.shift)
             document << child_block
@@ -858,6 +860,7 @@ class Parser
       when :literal
         block = build_block(block_context, :verbatim, terminator, parent, reader, attributes)
       when :example
+        attributes['caption'] = '' if attributes['collapsible-option']
         block = build_block(block_context, :compound, terminator, parent, reader, attributes)
       when :quote, :verse
         AttributeList.rekey(attributes, [nil, 'attribution', 'citetitle'])
@@ -899,7 +902,7 @@ class Parser
     # FIXME title and caption should be assigned when block is constructed (though we need to handle all cases)
     if attributes['title']
       block.title = block_title = attributes.delete 'title'
-      if (caption_attr_name = CAPTION_ATTR_NAMES[block.context]) && document.attributes[caption_attr_name]
+      if (caption_attr_name = CAPTION_ATTRIBUTE_NAMES[block.context]) && document.attributes[caption_attr_name]
         block.assign_caption (attributes.delete 'caption')
       end
     end
@@ -1148,14 +1151,16 @@ class Parser
   def self.catalog_inline_anchors text, block, document, reader
     text.scan InlineAnchorScanRx do
       if (id = $1)
-        if (reftext = $2)
-          next if (reftext.include? ATTR_REF_HEAD) && (reftext = document.sub_attributes reftext).empty?
-        end
+        next if (reftext = $2) && (reftext.include? ATTR_REF_HEAD) && (reftext = document.sub_attributes reftext).empty?
       else
         id = $3
         if (reftext = $4)
-          reftext = reftext.gsub '\]', ']' if reftext.include? ']'
-          next if (reftext.include? ATTR_REF_HEAD) && (reftext = document.sub_attributes reftext).empty?
+          if reftext.include? ']'
+            reftext = reftext.gsub '\]', ']'
+            reftext = document.sub_attributes reftext if reftext.include? ATTR_REF_HEAD
+          elsif (reftext.include? ATTR_REF_HEAD) && (reftext = document.sub_attributes reftext).empty?
+            next
+          end
         end
       end
       unless document.register :refs, [id, (Inline.new block, :anchor, reftext, type: :ref, id: id)]
@@ -2119,6 +2124,8 @@ class Parser
       name = 'sectnums'
     elsif name == 'hardbreaks'
       name = 'hardbreaks-option'
+    elsif name == 'showtitle'
+      store_attribute 'notitle', (value ? nil : ''), doc, attrs
     end
 
     if doc
@@ -2273,9 +2280,15 @@ class Parser
     end
 
     skipped = table_reader.skip_blank_lines || 0
+    if attributes['header-option']
+      table.has_header_option = true
+    elsif skipped == 0 && !attributes['noheader-option']
+      # NOTE: assume table has header until we know otherwise; if it doesn't (nil), cells in first row get reprocessed
+      table.has_header_option = :implicit
+      implicit_header = true
+    end
     parser_ctx = Table::ParserContext.new table_reader, table, attributes
     format, loop_idx, implicit_header_boundary = parser_ctx.format, -1, nil
-    implicit_header = true unless skipped > 0 || attributes['header-option'] || attributes['noheader-option']
 
     while (line = table_reader.read_line)
       if (beyond_first = (loop_idx += 1) > 0) && line.empty?
@@ -2295,7 +2308,7 @@ class Parser
             implicit_header_boundary = nil if implicit_header_boundary
           # otherwise, the cell continues from previous line
           elsif implicit_header_boundary && implicit_header_boundary == loop_idx
-            implicit_header, implicit_header_boundary = false, nil
+            table.has_header_option = implicit_header = implicit_header_boundary = nil
           end
         end
       end
@@ -2307,7 +2320,7 @@ class Parser
           if table_reader.has_more_lines? && table_reader.peek_line.empty?
             implicit_header_boundary = 1
           else
-            implicit_header = false
+            table.has_header_option = implicit_header = nil
           end
         end
       end
@@ -2358,7 +2371,7 @@ class Parser
           case format
           when 'csv'
             if parser_ctx.buffer_has_unclosed_quotes?
-              implicit_header, implicit_header_boundary = false, nil if implicit_header_boundary && loop_idx == 0
+              table.has_header_option = implicit_header = implicit_header_boundary = nil if implicit_header_boundary && loop_idx == 0
               parser_ctx.keep_cell_open
             else
               parser_ctx.close_cell true
@@ -2380,15 +2393,8 @@ class Parser
       end
     end
 
-    unless (table.attributes['colcount'] ||= table.columns.size) == 0 || explicit_colspecs
-      table.assign_column_widths
-    end
-
-    if implicit_header
-      table.has_header_option = true
-      attributes['header-option'] = ''
-    end
-
+    table.assign_column_widths unless (table.attributes['colcount'] ||= table.columns.size) == 0 || explicit_colspecs
+    table.has_header_option = true if implicit_header
     table.partition_header_footer attributes
 
     table
@@ -2579,9 +2585,7 @@ class Parser
           attributes['role'] = (existing_role = attributes['role']).nil_or_empty? ? (parsed_attrs[:role].join ' ') : %(#{existing_role} #{parsed_attrs[:role].join ' '})
         end
 
-        if parsed_attrs.key? :option
-          (opts = parsed_attrs[:option]).each {|opt| attributes[%(#{opt}-option)] = '' }
-        end
+        parsed_attrs[:option].each {|opt| attributes[%(#{opt}-option)] = '' } if parsed_attrs.key? :option
 
         parsed_style
       else

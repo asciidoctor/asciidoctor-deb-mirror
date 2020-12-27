@@ -396,7 +396,7 @@ context 'Document' do
   end
 
   context 'Converter' do
-    test 'convert methos on built-in converter are registered by default' do
+    test 'convert methods on built-in converter are registered by default' do
       doc = document_from_string ''
       assert_equal 'html5', doc.attributes['backend']
       assert doc.attributes.has_key? 'backend-html5'
@@ -488,6 +488,21 @@ context 'Document' do
       assert_nil(doc.attr 'compat-mode')
       result = doc.convert
       assert_xpath '//code[text()="content"]', result, 0
+    end
+
+    test 'should apply max-width to each top-level container' do
+      input = <<~'EOS'
+      = Document Title
+
+      contentfootnote:[placeholder]
+      EOS
+
+      output = convert_string input, attributes: { 'max-width' => '70em' }
+      assert_css 'body[style]', output, 0
+      assert_css '#header[style="max-width: 70em;"]', output, 1
+      assert_css '#content[style="max-width: 70em;"]', output, 1
+      assert_css '#footnotes[style="max-width: 70em;"]', output, 1
+      assert_css '#footer[style="max-width: 70em;"]', output, 1
     end
 
     test 'title partition API with default separator' do
@@ -703,6 +718,23 @@ context 'Document' do
       output = convert_string input, safe: Asciidoctor::SafeMode::SAFE
       assert_css '#header h1', output, 1
       assert_css '#content h1', output, 0
+    end
+
+    test 'should recognize document title in include file when preceded by blank lines' do
+      input = <<~'EOS'
+      include::fixtures/include-with-leading-blank-line.adoc[]
+      EOS
+      output = convert_string input, safe: Asciidoctor::SafeMode::SAFE, attributes: { 'docdir' => testdir }
+      assert_xpath '//h1[text()="Document Title"]', output, 1
+      assert_css '#toc', output, 1
+    end
+
+    test 'should include specified lines even when leading lines are skipped' do
+      input = <<~'EOS'
+      include::fixtures/include-with-leading-blank-line.adoc[lines=6]
+      EOS
+      output = convert_string input, safe: Asciidoctor::SafeMode::SAFE, attributes: { 'docdir' => testdir }
+      assert_xpath '//h2[text()="Section"]', output, 1
     end
 
     test 'document with multiline attribute entry but only one line should not crash' do
@@ -1126,21 +1158,68 @@ context 'Document' do
       assert_xpath '(/*)[2]/self::*[@class="paragraph"]', result, 1
     end
 
-    test 'enable title in embedded document by assigning showtitle attribute' do
-      input = <<~'EOS'
-      = Document Title
+    test 'should be able to enable doctitle for embedded document' do
+      [
+        [{ 'notitle' => nil }, nil],
+        [{ 'notitle' => nil }, [':!showtitle:']],
+        [{ 'notitle' => false }, nil],
+        [{ 'notitle' => '@' }, [':!notitle:']],
+        [{ 'notitle' => '@' }, [':showtitle:']],
+        [{ 'showtitle' => '' }, [':notitle:']],
+        [{ 'showtitle' => '@' }, nil],
+        [{ 'showtitle' => false }, [':!notitle:']],
+        [{}, [':!notitle:']],
+        [{}, [':notitle:', ':showtitle:']],
+        [{}, [':showtitle:']],
+        [{}, [':!showtitle:', ':!notitle:']],
+      ].each do |api_attrs, attr_entries|
+        input = <<~EOS
+        = Document Title#{attr_entries ? ?\n + (attr_entries.join ?\n) : ''}
 
-      content
-      EOS
+        ifdef::showtitle[showtitle: set]
+        ifndef::showtitle[showtitle: not set]
+        ifdef::notitle[notitle: set]
+        ifndef::notitle[notitle: not set]
+        EOS
 
-      result = convert_string_to_embedded input, attributes: { 'showtitle' => '' }
-      assert_xpath '/html', result, 0
-      assert_xpath '/h1', result, 1
-      assert_xpath '/*[@id="header"]', result, 0
-      assert_xpath '/*[@id="footer"]', result, 0
-      assert_xpath '/*[@class="paragraph"]', result, 1
-      assert_xpath '(/*)[1]/self::h1', result, 1
-      assert_xpath '(/*)[2]/self::*[@class="paragraph"]', result, 1
+        result = convert_string_to_embedded input, attributes: api_attrs
+        assert_xpath '/html', result, 0
+        assert_xpath '/h1', result, 1
+        assert_xpath '(/*)[1]/self::h1', result, 1
+        assert_xpath '(/*)[2]/self::*[@class="paragraph"]', result, 1
+        # NOTE showtitle may not match notitle if never used
+        assert_includes result, 'notitle: not set'
+      end
+    end
+
+    test 'should be able to explicitly disable doctitle for embedded document' do
+      [
+        [{ 'notitle' => '' }, nil],
+        [{ 'notitle' => '@' }, nil],
+        [{ 'notitle' => '@' }, [':!showtitle:']],
+        [{ 'showtitle' => nil }, nil],
+        [{ 'showtitle' => false }, nil],
+        [{ 'showtitle' => '@' }, [':notitle:']],
+        [{}, [':notitle:']],
+        [{}, [':!showtitle:']],
+        [{}, [':!showtitle:', ':notitle:']],
+      ].each do |api_attrs, attr_entries|
+        input = <<~EOS
+        = Document Title#{attr_entries ? ?\n + (attr_entries.join ?\n) : ''}
+
+        ifdef::showtitle[showtitle: set]
+        ifndef::showtitle[showtitle: not set]
+        ifdef::notitle[notitle: set]
+        ifndef::notitle[notitle: not set]
+        EOS
+
+        result = convert_string_to_embedded input, attributes: api_attrs
+        assert_xpath '/html', result, 0
+        assert_xpath '/h1', result, 0
+        assert_xpath '/*[@class="paragraph"]', result, 1
+        # NOTE showtitle may not match notitle if never used
+        assert_includes result, 'notitle: set'
+      end
     end
 
     test 'parse header only' do
@@ -1408,7 +1487,7 @@ context 'Document' do
       assert_xpath '/book/info/subtitle[text()="Subtitle"]', result, 1
     end
 
-    test 'should be able to set doctype to article when converting to DocBoook' do
+    test 'should be able to set doctype to article when converting to DocBook' do
       input = <<~'EOS'
       = Title
       Author Name
@@ -1431,7 +1510,7 @@ context 'Document' do
       assert_css 'article:root > section[xml|id="_first_section"]', result, 1
     end
 
-    test 'should set doctype to article by default for document with no title when converting to DocBoook' do
+    test 'should set doctype to article by default for document with no title when converting to DocBook' do
       result = convert_string('text', attributes: { 'backend' => 'docbook' })
       assert_xpath '/article', result, 1
       assert_xpath '/article/info/title', result, 1
@@ -1493,7 +1572,7 @@ context 'Document' do
       assert_xpath %(/xmlns:refentry/xmlns:refmeta/xmlns:refmiscinfo[@class="manual"][text()="#{decode_char 160}"]), result, 1
     end
 
-    test 'should be able to set doctype to book when converting to DocBoook' do
+    test 'should be able to set doctype to book when converting to DocBook' do
       input = <<~'EOS'
       = Title
       Author Name
@@ -1516,7 +1595,7 @@ context 'Document' do
       assert_css 'book:root > chapter[xml|id="_first_chapter"]', result, 1
     end
 
-    test 'should be able to set doctype to book for document with no title when converting to DocBoook' do
+    test 'should be able to set doctype to book for document with no title when converting to DocBook' do
       result = convert_string('text', attributes: { 'backend' => 'docbook5', 'doctype' => 'book' })
       assert_xpath '/book', result, 1
       assert_xpath '/book/info/date', result, 1

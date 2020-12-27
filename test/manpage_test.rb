@@ -140,6 +140,22 @@ context 'Manpage' do
       end
     end
 
+    test 'should break circular reference in section title' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      [#a]
+      == A <<b>>
+
+      [#b]
+      == B <<a>>
+      EOS
+
+      output = Asciidoctor.convert input, backend: :manpage
+      assert_match %r/^\.SH "A B \[A\]"$/, output
+      assert_match %r/^\.SH "B \[A\]"$/, output
+    end
+
     test 'should define default linkstyle' do
       input = SAMPLE_MANPAGE_HEADER
       output = Asciidoctor.convert input, backend: :manpage, standalone: true
@@ -216,6 +232,34 @@ context 'Manpage' do
       assert_equal '\&.if 1 .nx', output.lines[-2].chomp
     end
 
+    test 'should escape ellipsis at start of line' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      -x::
+	Ao gravar o commit, acrescente uma linha que diz "(cherry picked from commit
+	...)" à mensagem de commit original para indicar qual commit esta mudança
+	foi escolhida. Isso é feito apenas para picaretas de cereja sem conflitos.
+	EOS
+      output = Asciidoctor.convert input, backend: :manpage
+      assert_equal '\&...', output.lines[-3][0..4].chomp
+    end
+
+    test 'should not escape ellipsis in the middle of a line' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      -x::
+	Ao gravar o commit, acrescente uma linha que diz
+	"(cherry picked from commit...)" à mensagem de commit
+	 original para indicar qual commit esta mudança
+	foi escolhida. Isso é feito apenas para picaretas
+	de cereja sem conflitos.
+	EOS
+      output = Asciidoctor.convert input, backend: :manpage
+      assert(output.lines[-5].include? 'commit...')
+    end
+
     test 'should normalize whitespace in a paragraph' do
       input = <<~EOS.chop
       #{SAMPLE_MANPAGE_HEADER}
@@ -242,6 +286,20 @@ context 'Manpage' do
 
       output = Asciidoctor.convert input, backend: :manpage
       assert_includes output, %(Oh, here it goes again\nI should have known,\nshould have known,\nshould have known again)
+    end
+
+    test 'should honor start attribute on ordered list' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      [start=5]
+      . five
+      . six
+      EOS
+
+      output = Asciidoctor.convert input, backend: :manpage
+      assert_match %r/IP " 5\.".*five/m, output
+      assert_match %r/IP " 6\.".*six/m, output
     end
 
     test 'should collapse whitespace in the man manual and man source' do
@@ -280,15 +338,15 @@ context 'Manpage' do
       assert_equal '\(lqhello\(rq \(oqgoodbye\(cq \fBstrong\fP \fIweak\fP \f(CReven\fP', output.lines.last.chomp
     end
 
-    test 'should escape backslashes in content' do
+    test 'should preserve literal backslashes in content' do
       input = <<~EOS.chop
       #{SAMPLE_MANPAGE_HEADER}
 
-      \\.foo \\ bar\\
-      baz
+      \\.foo \\ bar \\\\ baz\\
+      more
       EOS
       output = Asciidoctor.convert input, backend: :manpage
-      assert_equal '\(rs.foo \(rs bar\(rs', output.lines[-2].chomp
+      assert_equal '\(rs.foo \(rs bar \(rs\(rs baz\(rs', output.lines[-2].chomp
     end
 
     test 'should escape literal escape sequence' do

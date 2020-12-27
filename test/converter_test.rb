@@ -241,7 +241,7 @@ context 'Converter' do
         assert_kind_of Asciidoctor::Converter::TemplateConverter, selected
         template = selected.templates[node_name]
         assert_kind_of Tilt::ERBTemplate, template
-        refute_kind_of Tilt::ErubisTemplate, template
+        refute_kind_of Tilt::ErubiTemplate, template
         assert_kind_of ::ERB, template.instance_variable_get('@engine')
         assert_equal %(block_#{node_name}.html.erb), File.basename(selected.templates[node_name].file)
       end
@@ -258,16 +258,15 @@ context 'Converter' do
       assert_equal expected_output, doc.convert
     end
 
-    test 'should load ERB templates using ErubisTemplate if eruby is set to erubis' do
-      doc = Asciidoctor::Document.new [], template_dir: (fixture_path 'custom-backends/erb'), template_cache: false, eruby: 'erubis'
+    test 'should load ERB templates using ErubiTemplate if eruby is set to erubi' do
+      doc = Asciidoctor::Document.new [], template_dir: (fixture_path 'custom-backends/erb'), template_cache: false, eruby: 'erubi'
       assert_kind_of Asciidoctor::Converter::CompositeConverter, doc.converter
       %w(paragraph).each do |node_name|
         selected = doc.converter.find_converter node_name
         assert_kind_of Asciidoctor::Converter::TemplateConverter, selected
         template = selected.templates[node_name]
-        assert_kind_of Tilt::ERBTemplate, template
-        assert_kind_of Tilt::ErubisTemplate, template
-        assert_kind_of ::Erubis::FastEruby, template.instance_variable_get('@engine')
+        assert_kind_of Tilt::ErubiTemplate, template
+        assert_kind_of ::Erubi::Engine, template.instance_variable_get('@engine')
         assert_equal %(block_#{node_name}.html.erb), File.basename(selected.templates[node_name].file)
       end
     end
@@ -315,6 +314,24 @@ context 'Converter' do
       assert_xpath '/*[@class="sect1"]/*[@class="sectionbody"]/p/following-sibling::aside', output, 1
       assert_xpath '//aside/header/h1[text()="Related"]', output, 1
       assert_xpath '//aside/header/following-sibling::p[text()="Sidebar content"]', output, 1
+    end
+
+    test 'should be able to override the outline using a custom template' do
+      input = <<~'EOS'
+      :toc:
+      = Document Title
+
+      == Section One
+
+      == Section Two
+
+      == Section Three
+      EOS
+
+      output = document_from_string(input, template_dir: (fixture_path 'custom-backends/slim/html5-custom-outline'), template_cache: false).convert
+      assert_xpath '//*[@id="toc"]/ul', output, 1
+      assert_xpath '//*[@id="toc"]/ul[1]/li', output, 3
+      assert_xpath '//*[@id="toc"]/ul[1]/li[1][text()="Section One"]', output, 1
     end
   end
 
@@ -453,6 +470,28 @@ context 'Converter' do
           end
         end
         assert_equal converter, (Asciidoctor::Converter.for 'foobaz')
+      ensure
+        Asciidoctor::Converter.unregister_all
+      end
+    end
+
+    test 'should use basebackend to compute filetype and outfilesuffix' do
+      begin
+        assert_nil Asciidoctor::Converter.for 'slides'
+
+        class SlidesConverter < Asciidoctor::Converter::Base
+          register_for 'slides'
+
+          def initialize backend, opts = {}
+            super
+            basebackend 'html'
+          end
+        end
+
+        doc = document_from_string 'content', backend: 'slides'
+        assert_equal '.html', doc.outfilesuffix
+        expected_traits = { basebackend: 'html', filetype: 'html', htmlsyntax: 'html', outfilesuffix: '.html' }
+        assert_equal expected_traits, doc.converter.backend_traits
       ensure
         Asciidoctor::Converter.unregister_all
       end
@@ -626,7 +665,8 @@ context 'Converter' do
 
     test 'should create a new custom factory when Converter::Factory.new is invoked' do
       class MyConverter < Asciidoctor::Converter::Base; end
-      factory = Asciidoctor::Converter::Factory.new 'mine' => MyConverter
+      converters = { 'mine' => MyConverter }
+      factory = Asciidoctor::Converter::Factory.new converters
       assert_kind_of Asciidoctor::Converter::CustomFactory, factory
       assert_equal MyConverter, (factory.for 'mine')
     end

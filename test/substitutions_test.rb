@@ -728,15 +728,15 @@ context 'Substitutions' do
     test 'an image macro with an inline SVG image should be converted to an svg element' do
       para = block_from_string('image:circle.svg[Tiger,100,opts=inline]', safe: Asciidoctor::SafeMode::SERVER, attributes: { 'imagesdir' => 'fixtures', 'docdir' => testdir })
       result = para.sub_macros(para.source).gsub(/>\s+</, '><')
-      assert_match(/<svg\s[^>]*width="100px"[^>]*>/, result)
-      refute_match(/<svg\s[^>]*width="500px"[^>]*>/, result)
-      refute_match(/<svg\s[^>]*height="500px"[^>]*>/, result)
-      refute_match(/<svg\s[^>]*style="width:500px;height:500px"[^>]*>/, result)
+      assert_match(/<svg\s[^>]*width="100"[^>]*>/, result)
+      refute_match(/<svg\s[^>]*width="500"[^>]*>/, result)
+      refute_match(/<svg\s[^>]*height="500"[^>]*>/, result)
+      refute_match(/<svg\s[^>]*style="[^>]*>/, result)
     end
 
     test 'an image macro with an inline SVG image should be converted to an svg element even when data-uri is set' do
       para = block_from_string('image:circle.svg[Tiger,100,opts=inline]', safe: Asciidoctor::SafeMode::SERVER, attributes: { 'data-uri' => '', 'imagesdir' => 'fixtures', 'docdir' => testdir })
-      assert_match(/<svg\s[^>]*width="100px">/, para.sub_macros(para.source).gsub(/>\s+</, '><'))
+      assert_match(/<svg\s[^>]*width="100">/, para.sub_macros(para.source).gsub(/>\s+</, '><'))
     end
 
     test 'an image macro with an SVG image should not use an object element when safe mode is secure' do
@@ -759,6 +759,12 @@ context 'Substitutions' do
       para = block_from_string 'image:tiger.png[Tiger, 200, 100]', backend: 'docbook'
       assert_equal %{<inlinemediaobject><imageobject><imagedata fileref="tiger.png" contentwidth="200" contentdepth="100"/></imageobject><textobject><phrase>Tiger</phrase></textobject></inlinemediaobject>},
           para.sub_macros(para.source).gsub(/>\s+</, '><')
+    end
+
+    test 'should pass through role on image macro to DocBook output' do
+      para = block_from_string 'image:tiger.png[Tiger,200,role=animal]', backend: 'docbook'
+      result = para.sub_macros(para.source)
+      assert_includes result, '<inlinemediaobject role="animal">'
     end
 
     test 'a single-line image macro with text and link should be interpreted as a linked image with alt text' do
@@ -1046,11 +1052,12 @@ context 'Substitutions' do
       assert_equal 'An example footnote.', footnote.text
     end
 
-    test 'an unresolved footnote reference should produce a warning message' do
+    test 'an unresolved footnote reference should produce a warning message and output fallback text in red' do
       input = 'Sentence text.footnote:ex1[]'
       using_memory_logger do |logger|
         para = block_from_string input
-        para.sub_macros para.source
+        output = para.sub_macros para.source
+        assert_equal 'Sentence text.<sup class="footnoteref red" title="Unresolved footnote reference.">[ex1]</sup>', output
         assert_message logger, :WARN, 'invalid footnote reference: ex1'
       end
     end
@@ -1092,6 +1099,20 @@ context 'Substitutions' do
       assert_css '#footnotes .footnote', output, 1
     end
 
+    test 'should not register footnote with id and text if id already registered' do
+      input = <<~'EOS'
+      :fn-notable-text: footnote:id[about this text]
+
+      notable text.{fn-notable-text}
+
+      more notable text.{fn-notable-text}
+      EOS
+      output = convert_string_to_embedded input
+      assert_xpath '(//p)[1]/sup[@class="footnote"]', output, 1
+      assert_xpath '(//p)[2]/sup[@class="footnoteref"]', output, 1
+      assert_css '#footnotes .footnote', output, 1
+    end
+
     test 'should not resolve an inline footnote macro missing both id and text' do
       input = <<~'EOS'
       The footnote:[] macro can be used for defining and referencing footnotes.
@@ -1125,6 +1146,20 @@ context 'Substitutions' do
       assert_css '#_footnote_forêt', output, 1
       assert_css '#_footnotedef_1', output, 1
       assert_xpath '//a[@class="footnote"][text()="1"]', output, 2
+    end
+
+    test 'should be able to reference a bibliography entry in a footnote' do
+      input = <<~'EOS'
+      Choose a design pattern.footnote:[See <<gof>> to find a collection of design patterns.]
+
+      [bibliography]
+      == Bibliography
+
+      * [[[gof]]] Erich Gamma, et al. _Design Patterns: Elements of Reusable Object-Oriented Software._ Addison-Wesley. 1994.
+      EOS
+
+      result = convert_string_to_embedded input
+      assert_include '<a href="#_footnoteref_1">1</a>. See <a href="#gof">[gof]</a> to find a collection of design patterns.', result
     end
 
     test 'a single-line index term macro with a primary term should be registered as an index reference' do
@@ -1845,9 +1880,12 @@ context 'Substitutions' do
 
     context 'Math macros' do
       test 'should passthrough text in asciimath macro and surround with AsciiMath delimiters' do
-        input = 'asciimath:[x/x={(1,if x!=0),(text{undefined},if x=0):}]'
-        para = block_from_string input
-        assert_equal '\$x/x={(1,if x!=0),(text{undefined},if x=0):}\$', para.content
+        using_memory_logger do |logger|
+          input = 'asciimath:[x/x={(1,if x!=0),(text{undefined},if x=0):}]'
+          para = block_from_string input, attributes: { 'attribute-missing' => 'warn' }
+          assert_equal '\$x/x={(1,if x!=0),(text{undefined},if x=0):}\$', para.content
+          assert logger.empty?
+        end
       end
 
       test 'should not recognize asciimath macro with no content' do
@@ -1991,9 +2029,12 @@ context 'Substitutions' do
           { 'stem' => 'asciimath' },
           { 'stem' => 'bogus' },
         ].each do |attributes|
-          input = 'stem:[x/x={(1,if x!=0),(text{undefined},if x=0):}]'
-          para = block_from_string input, attributes: attributes
-          assert_equal '\$x/x={(1,if x!=0),(text{undefined},if x=0):}\$', para.content
+          using_memory_logger do |logger|
+            input = 'stem:[x/x={(1,if x!=0),(text{undefined},if x=0):}]'
+            para = block_from_string input, attributes: (attributes.merge 'attribute-missing' => 'warn')
+            assert_equal '\$x/x={(1,if x!=0),(text{undefined},if x=0):}\$', para.content
+            assert logger.empty?
+          end
         end
       end
 
@@ -2013,6 +2054,27 @@ context 'Substitutions' do
         ['stem:c,a[sqrt(x) <=> {solve-for-x}]', 'stem:n,-r[sqrt(x) <=> {solve-for-x}]'].each do |input|
           para = block_from_string input, attributes: { 'stem' => 'asciimath', 'solve-for-x' => '13' }
           assert_equal '\$sqrt(x) &lt;=&gt; 13\$', para.content
+        end
+      end
+
+      test 'should replace passthroughs inside stem expression' do
+        [
+          ['stem:[+1+]', '\$1\$'],
+          ['stem:[+\infty-(+\infty)]', '\$\infty-(\infty)\$'],
+          ['stem:[+++\infty-(+\infty)++]', '\$+\infty-(+\infty)\$'],
+        ].each do |input, expected|
+          para = block_from_string input, attributes: { 'stem' => '', }
+          assert_equal expected, para.content
+        end
+      end
+
+      test 'should allow passthrough inside stem expression to be escaped' do
+        [
+          ['stem:[\+] and stem:[+]', '\$+\$ and \$+\$'],
+          ['stem:[\+1+]', '\$+1+\$'],
+        ].each do |input, expected|
+          para = block_from_string input, attributes: { 'stem' => '', }
+          assert_equal expected, para.content
         end
       end
 
@@ -2163,7 +2225,7 @@ context 'Substitutions' do
       assert_equal [:highlight], block.subs
     end
 
-    test 'should resolve specialcharacters sub as highlight for source block when source highlighter is pygments' do
+    test 'should resolve specialcharacters sub as highlight for source block when source highlighter is pygments', if: ENV['PYGMENTS_VERSION'] do
       doc = empty_document attributes: { 'source-highlighter' => 'pygments' }, parse: true
       block = Asciidoctor::Block.new doc, :listing, content_model: :verbatim
       block.style = 'source'
@@ -2171,7 +2233,7 @@ context 'Substitutions' do
       block.attributes['language'] = 'ruby'
       block.commit_subs
       assert_equal [:highlight], block.subs
-    end if ENV['PYGMENTS']
+    end
 
     test 'should not replace specialcharacters sub with highlight for source block when source highlighter is not set' do
       doc = empty_document parse: true

@@ -65,7 +65,7 @@ class AbstractNode
   #
   # parent - The Block to set as the parent of this Block
   #
-  # Returns the new parent Block associated with this Block
+  # Returns the value of the parent argument
   def parent= parent
     @parent, @document = parent, parent.document
   end
@@ -214,6 +214,15 @@ class AbstractNode
   def has_role? name
     # NOTE center + include? is faster than split + include?
     (val = @attributes['role']) ? (%( #{val} ).include? %( #{name} )) : false
+  end
+
+  # Public: Sets the value of the role attribute on this ndoe.
+  #
+  # names - A single role name, a space-separated String of role names, or an Array of role names
+  #
+  # Returns the value of the names argument
+  def role= names
+    @attributes['role'] = (::Array === names) ? (names.join ' ') : names
   end
 
   # Public: Adds the given role directly to this node.
@@ -514,6 +523,7 @@ class AbstractNode
   #          * :normalize a Boolean that indicates whether the data should be normalized (default: false)
   #          * :start the String relative base path to use when resolving the target (default: nil)
   #          * :warn_on_failure a Boolean that indicates whether warnings are issued if the target cannot be read (default: true)
+  #          * :warn_if_empty a Boolean that indicates whether a warning is issued if contents of target is empty (default: false)
   # Returns the contents of the resolved target or nil if the resolved target cannot be read
   # --
   # TODO refactor other methods in this class to use this method were possible (repurposing if necessary)
@@ -525,22 +535,22 @@ class AbstractNode
         Helpers.require_library 'open-uri/cached', 'open-uri-cached' if doc.attr? 'cache-uri'
         begin
           if opts[:normalize]
-            (Helpers.prepare_source_string ::OpenURI.open_uri(target, URI_READ_MODE) {|f| f.read }).join LF
+            contents = (Helpers.prepare_source_string ::OpenURI.open_uri(target, URI_READ_MODE) {|f| f.read }).join LF
           else
-            ::OpenURI.open_uri(target, URI_READ_MODE) {|f| f.read }
+            contents = ::OpenURI.open_uri(target, URI_READ_MODE) {|f| f.read }
           end
         rescue
           logger.warn %(could not retrieve contents of #{opts[:label] || 'asset'} at URI: #{target}) if opts.fetch :warn_on_failure, true
-          return
         end
       else
         logger.warn %(cannot retrieve contents of #{opts[:label] || 'asset'} at URI: #{target} (allow-uri-read attribute not enabled)) if opts.fetch :warn_on_failure, true
-        return
       end
     else
       target = normalize_system_path target, opts[:start], nil, target_name: (opts[:label] || 'asset')
-      read_asset target, normalize: opts[:normalize], warn_on_failure: (opts.fetch :warn_on_failure, true), label: opts[:label]
+      contents = read_asset target, normalize: opts[:normalize], warn_on_failure: (opts.fetch :warn_on_failure, true), label: opts[:label]
     end
+    logger.warn %(contents of #{opts[:label] || 'asset'} is empty: #{target}) if contents && opts[:warn_if_empty] && contents.empty?
+    contents
   end
 
   # Deprecated: Check whether the specified String is a URI by

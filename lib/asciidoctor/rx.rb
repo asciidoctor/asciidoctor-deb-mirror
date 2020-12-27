@@ -269,7 +269,7 @@ module Asciidoctor
   #
   # NOTE we only have to check as far as the blank character because we know it means non-whitespace follows.
   # IMPORTANT if this regexp does not agree with the regexp for each list type, the parser will hang.
-  AnyListRx = %r(^(?:[ \t]*(?:-|\*\**|\.\.*|\u2022|\d+\.|[a-zA-Z]\.|[IVXivx]+\))[ \t]|(?!//[^/])[ \t]*[^ \t]#{CC_ANY}*?(?::::{0,2}|;;)(?:$|[ \t])|<?\d+>[ \t]))
+  AnyListRx = %r(^(?:[ \t]*(?:-|\*\**|\.\.*|\u2022|\d+\.|[a-zA-Z]\.|[IVXivx]+\))[ \t]|(?!//[^/])[ \t]*[^ \t]#{CC_ANY}*?(?::::{0,2}|;;)(?:$|[ \t])|<(?:\d+|\.)>[ \t]))
 
   # Matches an unordered list item (one level for hyphens, up to 5 levels for asterisks).
   #
@@ -469,7 +469,7 @@ module Asciidoctor
   #   footnoteref:[id,text] (legacy)
   #   footnoteref:[id] (legacy)
   #
-  InlineFootnoteMacroRx = /\\?footnote(?:(ref):|:([#{CC_WORD}-]+)?)\[(?:|(#{CC_ALL}*?[^\\]))\]/m
+  InlineFootnoteMacroRx = /\\?footnote(?:(ref):|:([#{CC_WORD}-]+)?)\[(?:|(#{CC_ALL}*?[^\\]))\](?!<\/a>)/m
 
   # Matches an image or icon inline macro.
   #
@@ -514,9 +514,10 @@ module Asciidoctor
   #   https://github.com[GitHub]
   #   <https://github.com>
   #   link:https://github.com[]
+  #   "https://github.com[]"
   #
   # FIXME revisit! the main issue is we need different rules for implicit vs explicit
-  InlineLinkRx = %r((^|link:|#{CG_BLANK}|&lt;|[>\(\)\[\];])(\\?(?:https?|file|ftp|irc)://[^\s\[\]<]*([^\s.,\[\]<]))(?:\[(|#{CC_ALL}*?[^\\])\])?)m
+  InlineLinkRx = %r((^|link:|#{CG_BLANK}|&lt;|[>\(\)\[\];"'])(\\?(?:https?|file|ftp|irc)://[^\s\[\]<]*([^\s.,\[\]<]))(?:\[(|#{CC_ALL}*?[^\\])\])?)m
 
   # Match a link or e-mail inline macro.
   #
@@ -551,7 +552,7 @@ module Asciidoctor
   #   menu:View[Page Style > No Style]
   #   menu:View[Page Style, No Style]
   #
-  InlineMenuMacroRx = /\\?menu:(#{CG_WORD}|[#{CC_WORD}&][^\n\[]*[^\s\[])\[ *(?:|(#{CC_ALL}*?[^\\]))?\]/m
+  InlineMenuMacroRx = /\\?menu:(#{CG_WORD}|[#{CC_WORD}&][^\n\[]*[^\s\[])\[ *(?:|(#{CC_ALL}*?[^\\]))\]/m
 
   # Matches an implicit menu inline macro.
   #

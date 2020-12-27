@@ -58,7 +58,7 @@ class Table < AbstractBlock
     @rows = Rows.new
     @columns = []
 
-    @has_header_option = attributes['header-option'] ? true : false
+    @has_header_option = false
 
     # smells like we need a utility method here
     # to resolve an integer width from potential bogus input
@@ -78,10 +78,10 @@ class Table < AbstractBlock
     @attributes['orientation'] = 'landscape' if attributes['rotate-option']
   end
 
-  # Internal: Returns whether the current row being processed is
-  # the header row
+  # Internal: Returns the current state of the header option (true or :implicit) if
+  # the row being processed is (or is assumed to be) the header row, otherwise nil
   def header_row?
-    @has_header_option && @rows.body.empty?
+    (val = @has_header_option) && @rows.body.empty? ? val : nil
   end
 
   # Internal: Creates the Column objects from the column spec
@@ -154,22 +154,19 @@ class Table < AbstractBlock
   # returns nothing
   def partition_header_footer(attrs)
     # set rowcount before splitting up body rows
-    @attributes['rowcount'] = @rows.body.size
+    num_body_rows = @attributes['rowcount'] = (body = @rows.body).size
 
-    num_body_rows = @rows.body.size
-    if num_body_rows > 0 && @has_header_option
-      head = @rows.body.shift
-      num_body_rows -= 1
-      # styles aren't applied to header row
-      head.each {|c| c.style = nil }
-      # QUESTION why does AsciiDoc use an array for head? is it
-      # possible to have more than one based on the syntax?
-      @rows.head = [head]
+    if num_body_rows > 0
+      if @has_header_option
+        @rows.head = [body.shift.map {|cell| cell.reinitialize true }]
+        num_body_rows -= 1
+      elsif @has_header_option.nil?
+        @has_header_option = false
+        body.unshift(body.shift.map {|cell| cell.reinitialize false })
+      end
     end
 
-    if num_body_rows > 0 && attrs['footer-option']
-      @rows.foot = [@rows.body.pop]
-    end
+    @rows.foot = [body.pop] if num_body_rows > 0 && attrs['footer-option']
 
     nil
   end
@@ -232,14 +229,23 @@ class Table::Cell < AbstractBlock
   # Public: An alias to the parent block (which is always a Column)
   alias column parent
 
-  # Internal: Returns the nested Document in an AsciiDoc table cell (only set when style is :asciidoc)
+  # Public: Returns the nested Document in an AsciiDoc table cell (only set when style is :asciidoc)
   attr_reader :inner_document
 
   def initialize column, cell_text, attributes = {}, opts = {}
     super column, :table_cell
+    @cursor = @reinitialize_args = nil
     @source_location = opts[:cursor].dup if @document.sourcemap
+    # NOTE: column is always set when parsing; may not be set when building table from the API
     if column
-      cell_style = column.attributes['style'] unless (in_header_row = column.table.header_row?)
+      if (in_header_row = column.table.header_row?)
+        if in_header_row == :implicit && (cell_style = column.style || (attributes && attributes['style']))
+          @reinitialize_args = [column, cell_text, attributes && attributes.merge, opts] if cell_style == :asciidoc || cell_style == :literal
+          cell_style = nil
+        end
+      else
+        cell_style = column.style
+      end
       # REVIEW feels hacky to inherit all attributes from column
       update_attributes column.attributes
     end
@@ -306,14 +312,37 @@ class Table::Cell < AbstractBlock
       @content_model = :verbatim
       @subs = BASIC_SUBS
     else
-      if normal_psv && (cell_text.start_with? '[[') && LeadingInlineAnchorRx =~ cell_text
-        Parser.catalog_inline_anchor $1, $2, self, opts[:cursor], @document
+      if normal_psv
+        if in_header_row
+          @cursor = opts[:cursor] # used in deferred catalog_inline_anchor call
+        else
+          catalog_inline_anchor cell_text, opts[:cursor]
+        end
       end
       @content_model = :simple
       @subs = NORMAL_SUBS
     end
     @text = cell_text
     @style = cell_style
+  end
+
+  def reinitialize has_header
+    if has_header
+      @reinitialize_args = nil
+    elsif @reinitialize_args
+      return Table::Cell.new(*@reinitialize_args)
+    else
+      @style = @attributes['style']
+    end
+    catalog_inline_anchor if @cursor
+    self
+  end
+
+  def catalog_inline_anchor cell_text = @text, cursor = nil
+    cursor, @cursor = @cursor, nil unless cursor
+    if (cell_text.start_with? '[[') && LeadingInlineAnchorRx =~ cell_text
+      Parser.catalog_inline_anchor $1, $2, self, cursor, @document
+    end
   end
 
   # Public: Get the String text of this cell with substitutions applied.
@@ -339,7 +368,7 @@ class Table::Cell < AbstractBlock
 
   # Public: Handles the body data (tbody, tfoot), applying styles and partitioning into paragraphs
   #
-  # This method should not be used for cells in the head row or that have the literal or verse style.
+  # This method should not be used for cells in the head row or that have the literal style.
   #
   # Returns the converted String for this Cell
   def content

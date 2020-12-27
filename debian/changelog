@@ -1,4 +1,4 @@
-asciidoctor (2.0.12-1) UNRELEASED; urgency=medium
+asciidoctor (2.0.12-1) unstable; urgency=medium
 
   * Team upload
 
@@ -12,11 +12,16 @@ asciidoctor (2.0.12-1) UNRELEASED; urgency=medium
 
   [ Cédric Boutillier ]
   * New upstream version 2.0.12
+    + add new build-dependency: ruby-erubi
   * adoc READMEs
   * add .gitattributes
-  * Debhelper-compat to 13, Standards-Version to 4.5.1
-  * refresh privacy_breach.patch
-  * skip two patches
+  * Debhelper compatibility level bumped to 13
+  * Standards-Version bumped to 4.5.1 (no changes needed)
+  * patches:
+    + refresh privacy_breach.patch
+    + drop skip-unreadable-file.patch, modified upstream to run only on
+    windows
+    + drop syntax_highlighter.patch, applied upstream
 
  -- Cédric Boutillier <boutil@debian.org>  Sun, 27 Dec 2020 15:00:43 +0100
 

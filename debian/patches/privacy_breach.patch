@@ -7,7 +7,7 @@ Last-Update: 2018-05-05
 This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
 --- a/README.adoc
 +++ b/README.adoc
-@@ -442,7 +442,6 @@
+@@ -436,7 +436,6 @@
  But we can't do it without your feedback!
  We encourage you to ask questions and discuss any aspects of the project on the discussion list, on Twitter or in the chat room.
  
@@ -17,7 +17,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
 --- a/README-fr.adoc
 +++ b/README-fr.adoc
-@@ -401,7 +401,6 @@
+@@ -391,7 +391,6 @@
  Mais nous ne pouvons pas le faire sans vos avis !
  Nous vous encourageons à poser vos questions et à discuter de n'importe quels aspects du projet sur la liste de discussion, Twitter ou dans le salon de discussion.
  
@@ -27,7 +27,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  ////
 --- a/README-zh_CN.adoc
 +++ b/README-zh_CN.adoc
-@@ -395,7 +395,6 @@
+@@ -385,7 +385,6 @@
  
  讨论组 (Nabble):: {uri-discuss}
  Twitter:: https://twitter.com/search?f=tweets&q=%23asciidoctor[#asciidoctor] 来加入话题 或 https://twitter.com/asciidoctor[@asciidoctor] at并提醒我们
@@ -37,7 +37,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  Further information and documentation about Asciidoctor can be found on the project's website.
 --- a/README-de.adoc
 +++ b/README-de.adoc
-@@ -435,7 +435,6 @@
+@@ -425,7 +425,6 @@
  Aber wir können es nicht ohne ihr Feedback machen!
  Wir ermutigen Sie, Fragen zu stellen und alle Aspekte des Projekts auf der Diskussionsliste, auf Twitter oder im Chatroom zu diskutieren.
  
@@ -47,7 +47,7 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  
 --- a/README-jp.adoc
 +++ b/README-jp.adoc
-@@ -442,7 +442,6 @@
+@@ -425,7 +425,6 @@
  しかしあなたからのフィードバックがなくてはAsciidoctorの開発は進みません!
  ディスカッションリスト, Twitter, チャットルームを使って, 質問をしたりプロジェクトのさまざまな側面について話し合ったりすることをお勧めします.
  

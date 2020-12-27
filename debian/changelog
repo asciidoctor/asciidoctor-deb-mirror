@@ -1,3 +1,21 @@
+asciidoctor (2.0.12-1) UNRELEASED; urgency=medium
+
+  [ Joseph Herlant ]
+  * Import Upstream version 2.0.10
+  * Import Upstream version 2.0.10
+
+  [ Daniel Leidert ]
+  * Fix gbp configuration
+
+  [ Debian Janitor ]
+  * Use secure URI in Homepage field.
+  * Set upstream metadata fields: Bug-Database, Bug-Submit, Repository, Repository-Browse.
+
+  [ Cédric Boutillier ]
+  * New upstream version 2.0.12
+
+ -- Cédric Boutillier <boutil@debian.org>  Sun, 27 Dec 2020 14:45:19 +0100
+
 asciidoctor (2.0.10-2) unstable; urgency=medium
 
   * Patch to fix the autoload of the syntax_highlighter (Closes: #935196)

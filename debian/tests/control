@@ -1,5 +1,6 @@
 Tests: upstream-tests
-Depends: @, @builddeps@
+Depends: @,
+         @builddeps@
 Restrictions: allow-stderr
 
 Tests: generate-man

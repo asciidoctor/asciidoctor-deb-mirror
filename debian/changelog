@@ -1,20 +1,24 @@
 asciidoctor (2.0.12-1) UNRELEASED; urgency=medium
 
-  [ Joseph Herlant ]
-  * Import Upstream version 2.0.10
-  * Import Upstream version 2.0.10
+  * Team upload
 
   [ Daniel Leidert ]
   * Fix gbp configuration
 
   [ Debian Janitor ]
   * Use secure URI in Homepage field.
-  * Set upstream metadata fields: Bug-Database, Bug-Submit, Repository, Repository-Browse.
+  * Set upstream metadata fields: Bug-Database, Bug-Submit, Repository,
+    Repository-Browse.
 
   [ Cédric Boutillier ]
   * New upstream version 2.0.12
+  * adoc READMEs
+  * add .gitattributes
+  * Debhelper-compat to 13, Standards-Version to 4.5.1
+  * refresh privacy_breach.patch
+  * skip two patches
 
- -- Cédric Boutillier <boutil@debian.org>  Sun, 27 Dec 2020 14:45:19 +0100
+ -- Cédric Boutillier <boutil@debian.org>  Sun, 27 Dec 2020 15:00:43 +0100
 
 asciidoctor (2.0.10-2) unstable; urgency=medium
 

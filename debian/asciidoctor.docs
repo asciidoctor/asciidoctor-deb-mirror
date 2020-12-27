@@ -1,1 +1,5 @@
-README*.html
+README-de.adoc
+README-fr.adoc
+README-jp.adoc
+README-zh_CN.adoc
+README.adoc

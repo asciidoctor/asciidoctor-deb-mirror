@@ -15,7 +15,7 @@ class Converter::ManPageConverter < Converter::Base
   ESC_BS = %(#{ESC}\\) # escaped backslash (indicates troff formatting sequence)
   ESC_FS = %(#{ESC}.)  # escaped full stop (indicates troff macro)
 
-  LiteralBackslashRx = /(?:\A|[^#{ESC}])\\/
+  LiteralBackslashRx = /\A\\|(#{ESC})?\\/
   LeadingPeriodRx = /^\./
   EscapedMacroRx = /^(?:#{ESC}\\c\n)?#{ESC}\.((?:URL|MTO) "#{CC_ANY}*?" "#{CC_ANY}*?" )( |[^\s]*)(#{CC_ANY}*?)(?: *#{ESC}\\c)?$/
   MockBoundaryRx = /<\/?BOUNDARY>/
@@ -247,7 +247,9 @@ r lw(\n(.lu*75u/100u).'
     result << %(.sp
 .if n .RS 4
 .nf
+.fam C
 #{manify node.content, whitespace: :preserve}
+.fam
 .fi
 .if n .RE)
     result.join LF
@@ -261,7 +263,9 @@ r lw(\n(.lu*75u/100u).'
     result << %(.sp
 .if n .RS 4
 .nf
+.fam C
 #{manify node.content, whitespace: :preserve}
+.fam
 .fi
 .if n .RE)
     result.join LF
@@ -284,15 +288,16 @@ r lw(\n(.lu*75u/100u).'
 .B #{manify node.title}
 .br) if node.title?
 
+    start = (node.attr 'start', 1).to_i
     node.items.each_with_index do |item, idx|
       result << %(.sp
 .RS 4
 .ie n \\{\\
-\\h'-04' #{idx + 1}.\\h'+01'\\c
+\\h'-04' #{numeral = idx + start}.\\h'+01'\\c
 .\\}
 .el \\{\\
 .  sp -1
-.  IP " #{idx + 1}." 4.2
+.  IP " #{numeral}." 4.2
 .\\}
 #{manify item.text, whitespace: :normalize})
       result << item.content if item.blocks?
@@ -580,11 +585,7 @@ allbox tab(:);'
     when :xref
       unless (text = node.text)
         refid = node.attributes['refid']
-        if AbstractNode === (ref = (@refs ||= node.document.catalog[:refs])[refid])
-          text = (ref.xreftext node.attr('xrefstyle', nil, true)) || %([#{refid}])
-        else
-          text = %([#{refid}])
-        end
+        text = %([#{refid}]) unless AbstractNode === (ref = (@refs ||= node.document.catalog[:refs])[refid]) && (@resolving_xref ||= outer = true) && outer && (text = ref.xreftext node.attr 'xrefstyle', nil, true)
       end
       text
     when :ref, :bibref
@@ -699,7 +700,8 @@ allbox tab(:);'
       str = str.tr_s WHITESPACE, ' '
     end
     str = str.
-      gsub(LiteralBackslashRx, '\&(rs'). # literal backslash (not a troff escape sequence)
+      gsub(LiteralBackslashRx) { $1 ? $& : '\\(rs' }. # literal backslash (not a troff escape sequence)
+      gsub(EllipsisCharRefRx, '...'). # horizontal ellipsis
       gsub(LeadingPeriodRx, '\\\&.'). # leading . is used in troff for macro call or other formatting; replace with \&.
       # drop orphaned \c escape lines, unescape troff macro, quote adjacent character, isolate macro line
       gsub(EscapedMacroRx) { (rest = $3.lstrip).empty? ? %(.#$1"#$2") : %(.#$1"#$2"#{LF}#{rest}) }.
@@ -717,13 +719,12 @@ allbox tab(:);'
       gsub('&#8217;', '\(cq').  # right single quotation mark
       gsub('&#8220;', '\(lq').  # left double quotation mark
       gsub('&#8221;', '\(rq').  # right double quotation mark
-      gsub(EllipsisCharRefRx, '...'). # horizontal ellipsis
       gsub('&#8592;', '\(<-').  # leftwards arrow
       gsub('&#8594;', '\(->').  # rightwards arrow
       gsub('&#8656;', '\(lA').  # leftwards double arrow
       gsub('&#8658;', '\(rA').  # rightwards double arrow
       gsub('&#8203;', '\:').    # zero width space
-      gsub('&amp;','&').        # literal ampersand (NOTE must take place after any other replacement that includes &)
+      gsub('&amp;', '&').       # literal ampersand (NOTE must take place after any other replacement that includes &)
       gsub('\'', '\(aq').       # apostrophe-quote
       gsub(MockBoundaryRx, ''). # mock boundary
       gsub(ESC_BS, '\\').       # unescape troff backslash (NOTE update if more escapes are added)

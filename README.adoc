@@ -1,6 +1,6 @@
 = Asciidoctor
 Dan Allen <https://github.com/mojavelinux[@mojavelinux]>; Sarah White <https://github.com/graphitefriction[@graphitefriction]>; Ryan Waldron <https://github.com/erebor[@erebor]>
-v2.0.10, 2019-05-31
+v2.0.12, 2020-11-10
 // settings:
 :idprefix:
 :idseparator: -
@@ -17,7 +17,7 @@ ifdef::env-github[]
 :warning-caption: :warning:
 endif::[]
 // Variables:
-:release-version: 2.0.10
+:release-version: 2.0.12
 // URIs:
 :uri-org: https://github.com/asciidoctor
 :uri-repo: {uri-org}/asciidoctor
@@ -44,7 +44,7 @@ endif::[]
 :uri-contribute: {uri-rel-file-base}CONTRIBUTING.adoc
 :uri-license: {uri-rel-file-base}LICENSE
 :uri-tests: {uri-rel-tree-base}test
-:uri-discuss: http://discuss.asciidoctor.org
+:uri-discuss: https://discuss.asciidoctor.org
 :uri-irc: irc://irc.freenode.org/#asciidoctor
 :uri-rubygem: https://rubygems.org/gems/asciidoctor
 :uri-what-is-asciidoc: {uri-docs}/what-is-asciidoc
@@ -94,8 +94,7 @@ ifdef::status[]
 //.*Project health*
 image:https://img.shields.io/gem/v/asciidoctor.svg[Latest Release, link={uri-gem}]
 image:https://img.shields.io/badge/rubydoc.info-{release-version}-blue.svg[library (API) docs,link=https://www.rubydoc.info/gems/asciidoctor/{release-version}]
-image:https://img.shields.io/travis/asciidoctor/asciidoctor/master.svg[Build Status (Travis CI),link=https://travis-ci.org/asciidoctor/asciidoctor]
-image:https://ci.appveyor.com/api/projects/status/ifplu67oxvgn6ceq/branch/master?svg=true&amp;passingText=green%20bar&amp;failingText=%23fail&amp;pendingText=building%2E%2E%2E[Build Status (AppVeyor),link=https://ci.appveyor.com/project/asciidoctor/asciidoctor]
+image:https://github.com/asciidoctor/asciidoctor/workflows/CI/badge.svg[Build Status (GitHub Actions),link={uri-repo}/actions]
 //image:https://img.shields.io/coveralls/asciidoctor/asciidoctor/master.svg[Coverage Status,link=https://coveralls.io/r/asciidoctor/asciidoctor]
 //image:https://codeclimate.com/github/asciidoctor/asciidoctor/badges/gpa.svg[Code Climate,link=https://codeclimate.com/github/asciidoctor/asciidoctor]
 image:https://inch-ci.org/github/asciidoctor/asciidoctor.svg?branch=master[Inline docs,link=https://inch-ci.org/github/asciidoctor/asciidoctor]
@@ -106,11 +105,6 @@ endif::[]
 We want to recognize our {uri-project}/supporters[sponsors] for their commitment to improving the state of technical documentation by supporting this project.
 Thank you sponsors!
 Without your generous support, Asciidoctor would not be possible.
-
-ifndef::env-site,env-yard[]
-Major funding for Asciidoctor is provided by our *Change Maker*, https://opendevise.com[OpenDevise], our *Strategy Sponsors*, https://www.khronos.org/[Khronos Group] and Linda Roberts, and our *Pull Request Backers*, Brian Dominick, Guillaume Grossetie, and Abel Salgado Romero.
-Additional funding is provided by the supporters listed on our {uri-project}/supporters[Community Backers] page.
-endif::[]
 
 You can support this project by becoming a sponsor through https://opencollective.com/asciidoctor[OpenCollective].
 
@@ -166,7 +160,7 @@ Asciidoctor works best when you use UTF-8 everywhere.
 
 == Installation
 
-Asciidoctor can be installed using (a) package managers for popular Linux distributions, (b) Homebrew for macOS, (c) the `gem install` command (recommended for Windows users), (d) the Asciidoctor Docker image, or (e) Bundler.
+Asciidoctor can be installed using (a) package managers for popular Linux distributions, (b) Homebrew for macOS, (c) the `gem install` command (recommended for Windows users or if you'll be installing additional gems), (d) the Asciidoctor Docker image, or (e) Bundler.
 
 The benefit of using your operating system's package manager to install the gem is that it handles installing Ruby and the RubyGems library if those packages are not already installed on your machine.
 
@@ -243,11 +237,11 @@ Or you use the https://rubyinstaller.org/downloads/[Rubyinstaller], download the
 [#gem-install]
 === (d) gem install
 
-Before installing Asciidoctor using `gem install`, you should use https://rvm.io[RVM] to install Ruby in your home directory (i.e., user space).
-Then, you can safely use the `gem` command to install or update the Asciidoctor gem.
+Before installing Asciidoctor using `gem install`, you should set up https://rvm.io[RVM] to install Ruby in your home directory (i.e., user space).
+Then, you can safely use the `gem` command to install or update the Asciidoctor gem, or any other gem for that matter.
 When using RVM, gems are installed in a location isolated from the system.
 
-Open a terminal and type:
+Once you've installed Ruby using RVM, and you have activated it using `rvm use 2.6`, open a terminal and type:
 
  $ gem install asciidoctor
 
@@ -458,9 +452,9 @@ Source repository (git):: {uri-repo}
 Issue tracker:: {uri-issues}
 Asciidoctor organization on GitHub:: {uri-org}
 
-== License
+== Copyright and License
 
-Copyright (C) 2012-2019 Dan Allen, Sarah White, Ryan Waldron, and the individual contributors to Asciidoctor.
+Copyright (C) 2012-2020 Dan Allen, Sarah White, Ryan Waldron, and the individual contributors to Asciidoctor.
 Use of this software is granted under the terms of the MIT License.
 
 See the {uri-license}[LICENSE] for the full license text.
@@ -470,7 +464,11 @@ See the {uri-license}[LICENSE] for the full license text.
 *Asciidoctor* is led by https://github.com/mojavelinux[Dan Allen] and https://github.com/graphitefriction[Sarah White] and has received contributions from {uri-contributors}[many individuals] in Asciidoctor's awesome community.
 The project was initiated in 2012 by https://github.com/erebor[Ryan Waldron] and based on {uri-prototype}[a prototype] written by https://github.com/nickh[Nick Hengeveld].
 
-*AsciiDoc* was started by Stuart Rackham and has received contributions from many individuals in the AsciiDoc community.
+*AsciiDoc* was started and maintained by Stuart Rackham from https://github.com/asciidoc/asciidoc/blob/master/CHANGELOG.txt[2002 to 2013] and has received contributions from many individuals in the https://github.com/asciidoc/asciidoc/graphs/contributors[AsciiDoc community].
+
+== Trademarks
+
+AsciiDoc is a Trademark of the Eclipse Foundation, Inc.
 
 ifndef::env-site[]
 == Changelog

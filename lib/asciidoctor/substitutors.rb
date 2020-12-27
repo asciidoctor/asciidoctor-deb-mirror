@@ -542,14 +542,17 @@ module Substitutors
         end
 
         prefix, suffix = $1, ''
-        # NOTE if $4 is set, then we're looking at a formal macro
+        # NOTE if $4 is set, we're looking at a formal macro (e.g., https://example.org[])
         if $4
           prefix = '' if prefix == 'link:'
           text = $4
         else
-          # invalid macro syntax (link: prefix w/o trailing square brackets)
-          # FIXME we probably shouldn't even get here...our regex is doing too much
-          next $& if prefix == 'link:'
+          # invalid macro syntax (link: prefix w/o trailing square brackets or enclosed in double quotes)
+          # FIXME we probably shouldn't even get here when the link: prefix is present; the regex is doing too much
+          case prefix
+          when 'link:', ?", ?'
+            next $&
+          end
           text = ''
           case $3
           when ')'
@@ -591,7 +594,8 @@ module Substitutors
         unless text.empty?
           text = text.gsub ESC_R_SB, R_SB if text.include? R_SB
           if !doc.compat_mode && (text.include? '=')
-            text = (attrs = (AttributeList.new text, self).parse)[1] || ''
+            # NOTE if an equals sign (=) is present, extract attributes from text
+            text, attrs = extract_attributes_from_text text, ''
             link_opts[:id] = attrs['id']
           end
 
@@ -637,7 +641,8 @@ module Substitutors
           text = text.gsub ESC_R_SB, R_SB if text.include? R_SB
           if mailto
             if !doc.compat_mode && (text.include? ',')
-              text = (attrs = (AttributeList.new text, self).parse)[1] || ''
+              # NOTE if a comma (,) is present, extract attributes from text
+              text, attrs = extract_attributes_from_text text, ''
               link_opts[:id] = attrs['id']
               if attrs.key? 2
                 if attrs.key? 3
@@ -648,7 +653,8 @@ module Substitutors
               end
             end
           elsif !doc.compat_mode && (text.include? '=')
-            text = (attrs = (AttributeList.new text, self).parse)[1] || ''
+            # NOTE if an equals sign (=) is present, extract attributes from text
+            text, attrs = extract_attributes_from_text text, ''
             link_opts[:id] = attrs['id']
           end
 
@@ -739,8 +745,8 @@ module Substitutors
           refid = $2
           if (text = $3)
             text = text.gsub ESC_R_SB, R_SB if text.include? R_SB
-            # NOTE if an equal sign (=) is present, parse text as attributes
-            text = ((AttributeList.new text, self).parse_into attrs)[1] if !doc.compat_mode && (text.include? '=')
+            # NOTE if an equals sign (=) is present, extract attributes from text
+            text, attrs = extract_attributes_from_text text if !doc.compat_mode && (text.include? '=')
           end
         end
 
@@ -804,7 +810,7 @@ module Substitutors
         # handles: id (in compat mode or when natural xrefs are disabled)
         elsif doc.compat_mode || !Compliance.natural_xrefs
           refid, target = fragment, %(##{fragment})
-          logger.info %(possible invalid reference: #{refid}) if logger.info? && doc.catalog[:refs][refid]
+          logger.info %(possible invalid reference: #{refid}) if logger.info? && !doc.catalog[:refs][refid]
         # handles: id
         elsif doc.catalog[:refs][fragment]
           refid, target = fragment, %(##{fragment})
@@ -843,19 +849,17 @@ module Substitutors
         end
 
         if id
-          if text
+          if (footnote = doc.footnotes.find {|candidate| candidate.id == id })
+            index, text = footnote.index, footnote.text
+            type, target, id = :xref, id, nil
+          elsif text
             text = restore_passthroughs(normalize_text text, true, true)
             index = doc.counter('footnote-number')
             doc.register(:footnotes, Document::Footnote.new(index, id, text))
             type, target = :ref, nil
           else
-            if (footnote = doc.footnotes.find {|candidate| candidate.id == id })
-              index, text = footnote.index, footnote.text
-            else
-              logger.warn %(invalid footnote reference: #{id})
-              index, text = nil, id
-            end
-            type, target, id = :xref, id, nil
+            logger.warn %(invalid footnote reference: #{id})
+            type, target, text, id = :xref, id, id, nil
           end
         elsif text
           text = restore_passthroughs(normalize_text text, true, true)
@@ -917,7 +921,7 @@ module Substitutors
         # use sub since it might be behind a line comment
         $&.sub RS, ''
       else
-        Inline.new(self, :callout, $4 == '.' ? (autonum += 1).to_s : $4, id: @document.callouts.read_next_id, attributes: { 'guard' => $1 }).convert
+        Inline.new(self, :callout, $4 == '.' ? (autonum += 1).to_s : $4, id: @document.callouts.read_next_id, attributes: { 'guard' => $1 || ($3 == '--' ? ['<!--', '-->'] : nil) }).convert
       end
     end
   end
@@ -945,7 +949,7 @@ module Substitutors
     if (linenums_mode = (attr? 'linenums') ? (doc_attrs[%(#{syntax_hl_name}-linenums-mode)] || :table).to_sym : nil)
       start_line_number = 1 if (start_line_number = (attr 'start', 1).to_i) < 1
     end
-    highlight_lines = resolve_lines_to_highlight source, (attr 'highlight') if attr? 'highlight'
+    highlight_lines = resolve_lines_to_highlight source, (attr 'highlight'), start_line_number if attr? 'highlight'
 
     highlighted, source_offset = syntax_hl.highlight self, source, (attr 'language'),
       callouts: callout_marks,
@@ -968,9 +972,10 @@ module Substitutors
   #
   # source - The String source.
   # spec   - The lines specifier (e.g., "1-5, !2, 10" or "1..5;!2;10")
+  # start  - The line number of the first line (optional, default: false)
   #
   # Returns an [Array] of unique, sorted line numbers.
-  def resolve_lines_to_highlight source, spec
+  def resolve_lines_to_highlight source, spec, start = nil
     lines = []
     spec = spec.delete ' ' if spec.include? ' '
     ((spec.include? ',') ? (spec.split ',') : (spec.split ';')).map do |entry|
@@ -981,21 +986,22 @@ module Substitutors
       if (delim = (entry.include? '..') ? '..' : ((entry.include? '-') ? '-' : nil))
         from, delim, to = entry.partition delim
         to = (source.count LF) + 1 if to.empty? || (to = to.to_i) < 0
-        line_nums = (from.to_i..to).to_a
         if negate
-          lines -= line_nums
+          lines -= (from.to_i..to).to_a
         else
-          lines.concat line_nums
+          lines |= (from.to_i..to).to_a
         end
-      else
-        if negate
-          lines.delete entry.to_i
-        else
-          lines << entry.to_i
-        end
+      elsif negate
+        lines.delete entry.to_i
+      elsif !lines.include?(line = entry.to_i)
+        lines << line
       end
     end
-    lines.sort.uniq
+    # If the start attribute is defined, then the lines to highlight specified by the provided spec should be relative to the start value.
+    unless (shift = start ? start - 1 : 0) == 0
+      lines = lines.map {|it| it - shift }
+    end
+    lines.sort
   end
 
   # Public: Extract the passthrough text from the document for reinsertion after processing.
@@ -1321,10 +1327,23 @@ module Substitutors
 
   private
 
+  # This method is used in cases when the attrlist can be mixed with the text of a macro.
+  # If no attributes are detected aside from the first positional attribute, and the first positional
+  # attribute matches the attrlist, then the original text is returned.
+  def extract_attributes_from_text text, default_text = nil
+    attrlist = (text.include? LF) ? (text.tr LF, ' ') : text
+    if (resolved_text = (attrs = (AttributeList.new attrlist, self).parse)[1])
+      # NOTE if resolved text remains unchanged, clear attributes and return unparsed text
+      resolved_text == attrlist ? [text, attrs.clear] : [resolved_text, attrs]
+    else
+      [default_text, attrs]
+    end
+  end
+
   # Internal: Extract the callout numbers from the source to prepare it for syntax highlighting.
   def extract_callouts source
     callout_marks = {}
-    lineno = 0
+    autonum = lineno = 0
     last_lineno = nil
     callout_rx = (attr? 'line-comment') ? CalloutExtractRxMap[attr 'line-comment'] : CalloutExtractRx
     # extract callout marks, indexed by line number
@@ -1336,7 +1355,7 @@ module Substitutors
           # use sub since it might be behind a line comment
           $&.sub RS, ''
         else
-          (callout_marks[lineno] ||= []) << [$1, $4]
+          (callout_marks[lineno] ||= []) << [$1 || ($3 == '--' ? ['<!--', '-->'] : nil), $4 == '.' ? (autonum += 1).to_s : $4]
           last_lineno = lineno
           ''
         end
@@ -1358,15 +1377,15 @@ module Substitutors
     else
       preamble = ''
     end
-    autonum = lineno = 0
+    lineno = 0
     preamble + ((source.split LF, -1).map do |line|
       if (conums = callout_marks.delete lineno += 1)
         if conums.size == 1
-          guard, conum = conums[0]
-          %(#{line}#{Inline.new(self, :callout, conum == '.' ? (autonum += 1).to_s : conum, id: @document.callouts.read_next_id, attributes: { 'guard' => guard }).convert})
+          guard, numeral = conums[0]
+          %(#{line}#{Inline.new(self, :callout, numeral, id: @document.callouts.read_next_id, attributes: { 'guard' => guard }).convert})
         else
-          %(#{line}#{conums.map do |guard_it, conum_it|
-            Inline.new(self, :callout, conum_it == '.' ? (autonum += 1).to_s : conum_it, id: @document.callouts.read_next_id, attributes: { 'guard' => guard_it }).convert
+          %(#{line}#{conums.map do |guard_it, numeral_it|
+            Inline.new(self, :callout, numeral_it, id: @document.callouts.read_next_id, attributes: { 'guard' => guard_it }).convert
           end.join ' '})
         end
       else

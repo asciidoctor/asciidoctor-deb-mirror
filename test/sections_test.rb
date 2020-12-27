@@ -685,8 +685,6 @@ context 'Sections' do
 
         content
         EOS
-        # see https://github.com/oracle/truffleruby/issues/1563
-        input = String.new input, encoding: ::Encoding::UTF_8 if RUBY_ENGINE == 'truffleruby'
         output = convert_string_to_embedded input
         assert_xpath '//h2[@id="_视图"][text()="视图"]', output
         assert_xpath '//h2[@id="_连接器"][text()="连接器"]', output
@@ -1889,21 +1887,31 @@ context 'Sections' do
       end
     end
 
-    test 'should allow sections to be renumbered using numberal property' do
+    test 'should allow sections to be renumbered using numeral or deprecated number property' do
       input = <<~'EOS'
       == Somewhere in the Middle
+
+      == A Bit Later
+
+      == Nearing the End
 
       == The End
       EOS
 
       doc = document_from_string input, attributes: { 'sectnums' => '' }
       doc.sections.each do |sect|
-        sect.numeral = sect.numeral.next
+        if sect.numeral.to_i.even?
+          sect.numeral.next!
+        else
+          sect.number += 1
+        end
       end
 
       output = doc.convert standalone: false
       assert_xpath '//h2[text()="2. Somewhere in the Middle"]', output, 1
-      assert_xpath '//h2[text()="3. The End"]', output, 1
+      assert_xpath '//h2[text()="3. A Bit Later"]', output, 1
+      assert_xpath '//h2[text()="4. Nearing the End"]', output, 1
+      assert_xpath '//h2[text()="5. The End"]', output, 1
     end
   end
 

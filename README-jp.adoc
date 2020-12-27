@@ -1,6 +1,6 @@
 = Asciidoctor
 Dan Allen <https://github.com/mojavelinux[@mojavelinux]>; Sarah White <https://github.com/graphitefriction[@graphitefriction]>; Ryan Waldron <https://github.com/erebor[@erebor]>
-v2.0.10, 2019-05-31
+v2.0.12, 2020-11-10
 // settings:
 :idprefix:
 :idseparator: -
@@ -8,7 +8,6 @@ v2.0.10, 2019-05-31
 :language: {source-language}
 ifndef::env-github[:icons: font]
 ifdef::env-github[]
-:status:
 :outfilesuffix: .adoc
 :caution-caption: :fire:
 :important-caption: :exclamation:
@@ -17,7 +16,7 @@ ifdef::env-github[]
 :warning-caption: :warning:
 endif::[]
 // Variables:
-:release-version: 2.0.10
+:release-version: 2.0.12
 // URIs:
 :uri-org: https://github.com/asciidoctor
 :uri-repo: {uri-org}/asciidoctor
@@ -44,7 +43,7 @@ endif::[]
 :uri-contribute: {uri-rel-file-base}CONTRIBUTING.adoc
 :uri-license: {uri-rel-file-base}LICENSE
 :uri-tests: {uri-rel-tree-base}test
-:uri-discuss: http://discuss.asciidoctor.org
+:uri-discuss: https://discuss.asciidoctor.org
 :uri-irc: irc://irc.freenode.org/#asciidoctor
 :uri-rubygem: https://rubygems.org/gems/asciidoctor
 :uri-what-is-asciidoc: {uri-docs}/what-is-asciidoc
@@ -90,27 +89,11 @@ endif::[]
 * {uri-docs}/user-manual[Asciidoctor User Manual]
 * {uri-docs}/asciidoc-syntax-quick-reference[AsciiDoc Syntax Reference]
 
-ifdef::status[]
-//.*Project health*
-image:https://img.shields.io/gem/v/asciidoctor.svg[Latest Release, link={uri-gem}]
-image:https://img.shields.io/badge/rubydoc.info-{release-version}-blue.svg[library (API) docs,link=https://www.rubydoc.info/gems/asciidoctor/{release-version}]
-image:https://img.shields.io/travis/asciidoctor/asciidoctor/master.svg[Build Status (Travis CI),link=https://travis-ci.org/asciidoctor/asciidoctor]
-image:https://ci.appveyor.com/api/projects/status/ifplu67oxvgn6ceq/branch/master?svg=true&amp;passingText=green%20bar&amp;failingText=%23fail&amp;pendingText=building%2E%2E%2E[Build Status (AppVeyor),link=https://ci.appveyor.com/project/asciidoctor/asciidoctor]
-//image:https://img.shields.io/coveralls/asciidoctor/asciidoctor/master.svg[Coverage Status,link=https://coveralls.io/r/asciidoctor/asciidoctor]
-//image:https://codeclimate.com/github/asciidoctor/asciidoctor/badges/gpa.svg[Code Climate,link=https://codeclimate.com/github/asciidoctor/asciidoctor]
-image:https://inch-ci.org/github/asciidoctor/asciidoctor.svg?branch=master[Inline docs,link=https://inch-ci.org/github/asciidoctor/asciidoctor]
-endif::[]
-
 == スポンサー
 
 {uri-project}/supporters[スポンサー] のみなさまが, このプロジェクトをサポートし, より良いテクニカルドキュメンテーションの実現にコミットメントをしてくださっていることに感謝します.
 スポンサーのみなさま, ありがとうございます！
 みなさまの多くのサポートなくしてAsciidoctorは実現不可能です.
-
-ifndef::env-site,env-yard[]
-Asciidoctorの主な資金的サポートは, *Change Maker* である https://opendevise.com[OpenDevise], *Strategy Sponsors* である https://www.khronos.org/[Khronos Group] とLinda Roberts, そして *Pull Request Backers* である Brian Dominick, Guillaume Grossetie, Abel Salgado Romero によって提供されています.
-さらに, {uri-project}/supporters[Community Backers] のページに掲載されているサポーターによって追加的な資金が提供されています.
-endif::[]
 
 https://opencollective.com/asciidoctor[OpenCollective] を通じてスポンサーになることにより, このプロジェクトを支援することができます.
 
@@ -460,7 +443,7 @@ GitHub上のAsciidoctorのorganization:: {uri-org}
 
 == ライセンス
 
-Copyright (C) 2012-2019 Dan Allen, Sarah White, Ryan Waldron, and the individual contributors to Asciidoctor.
+Copyright (C) 2012-2020 Dan Allen, Sarah White, Ryan Waldron, and the individual contributors to Asciidoctor.
 本ソフトウェアはMITライセンスのもとで使用できます.
 
 ライセンスの詳細については {uri-license}[LICENSE] ファイルを参照してください.

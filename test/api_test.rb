@@ -344,6 +344,11 @@ context 'API' do
       assert_equal 'sample.adoc', doc.file
       assert_equal 1, doc.lineno
 
+      preamble = doc.blocks[0]
+      refute_nil preamble.source_location
+      assert_equal 'sample.adoc', preamble.file
+      assert_equal 6, preamble.lineno
+
       section_1 = doc.sections[0]
       assert_equal 'Section A', section_1.title
       refute_nil section_1.source_location
@@ -600,6 +605,24 @@ context 'API' do
       result = doc.find_by context: :section
       refute_nil result
       assert_equal 0, result.size
+    end
+
+    test 'should only return matched node when return value of block argument is :prune' do
+      input = <<~'EOS'
+      * foo
+       ** yin
+        *** zen
+       ** yang
+      * bar
+      * baz
+      EOS
+
+      doc = Asciidoctor.load input
+      result = doc.find_by context: :list_item do |it|
+        it.text == 'yin' ? :prune : false
+      end
+      assert_equal 1, result.size
+      assert_equal 'yin', result[0].text
     end
 
     test 'find_by should discover blocks inside AsciiDoc table cells if traverse_documents selector option is true' do
@@ -1135,6 +1158,23 @@ context 'API' do
       refute_empty styles.strip
     end
 
+    test 'should embed remote stylesheet by default if SafeMode is less than SECURE and allow-uri-read is set' do
+      input = <<~'EOS'
+      = Document Title
+
+      text
+      EOS
+
+      output = using_test_webserver do
+        Asciidoctor.convert input, safe: Asciidoctor::SafeMode::SERVER, standalone: true, attributes: { 'allow-uri-read' => '', 'stylesheet' => %(http://#{resolve_localhost}:9876/fixtures/custom.css) }
+      end
+      stylenode = xmlnodes_at_css 'html:root > head > style', output, 1
+      styles = stylenode.content
+      refute_nil styles
+      refute_empty styles.strip
+      assert_include 'color: green', styles
+    end
+
     test 'should not allow linkcss be unset from document if SafeMode is SECURE or greater' do
       input = <<~'EOS'
       = Document Title
@@ -1155,8 +1195,7 @@ context 'API' do
       text
       EOS
 
-      #[{ 'linkcss!' => '' }, { 'linkcss' => nil }, { 'linkcss' => false }].each do |attrs|
-      [{ 'linkcss!' => '' }, { 'linkcss' => nil }].each do |attrs|
+      [{ 'linkcss!' => '' }, { 'linkcss' => nil }, { 'linkcss' => false }].each do |attrs|
         output = Asciidoctor.convert input, standalone: true, attributes: attrs
         assert_css 'html:root > head > link[rel="stylesheet"][href^="https://fonts.googleapis.com"]', output, 1
         assert_css 'html:root > head > link[rel="stylesheet"][href="./asciidoctor.css"]', output, 0
@@ -1224,6 +1263,76 @@ context 'API' do
       styles = stylenode.content
       refute_nil styles
       refute_empty styles.strip
+    end
+
+    test 'should embed custom remote stylesheet if SafeMode is less than SECURE and allow-uri-read is set' do
+      input = <<~'EOS'
+      = Document Title
+
+      text
+      EOS
+
+      output = using_test_webserver do
+        Asciidoctor.convert input, safe: Asciidoctor::SafeMode::SERVER, standalone: true, attributes: { 'allow-uri-read' => '', 'stylesheet' => %(http://#{resolve_localhost}:9876/fixtures/custom.css) }
+      end
+      stylenode = xmlnodes_at_css 'html:root > head > style', output, 1
+      styles = stylenode.content
+      refute_nil styles
+      refute_empty styles.strip
+      assert_include 'color: green', styles
+    end
+
+    test 'should embed custom stylesheet in remote stylesdir if SafeMode is less than SECURE and allow-uri-read is set' do
+      input = <<~'EOS'
+      = Document Title
+
+      text
+      EOS
+
+      output = using_test_webserver do
+        Asciidoctor.convert input, safe: Asciidoctor::SafeMode::SERVER, standalone: true, attributes: { 'allow-uri-read' => '', 'stylesdir' => %(http://#{resolve_localhost}:9876/fixtures), 'stylesheet' => 'custom.css' }
+      end
+      stylenode = xmlnodes_at_css 'html:root > head > style', output, 1
+      styles = stylenode.content
+      refute_nil styles
+      refute_empty styles.strip
+      assert_include 'color: green', styles
+    end
+
+    test 'should copy custom stylesheet in folder to same folder in destination dir if copycss is set' do
+      begin
+        output_dir = fixture_path 'output'
+        sample_input_path = fixture_path 'sample.adoc'
+        sample_output_path = File.join output_dir, 'sample.html'
+        custom_stylesheet_output_path = File.join output_dir, 'stylesheets', 'custom.css'
+        Asciidoctor.convert_file sample_input_path, safe: :safe, to_dir: output_dir, mkdirs: true,
+            attributes: { 'stylesheet' => 'stylesheets/custom.css', 'linkcss' => '', 'copycss' => '' }
+        assert File.exist? sample_output_path
+        assert File.exist? custom_stylesheet_output_path
+        output = File.read sample_output_path, mode: Asciidoctor::FILE_READ_MODE
+        assert_xpath '/html/head/link[@rel="stylesheet"][@href="./stylesheets/custom.css"]', output, 1
+        assert_xpath 'style', output, 0
+      ensure
+        FileUtils.rm_r output_dir, force: true, secure: true
+      end
+    end
+
+    test 'should copy custom stylesheet to destination dir if copycss is true' do
+      begin
+        output_dir = fixture_path 'output'
+        sample_input_path = fixture_path 'sample.adoc'
+        sample_output_path = File.join output_dir, 'sample.html'
+        custom_stylesheet_output_path = File.join output_dir, 'custom.css'
+        Asciidoctor.convert_file sample_input_path, safe: :safe, to_dir: output_dir, mkdirs: true,
+            attributes: { 'stylesheet' => 'custom.css', 'linkcss' => true, 'copycss' => true }
+        assert File.exist? sample_output_path
+        assert File.exist? custom_stylesheet_output_path
+        output = File.read sample_output_path, mode: Asciidoctor::FILE_READ_MODE
+        assert_xpath '/html/head/link[@rel="stylesheet"][@href="./custom.css"]', output, 1
+        assert_xpath 'style', output, 0
+      ensure
+        FileUtils.rm_r output_dir, force: true, secure: true
+      end
     end
 
     test 'should convert source file and write result to adjacent file by default' do
@@ -1299,6 +1408,22 @@ context 'API' do
         flunk e.message
       ensure
         FileUtils.rm(sample_output_path, force: true)
+      end
+    end
+
+    test 'should resolve :to_dir option correctly when both :to_dir and :to_file options are set to an absolute path' do
+      begin
+        sample_input_path = fixture_path 'sample.adoc' 
+        sample_output_file = Tempfile.new %w(out- .html)
+        sample_output_path = sample_output_file.path
+        sample_output_dir = File.dirname sample_output_path
+        sample_output_file.close
+        doc = Asciidoctor.convert_file sample_input_path, to_file: sample_output_path, to_dir: sample_output_dir, safe: :unsafe
+        assert File.exist? sample_output_path
+        assert_equal sample_output_path, doc.options[:to_file]
+        assert_equal sample_output_dir, doc.options[:to_dir]
+      ensure
+        sample_output_file.close!
       end
     end
 
@@ -1567,7 +1692,7 @@ context 'API' do
       |===
       EOS
       table = (document_from_string input).blocks[0]
-      cell = Asciidoctor::Table::Cell.new table.rows.body[0][0].column, nil, {}
+      cell = Asciidoctor::Table::Cell.new table.rows.body[0][0].column, nil
       refute cell.style
       assert_same Asciidoctor::AbstractNode::NORMAL_SUBS, cell.subs
       assert_equal '', cell.text

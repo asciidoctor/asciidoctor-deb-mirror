@@ -630,6 +630,32 @@ Feature: Cross References
       .title Diagram 2. Managing Inventory
     """
 
+  Scenario: Create a full cross reference to a block with an empty caption
+  Given the AsciiDoc source
+    """
+    :xrefstyle: full
+
+    See <<ex1>>.
+
+    .Title
+    [#ex1,caption=]
+    ====
+    content
+    ====
+    """
+  When it is converted to html
+  Then the result should match the HTML structure
+    """
+    .paragraph: p
+      |See
+      a< href='#ex1' Title
+      |.
+    #ex1.exampleblock
+      .title Title
+      .content: .paragraph: p
+        |content
+    """
+
   Scenario: Create a short cross reference to a block with an explicit caption
   Given the AsciiDoc source
     """
@@ -660,6 +686,32 @@ Feature: Cross References
     #diagram-2.imageblock
       .content: img src='managing-inventory.png' alt='Managing Inventory'
       .title Diagram 2. Managing Inventory
+    """
+
+  Scenario: Create a short cross reference to a block with an empty caption
+  Given the AsciiDoc source
+    """
+    :xrefstyle: short
+
+    See <<ex1>>.
+
+    .Title
+    [#ex1,caption=]
+    ====
+    content
+    ====
+    """
+  When it is converted to html
+  Then the result should match the HTML structure
+    """
+    .paragraph: p
+      |See
+      a< href='#ex1' Title
+      |.
+    #ex1.exampleblock
+      .title Title
+      .content: .paragraph: p
+        |content
     """
 
   Scenario: Create a basic cross reference to an unnumbered formal block
@@ -948,6 +1000,63 @@ Feature: Cross References
         .sectionbody: .paragraph: p
           |refer to
           a< href='#_section_one' "The Premier Section"
+      """
+
+    Scenario: Does not parse text of xref macro as attribute if no attributes found
+    Given the AsciiDoc source
+      """
+      == Section One
+
+      content
+
+      == Section Two
+
+      refer to xref:_section_one[Section One
+      = First Section]
+      """
+    When it is converted to html
+    Then the result should match the HTML structure
+      """
+      .sect1
+        h2#_section_one
+          |Section One
+        .sectionbody: .paragraph: p content
+      .sect1
+        h2#_section_two Section Two
+        .sectionbody: .paragraph: p
+          |refer to
+          a< href='#_section_one'
+            |Section One
+            |= First Section
+      """
+
+    Scenario: Does not parse formatted text of xref macro as attributes
+    Given the AsciiDoc source
+      """
+      == Section One
+
+      content
+
+      == Section Two
+
+      refer to xref:_section_one[[.role]#Section
+      One#]
+      """
+    When it is converted to html
+    Then the result should match the HTML structure
+      """
+      .sect1
+        h2#_section_one
+          |Section One
+        .sectionbody: .paragraph: p content
+      .sect1
+        h2#_section_two Section Two
+        .sectionbody: .paragraph: p
+          |refer to
+          a< href='#_section_one'
+            span.role
+              |Section
+              |One
       """
 
     Scenario: Can escape double quotes in text of xref macro using backslashes when text is parsed as attributes

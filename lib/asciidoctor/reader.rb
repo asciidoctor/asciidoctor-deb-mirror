@@ -570,17 +570,18 @@ class Reader
   #
   # data - A String Array or String of source data to be normalized.
   # opts - A Hash of options to control how lines are prepared.
-  #        :normalize - Enables line normalization, which coerces the encoding to UTF-8 and removes trailing whitespace
-  #        (optional, default: false).
+  #        :normalize - Enables line normalization, which coerces the encoding to UTF-8 and removes trailing whitespace;
+  #        :rstrip removes all trailing whitespace; :chomp removes trailing newline only (optional, not set).
   #
   # Returns A String Array of source lines. If the source data is an Array, this method returns a copy.
   def prepare_lines data, opts = {}
-    if opts[:normalize]
-      ::Array === data ? (Helpers.prepare_source_array data) : (Helpers.prepare_source_string data)
+    if (normalize = opts[:normalize])
+      trim_end = normalize == :chomp ? false : true
+      ::Array === data ? (Helpers.prepare_source_array data, trim_end) : (Helpers.prepare_source_string data, trim_end)
     elsif ::Array === data
       data.drop 0
     elsif data
-      data.split LF, -1
+      data.chomp.split LF, -1
     else
       []
     end
@@ -717,7 +718,7 @@ class PreprocessorReader < Reader
     end
 
     # effectively fill the buffer
-    if (@lines = prepare_lines data, normalize: true, condense: false, indent: attributes['indent']).empty?
+    if (@lines = prepare_lines data, normalize: @process_lines || :chomp, condense: @process_lines, indent: attributes['indent']).empty?
       pop_include
     else
       # FIXME we eventually want to handle leveloffset without affecting the lines
@@ -1060,7 +1061,13 @@ class PreprocessorReader < Reader
         return inc_path
       end
 
+      if (enc = parsed_attrs['encoding']) && (::Encoding.find enc rescue nil)
+        (read_mode_params = read_mode.split ':')[1] = enc
+        read_mode = read_mode_params.join ':'
+      end unless RUBY_ENGINE_OPAL
+
       inc_linenos = inc_tags = nil
+      # NOTE attrlist is nil if missing from include directive
       if attrlist
         if parsed_attrs.key? 'lines'
           inc_linenos = []
@@ -1148,7 +1155,7 @@ class PreprocessorReader < Reader
                     active_tag, select = tag_stack.empty? ? [nil, base_select] : tag_stack[-1]
                   elsif inc_tags.key? this_tag
                     include_cursor = create_include_cursor inc_path, expanded_target, inc_lineno
-                    if (idx = tag_stack.rindex {|key, _| key == this_tag })
+                    if (idx = tag_stack.rindex {|key,| key == this_tag })
                       idx == 0 ? tag_stack.shift : (tag_stack.delete_at idx)
                       logger.warn message_with_context %(mismatched end tag (expected '#{active_tag}' but found '#{this_tag}') at line #{inc_lineno} of include #{target_type}: #{inc_path}), source_location: cursor, include_location: include_cursor
                     else

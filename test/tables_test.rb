@@ -554,7 +554,7 @@ context 'Tables' do
 
     test 'table with header and footer' do
       input = <<~'EOS'
-      [frame="topbot",options="header,footer"]
+      [options="header,footer"]
       |===
       |Item       |Quantity
       |Item 1     |1
@@ -581,7 +581,7 @@ context 'Tables' do
     test 'table with header and footer docbook' do
       input = <<~'EOS'
       .Table with header, body and footer
-      [frame="topbot",options="header,footer"]
+      [options="header,footer"]
       |===
       |Item       |Quantity
       |Item 1     |1
@@ -592,7 +592,6 @@ context 'Tables' do
       EOS
       output = convert_string_to_embedded input, backend: 'docbook'
       assert_css 'table', output, 1
-      assert_css 'table[frame="topbot"]', output, 1
       assert_css 'table > title', output, 1
       assert_css 'table > tgroup', output, 1
       assert_css 'table > tgroup[cols="2"]', output, 1
@@ -613,7 +612,60 @@ context 'Tables' do
       assert_equal %w(thead tbody tfoot), table_section_names
     end
 
-    test 'should recognize ends as an alias to topbot for frame when converting to DocBook' do
+    test 'should set horizontal and vertical alignment when converting to DocBook' do
+      input = <<~'EOS'
+      |===
+      |A ^.^|B >|C
+
+      |A1
+      ^.^|B1
+      >|C1
+      |===
+      EOS
+      output = convert_string input, backend: 'docbook'
+      assert_css 'informaltable', output, 1
+      assert_css 'informaltable thead > row > entry[align="left"][valign="top"]', output, 1
+      assert_css 'informaltable thead > row > entry[align="center"][valign="middle"]', output, 1
+      assert_css 'informaltable thead > row > entry[align="right"][valign="top"]', output, 1
+      assert_css 'informaltable tbody > row > entry[align="left"][valign="top"]', output, 1
+      assert_css 'informaltable tbody > row > entry[align="center"][valign="middle"]', output, 1
+      assert_css 'informaltable tbody > row > entry[align="right"][valign="top"]', output, 1
+    end
+
+    test 'should preserve frame value ends when converting to HTML' do
+      input = <<~'EOS'
+      [frame=ends]
+      |===
+      |A |B |C
+      |===
+      EOS
+      output = convert_string_to_embedded input
+      assert_css 'table.frame-ends', output, 1
+    end
+
+    test 'should normalize frame value topbot as ends when converting to HTML' do
+      input = <<~'EOS'
+      [frame=topbot]
+      |===
+      |A |B |C
+      |===
+      EOS
+      output = convert_string_to_embedded input
+      assert_css 'table.frame-ends', output, 1
+    end
+
+    test 'should preserve frame value topbot when converting to DocBook' do
+      input = <<~'EOS'
+      [frame=topbot]
+      |===
+      |A |B |C
+      |===
+      EOS
+      output = convert_string_to_embedded input, backend: 'docbook'
+      assert_css 'informaltable[frame="topbot"]', output, 1
+    end
+
+    test 'should convert frame value ends to topbot when converting to DocBook' do
       input = <<~'EOS'
       [frame=ends]
       |===
@@ -739,6 +791,63 @@ context 'Tables' do
       assert_xpath '(//td)[1]/p', output, 2
     end
 
+    test 'should format first cell as literal if there is no implicit header row and column has l style' do
+      input = <<~'EOS'
+      [cols="1l,1"]
+      |===
+      |literal
+      |normal
+      |===
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_css 'tbody pre', output, 1
+      assert_css 'tbody p.tableblock', output, 1
+    end
+
+    test 'wip should format first cell as AsciiDoc if there is no implicit header row and column has a style' do
+      input = <<~'EOS'
+      [cols="1a,1"]
+      |===
+      | * list
+      | normal
+      |===
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_css 'tbody .ulist', output, 1
+      assert_css 'tbody p.tableblock', output, 1
+    end
+
+    test 'should interpret leading indent if first cell is AsciiDoc and there is no implicit header row' do
+      # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+      input = <<~EOS
+      [cols="1a,1"]
+      |===
+      |
+        literal
+      | normal
+      |===
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_css 'tbody pre', output, 1
+      assert_css 'tbody p.tableblock', output, 1
+    end
+
+    test 'should format first cell as AsciiDoc if there is no implicit header row and cell has a style' do
+      input = <<~'EOS'
+      |===
+      a| * list
+      | normal
+      |===
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_css 'tbody .ulist', output, 1
+      assert_css 'tbody p.tableblock', output, 1
+    end
+
     test 'no implicit header row if AsciiDoc cell in first line spans multiple lines' do
       input = <<~'EOS'
       [cols=2*]
@@ -831,6 +940,39 @@ context 'Tables' do
       assert_css 'table > tbody > tr > td > p.header', output, 0
       assert_css 'table > tbody > tr > td > p > strong', output, 1
       assert_css 'table > tbody > tr > td > p > em > a', output, 1
+    end
+
+    test 'should apply text formatting to cells in implicit header row when column has a style' do
+      input = <<~'EOS'
+      [cols="2*a"]
+      |===
+      | _foo_ | *bar*
+
+      | * list item
+      | paragraph
+      |===
+      EOS
+      output = convert_string_to_embedded input
+      assert_xpath '(//thead/tr/th)[1]/em[text()="foo"]', output, 1
+      assert_xpath '(//thead/tr/th)[2]/strong[text()="bar"]', output, 1
+      assert_css 'tbody .ulist', output, 1
+      assert_css 'tbody .paragraph', output, 1
+    end
+
+    test 'should apply style and text formatting to cells in first row if no implicit header' do
+      input = <<~'EOS'
+      [cols="s,e"]
+      |===
+      | _strong_ | *emphasis*
+      | strong
+      | emphasis
+      |===
+      EOS
+      output = convert_string_to_embedded input
+      assert_xpath '((//tbody/tr)[1]/td)[1]//strong/em[text()="strong"]', output, 1
+      assert_xpath '((//tbody/tr)[1]/td)[2]//em/strong[text()="emphasis"]', output, 1
+      assert_xpath '((//tbody/tr)[2]/td)[1]//strong[text()="strong"]', output, 1
+      assert_xpath '((//tbody/tr)[2]/td)[2]//em[text()="emphasis"]', output, 1
     end
 
     test 'vertical table headers use th element instead of header class' do
@@ -1250,7 +1392,7 @@ context 'Tables' do
 
     test 'AsciiDoc content' do
       input = <<~'EOS'
-      [cols="1e,1,5a",frame="topbot",options="header"]
+      [cols="1e,1,5a"]
       |===
       |Name |Backends |Description
 
@@ -1376,6 +1518,45 @@ context 'Tables' do
       assert_xpath '(//p)[1]/a[@href="#mount-evans"][text()="Mount Evans"]', output, 1
       assert_xpath '(//table/tbody/tr)[1]//td//a[@id="mount-evans"]', output, 1
       assert_xpath '(//table/tbody/tr)[2]//th//a[@id="grays-peak"]', output, 1
+    end
+
+    test 'should catalog anchor at start of cell in implicit header row when column has a style' do
+      input = <<~'EOS'
+      [cols=1a]
+      |===
+      |[[foo,Foo]]* not AsciiDoc
+
+      | AsciiDoc
+      |===
+      EOS
+      doc = document_from_string input
+      refs = doc.catalog[:refs]
+      assert refs.key?('foo')
+    end
+
+    test 'should catalog anchor at start of cell in explicit header row when column has a style' do
+      input = <<~'EOS'
+      [%header,cols=1a]
+      |===
+      |[[foo,Foo]]* not AsciiDoc
+      | AsciiDoc
+      |===
+      EOS
+      doc = document_from_string input
+      refs = doc.catalog[:refs]
+      assert refs.key?('foo')
+    end
+
+    test 'should catalog anchor at start of cell in first row' do
+      input = <<~'EOS'
+      |===
+      |[[foo,Foo]]foo
+      | bar
+      |===
+      EOS
+      doc = document_from_string input
+      refs = doc.catalog[:refs]
+      assert refs.key?('foo')
     end
 
     test 'footnotes should not be shared between an AsciiDoc table cell and the main document' do
@@ -1885,6 +2066,21 @@ context 'Tables' do
       assert_xpath '/table/tbody/tr[1]/td[2]/p[2][text()="two"]', output, 1
       assert_xpath '/table/tbody/tr[1]/td[2]/p[3][text()="three"]', output, 1
       assert_xpath %(/table/tbody/tr[1]/td[3]//pre[text()="do\n\nre\n\nme"]), output, 1
+    end
+
+    test 'should not drop trailing empty cell in TSV data when loaded from an include file' do
+      input  = <<~'EOS'
+      [%header,format=tsv]
+      |===
+      include::fixtures/data.tsv[]
+      |===
+      EOS
+      output = convert_string_to_embedded input, safe: :safe, base_dir: ASCIIDOCTOR_TEST_DIR
+      assert_css 'table > tbody > tr', output, 3
+      assert_css 'table > tbody > tr:nth-child(1) > td', output, 3
+      assert_css 'table > tbody > tr:nth-child(2) > td', output, 3
+      assert_css 'table > tbody > tr:nth-child(3) > td', output, 3
+      assert_css 'table > tbody > tr:nth-child(2) > td:nth-child(3):empty', output, 1
     end
 
     test 'mixed unquoted records and quoted records with escaped quotes, commas, and wrapped lines' do

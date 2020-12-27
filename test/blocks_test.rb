@@ -890,7 +890,7 @@ context 'Blocks' do
       input = <<~'EOS'
       [%collapsible]
       ====
-      This content is revealed when the user clicks the words "Toggle Me".
+      This content is revealed when the user clicks the words "Details".
       ====
       EOS
 
@@ -898,6 +898,33 @@ context 'Blocks' do
       assert_css 'details', output, 1
       assert_css 'details > summary.title', output, 1
       assert_xpath '//details/summary[text()="Details"]', output, 1
+    end
+
+    test 'should not allow collapsible block to increment example number' do
+      input = <<~'EOS'
+      .Before
+      ====
+      before
+      ====
+
+      .Show Me The Goods
+      [%collapsible]
+      ====
+      This content is revealed when the user clicks the words "Show Me The Goods".
+      ====
+
+      .After
+      ====
+      after
+      ====
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_xpath '//*[@class="title"][text()="Example 1. Before"]', output, 1
+      assert_xpath '//*[@class="title"][text()="Example 2. After"]', output, 1
+      assert_css 'details', output, 1
+      assert_css 'details > summary.title', output, 1
+      assert_xpath '//details/summary[text()="Show Me The Goods"]', output, 1
     end
 
     test 'should warn if example block is not terminated' do
@@ -1258,6 +1285,33 @@ context 'Blocks' do
 
       output = convert_string_to_embedded input
       assert_css 'pre.nowrap', output, 1
+    end
+
+    test 'should preserve guard in front of callout if icons are not enabled' do
+      input = <<~'EOS'
+      ----
+      puts 'Hello, World!' # <1>
+      puts 'Goodbye, World ;(' # <2>
+      ----
+      EOS
+
+      result = convert_string_to_embedded input
+      assert_include ' # <b class="conum">(1)</b>', result
+      assert_include ' # <b class="conum">(2)</b>', result
+    end
+
+    test 'should preserve guard around callout if icons are not enabled' do
+      input = <<~'EOS'
+      ----
+      <parent> <!--1-->
+        <child/> <!--2-->
+      </parent>
+      ----
+      EOS
+
+      result = convert_string_to_embedded input
+      assert_include ' &lt;!--<b class="conum">(1)</b>--&gt;', result
+      assert_include ' &lt;!--<b class="conum">(2)</b>--&gt;', result
     end
 
     test 'literal block should honor explicit subs list' do
@@ -1720,6 +1774,67 @@ context 'Blocks' do
       assert_equal expect.strip, output.strip
     end
 
+    test 'should set autoNumber option for latexmath to none by default' do
+      input = <<~'EOS'
+      :stem: latexmath
+
+      [stem]
+      ++++
+      y = x^2
+      ++++
+      EOS
+
+      output = convert_string input
+      assert_includes output, 'TeX: { equationNumbers: { autoNumber: "none" } }'
+    end
+
+    test 'should set autoNumber option for latexmath to none if eqnums is set to none' do
+      input = <<~'EOS'
+      :stem: latexmath
+      :eqnums: none
+
+      [stem]
+      ++++
+      y = x^2
+      ++++
+      EOS
+
+      output = convert_string input
+      assert_includes output, 'TeX: { equationNumbers: { autoNumber: "none" } }'
+    end
+
+    test 'should set autoNumber option for latexmath to AMS if eqnums is set' do
+      input = <<~'EOS'
+      :stem: latexmath
+      :eqnums:
+
+      [stem]
+      ++++
+      \begin{equation}
+      y = x^2
+      \end{equation}
+      ++++
+      EOS
+
+      output = convert_string input
+      assert_includes output, 'TeX: { equationNumbers: { autoNumber: "AMS" } }'
+    end
+
+    test 'should set autoNumber option for latexmath to all if eqnums is set to all' do
+      input = <<~'EOS'
+      :stem: latexmath
+      :eqnums: all
+
+      [stem]
+      ++++
+      y = x^2
+      ++++
+      EOS
+
+      output = convert_string input
+      assert_includes output, 'TeX: { equationNumbers: { autoNumber: "all" } }'
+    end
+
     test 'should not split equation in AsciiMath block at single newline' do
       input = <<~'EOS'
       [asciimath]
@@ -1748,7 +1863,7 @@ context 'Blocks' do
       ++++
       EOS
       expected = <<~'EOS'.chop
-      \$f: bbb"N" -&gt; bbb"N"\$<br>
+      \$f: bbb"N" -&gt; bbb"N"\$
       \$f: x |-&gt; x + 1\$
       EOS
 
@@ -1768,7 +1883,7 @@ context 'Blocks' do
       ++++
       EOS
       expected = <<~'EOS'.chop
-      \$f: bbb"N" -&gt; bbb"N"\$<br>
+      \$f: bbb"N" -&gt; bbb"N"\$
       <br>
       \$f: x |-&gt; x + 1\$
       EOS
@@ -1790,7 +1905,7 @@ context 'Blocks' do
       ++++
       EOS
       expected = <<~'EOS'.chop
-      \$f: bbb"N" -&gt; bbb"N"\$<br>
+      \$f: bbb"N" -&gt; bbb"N"\$
       <br>
       <br>
       \$f: x |-&gt; x + 1\$
@@ -2148,7 +2263,7 @@ context 'Blocks' do
       assert_xpath '/*[@class="imageblock"]//object[@type="image/svg+xml"][@data="http://example.org/tiger-svg"][@width="100"]/span[@class="alt"][text()="Tiger"]', output, 1
     end
 
-    test 'converts inline SVG image using svg element' do
+    test 'converts to inline SVG image when inline option is set on block' do
       input = <<~'EOS'
       :imagesdir: fixtures
 
@@ -2157,13 +2272,37 @@ context 'Blocks' do
       EOS
 
       output = convert_string_to_embedded input, safe: Asciidoctor::SafeMode::SERVER, attributes: { 'docdir' => testdir }
-      assert_match(/<svg\s[^>]*width="100px"[^>]*>/, output, 1)
-      refute_match(/<svg\s[^>]*width="500px"[^>]*>/, output)
-      refute_match(/<svg\s[^>]*height="500px"[^>]*>/, output)
-      refute_match(/<svg\s[^>]*style="width:500px;height:500px"[^>]*>/, output)
+      assert_match(/<svg\s[^>]*width="100"[^>]*>/, output, 1)
+      refute_match(/<svg\s[^>]*width="500"[^>]*>/, output)
+      refute_match(/<svg\s[^>]*height="500"[^>]*>/, output)
+      refute_match(/<svg\s[^>]*style="[^>]*>/, output)
     end
 
-    test 'converts inline SVG image using svg element even when data-uri is set' do
+    test 'should honor percentage width for SVG image with inline option' do
+      input = <<~'EOS'
+      :imagesdir: fixtures
+
+      image::circle.svg[Circle,50%,opts=inline]
+      EOS
+
+      output = convert_string_to_embedded input, safe: Asciidoctor::SafeMode::SERVER, attributes: { 'docdir' => testdir }
+      assert_match(/<svg\s[^>]*width="50%"[^>]*>/, output, 1)
+    end
+
+    test 'should not crash if explicit width on SVG image block is an integer' do
+      input = <<~'EOS'
+      :imagesdir: fixtures
+
+      image::circle.svg[Circle,opts=inline]
+      EOS
+
+      doc = document_from_string input, safe: Asciidoctor::SafeMode::SERVER, attributes: { 'docdir' => testdir }
+      doc.blocks[0].set_attr 'width', 50
+      output = doc.convert
+      assert_match %r/<svg\s[^>]*width="50"[^>]*>/, output, 1
+    end
+
+    test 'converts to inline SVG image when inline option is set on block and data-uri is set on document' do
       input = <<~'EOS'
       :imagesdir: fixtures
       :data-uri:
@@ -2173,10 +2312,25 @@ context 'Blocks' do
       EOS
 
       output = convert_string_to_embedded input, safe: Asciidoctor::SafeMode::SERVER, attributes: { 'docdir' => testdir }
-      assert_match(/<svg\s[^>]*width="100px">/, output, 1)
+      assert_match(/<svg\s[^>]*width="100">/, output, 1)
     end
 
-    test 'embeds remote inline SVG when allow-uri-read is set' do
+    test 'should not throw exception if SVG to inline is empty' do
+      input = 'image::empty.svg[nada,opts=inline]'
+      output = convert_string_to_embedded input, safe: :safe, attributes: { 'docdir' => testdir, 'imagesdir' => 'fixtures' }
+      assert_xpath '//svg', output, 0
+      assert_xpath '//span[@class="alt"][text()="nada"]', output, 1
+      assert_message @logger, :WARN, '~contents of SVG is empty:'
+    end
+
+    test 'should not throw exception if SVG to inline contains an incomplete start tag and explicit width is specified' do
+      input = 'image::incomplete.svg[,200,opts=inline]'
+      output = convert_string_to_embedded input, safe: :safe, attributes: { 'docdir' => testdir, 'imagesdir' => 'fixtures' }
+      assert_xpath '//svg', output, 1
+      assert_xpath '//span[@class="alt"]', output, 0
+    end
+
+    test 'embeds remote SVG to inline when inline option is set on block and allow-uri-read is set on document' do
       input = %(image::http://#{resolve_localhost}:9876/fixtures/circle.svg[Circle,100,100,opts=inline])
       output = using_test_webserver do
         convert_string_to_embedded input, safe: :safe, attributes: { 'allow-uri-read' => '' }
@@ -2184,12 +2338,12 @@ context 'Blocks' do
 
       assert_css 'svg', output, 1
       assert_css 'svg[style]', output, 0
-      assert_css 'svg[width="100px"]', output, 1
-      assert_css 'svg[height="100px"]', output, 1
+      assert_css 'svg[width="100"]', output, 1
+      assert_css 'svg[height="100"]', output, 1
       assert_css 'svg circle', output, 1
     end
 
-    test 'converts alt text for inline svg element if svg cannot be read' do
+    test 'converts to alt text for SVG with inline option set if SVG cannot be read' do
       input = <<~'EOS'
       [%inline]
       image::no-such-image.svg[Alt Text]
@@ -2712,10 +2866,11 @@ context 'Blocks' do
     end
 
     test 'video macro should honor all options' do
-      input = 'video::cats-vs-dogs.avi[options="autoplay,nocontrols,loop",preload="metadata"]'
+      input = 'video::cats-vs-dogs.avi[options="autoplay,muted,nocontrols,loop",preload="metadata"]'
       output = convert_string_to_embedded input
       assert_css 'video', output, 1
       assert_css 'video[autoplay]', output, 1
+      assert_css 'video[muted]', output, 1
       assert_css 'video:not([controls])', output, 1
       assert_css 'video[loop]', output, 1
       assert_css 'video[preload=metadata]', output, 1

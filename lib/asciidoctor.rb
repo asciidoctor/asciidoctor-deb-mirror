@@ -148,7 +148,7 @@ module Asciidoctor
     # Compliance value: 'drop-line'
     define :attribute_missing, 'skip'
 
-    # AsciiDoc drops lines that contain an attribute unassignemnt.
+    # AsciiDoc drops lines that contain an attribute unassignment.
     # This behavior may need to be tuned depending on the circumstances.
     # Compliance value: 'drop-line'
     define :attribute_undefined, 'drop-line'
@@ -296,7 +296,7 @@ module Asciidoctor
   DELIMITED_BLOCK_TAILS = {}.tap {|accum| DELIMITED_BLOCKS.each_key {|k| accum[k] = k[k.length - 1] if k.length == 4 } }
 
   # NOTE the 'figure' key as a string is historical and used by image blocks
-  CAPTION_ATTR_NAMES = { example: 'example-caption', 'figure' => 'figure-caption', listing: 'listing-caption', table: 'table-caption' }
+  CAPTION_ATTRIBUTE_NAMES = { example: 'example-caption', 'figure' => 'figure-caption', listing: 'listing-caption', table: 'table-caption' }
 
   LAYOUT_BREAK_CHARS = {
     '\'' => :thematic_break,
@@ -357,9 +357,35 @@ module Asciidoctor
 
   FONT_AWESOME_VERSION = '4.7.0'
 
-  HIGHLIGHT_JS_VERSION = '9.15.6'
+  HIGHLIGHT_JS_VERSION = '9.18.3'
 
-  MATHJAX_VERSION = '2.7.5'
+  MATHJAX_VERSION = '2.7.9'
+
+  DEFAULT_ATTRIBUTES = {
+    'appendix-caption' => 'Appendix',
+    'appendix-refsig' => 'Appendix',
+    'caution-caption' => 'Caution',
+    'chapter-refsig' => 'Chapter',
+    #'encoding' => 'UTF-8',
+    'example-caption' => 'Example',
+    'figure-caption' => 'Figure',
+    'important-caption' => 'Important',
+    'last-update-label' => 'Last updated',
+    #'listing-caption' => 'Listing',
+    'note-caption' => 'Note',
+    'part-refsig' => 'Part',
+    #'preface-title' => 'Preface',
+    'prewrap' => '',
+    'sectids' => '',
+    'section-refsig' => 'Section',
+    'table-caption' => 'Table',
+    'tip-caption' => 'Tip',
+    'toc-placement' => 'auto',
+    'toc-title' => 'Table of Contents',
+    'untitled-label' => 'Untitled',
+    'version-label' => 'Version',
+    'warning-caption' => 'Warning',
+  }
 
   # attributes which be changed throughout the flow of the document (e.g., sectnums)
   FLEXIBLE_ATTRIBUTES = ['sectnums']
@@ -511,8 +537,8 @@ module Asciidoctor
   end unless RUBY_ENGINE == 'opal'
 
   unless RUBY_ENGINE == 'opal'
-    autoload :SyntaxHighlighter, %(#{LIB_DIR}/asciidoctor/syntax_highlighter)
-    autoload :Timings, %(#{LIB_DIR}/asciidoctor/timings)
+    autoload :SyntaxHighlighter, %(#{__dir__}/asciidoctor/syntax_highlighter)
+    autoload :Timings, %(#{__dir__}/asciidoctor/timings)
   end
 end
 

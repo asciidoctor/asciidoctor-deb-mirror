@@ -21,15 +21,15 @@ class Converter::Html5Converter < Converter::Base
     #latexmath:  INLINE_MATH_DELIMITERS[:latexmath] + [false],
   }).default = ['', '']
 
-  DropAnchorRx = /<(?:a[^>+]+|\/a)>/
+  DropAnchorRx = /<(?:a\b[^>]*|\/a)>/
   StemBreakRx = / *\\\n(?:\\?\n)*|\n\n+/
   if RUBY_ENGINE == 'opal'
     # NOTE In JavaScript, ^ matches the start of the string when the m flag is not set
-    SvgPreambleRx = /^#{CC_ALL}*?(?=<svg\b)/
-    SvgStartTagRx = /^<svg[^>]*>/
+    SvgPreambleRx = /^#{CC_ALL}*?(?=<svg[\s>])/
+    SvgStartTagRx = /^<svg(?:\s[^>]*)?>/
   else
-    SvgPreambleRx = /\A.*?(?=<svg\b)/m
-    SvgStartTagRx = /\A<svg[^>]*>/
+    SvgPreambleRx = /\A.*?(?=<svg[\s>])/m
+    SvgStartTagRx = /\A<svg(?:\s[^>]*)?>/
   end
   DimensionAttributeRx = /\s(?:width|height|style)=(["'])#{CC_ANY}*?\1/
 
@@ -96,6 +96,7 @@ class Converter::Html5Converter < Converter::Base
     end
     cdn_base_url = %(#{asset_uri_scheme}//cdnjs.cloudflare.com/ajax/libs)
     linkcss = node.attr? 'linkcss'
+    max_width_attr = (node.attr? 'max-width') ? %( style="max-width: #{node.attr 'max-width'};") : ''
     result = ['<!DOCTYPE html>']
     lang_attribute = (node.attr? 'nolang') ? '' : %( lang="#{node.attr 'lang', 'en'}")
     result << %(<html#{@xml_mode ? ' xmlns="http://www.w3.org/1999/xhtml"' : ''}#{lang_attribute}>)
@@ -138,7 +139,7 @@ class Converter::Html5Converter < Converter::Base
         result << %(<link rel="stylesheet" href="#{node.normalize_web_path((node.attr 'stylesheet'), (node.attr 'stylesdir', ''))}"#{slash}>)
       else
         result << %(<style>
-#{node.read_asset node.normalize_system_path((node.attr 'stylesheet'), (node.attr 'stylesdir', '')), warn_on_failure: true, label: 'stylesheet'}
+#{node.read_contents (node.attr 'stylesheet'), start: (node.attr 'stylesdir'), warn_on_failure: true, label: 'stylesheet'}
 </style>)
       end
     end
@@ -152,8 +153,8 @@ class Converter::Html5Converter < Converter::Base
       end
     end
 
-    if (syntax_hl = node.syntax_highlighter) && (syntax_hl.docinfo? :head)
-      result << (syntax_hl.docinfo :head, node, cdn_base_url: cdn_base_url, linkcss: linkcss, self_closing_tag_slash: slash)
+    if (syntax_hl = node.syntax_highlighter)
+      result << (syntax_hl_docinfo_head_idx = result.size)
     end
 
     unless (docinfo_content = node.docinfo).empty?
@@ -161,29 +162,27 @@ class Converter::Html5Converter < Converter::Base
     end
 
     result << '</head>'
-    body_attrs = node.id ? [%(id="#{node.id}")] : []
+    id_attr = node.id ? %( id="#{node.id}") : ''
     if (sectioned = node.sections?) && (node.attr? 'toc-class') && (node.attr? 'toc') && (node.attr? 'toc-placement', 'auto')
       classes = [node.doctype, (node.attr 'toc-class'), %(toc-#{node.attr 'toc-position', 'header'})]
     else
       classes = [node.doctype]
     end
     classes << node.role if node.role?
-    body_attrs << %(class="#{classes.join ' '}")
-    body_attrs << %(style="max-width: #{node.attr 'max-width'};") if node.attr? 'max-width'
-    result << %(<body #{body_attrs.join ' '}>)
+    result << %(<body#{id_attr} class="#{classes.join ' '}">)
 
     unless (docinfo_content = node.docinfo :header).empty?
       result << docinfo_content
     end
 
     unless node.noheader
-      result << '<div id="header">'
+      result << %(<div id="header"#{max_width_attr}>)
       if node.doctype == 'manpage'
         result << %(<h1>#{node.doctitle} Manual Page</h1>)
         if sectioned && (node.attr? 'toc') && (node.attr? 'toc-placement', 'auto')
           result << %(<div id="toc" class="#{node.attr 'toc-class', 'toc'}">
 <div id="toctitle">#{node.attr 'toc-title'}</div>
-#{convert_outline node}
+#{node.converter.convert node, 'outline'}
 </div>)
         end
         result << (generate_manname_section node) if node.attr? 'manpurpose'
@@ -216,19 +215,19 @@ class Converter::Html5Converter < Converter::Base
         if sectioned && (node.attr? 'toc') && (node.attr? 'toc-placement', 'auto')
           result << %(<div id="toc" class="#{node.attr 'toc-class', 'toc'}">
 <div id="toctitle">#{node.attr 'toc-title'}</div>
-#{convert_outline node}
+#{node.converter.convert node, 'outline'}
 </div>)
         end
       end
       result << '</div>'
     end
 
-    result << %(<div id="content">
+    result << %(<div id="content"#{max_width_attr}>
 #{node.content}
 </div>)
 
     if node.footnotes? && !(node.attr? 'nofootnotes')
-      result << %(<div id="footnotes">
+      result << %(<div id="footnotes"#{max_width_attr}>
 <hr#{slash}>)
       node.footnotes.each do |footnote|
         result << %(<div class="footnote" id="_footnotedef_#{footnote.index}">
@@ -239,7 +238,7 @@ class Converter::Html5Converter < Converter::Base
     end
 
     unless node.nofooter
-      result << '<div id="footer">'
+      result << %(<div id="footer"#{max_width_attr}>)
       result << '<div id="footer-text">'
       result << %(#{node.attr 'version-label'} #{node.attr 'revnumber'}#{br}) if node.attr? 'revnumber'
       result << %(#{node.attr 'last-update-label'} #{node.attr 'docdatetime'}) if (node.attr? 'last-update-label') && !(node.attr? 'reproducible')
@@ -250,8 +249,15 @@ class Converter::Html5Converter < Converter::Base
     # JavaScript (and auxiliary stylesheets) loaded at the end of body for performance reasons
     # See http://www.html5rocks.com/en/tutorials/speed/script-loading/
 
-    if syntax_hl && (syntax_hl.docinfo? :footer)
-      result << (syntax_hl.docinfo :footer, node, cdn_base_url: cdn_base_url, linkcss: linkcss, self_closing_tag_slash: slash)
+    if syntax_hl
+      if syntax_hl.docinfo? :head
+        result[syntax_hl_docinfo_head_idx] = syntax_hl.docinfo :head, node, cdn_base_url: cdn_base_url, linkcss: linkcss, self_closing_tag_slash: slash
+      else
+        result.delete_at syntax_hl_docinfo_head_idx
+      end
+      if syntax_hl.docinfo? :footer
+        result << (syntax_hl.docinfo :footer, node, cdn_base_url: cdn_base_url, linkcss: linkcss, self_closing_tag_slash: slash)
+      end
     end
 
     if node.attr? 'stem'
@@ -275,7 +281,7 @@ MathJax.Hub.Config({
 })
 MathJax.Hub.Register.StartupHook("AsciiMath Jax Ready", function () {
   MathJax.InputJax.AsciiMath.postfilterHooks.Add(function (data, node) {
-    if ((node = data.script.parentNode) && (node = node.parentNode) && node.classList.contains('stemblock')) {
+    if ((node = data.script.parentNode) && (node = node.parentNode) && node.classList.contains("stemblock")) {
       data.math.root.display = "block"
     }
     return data
@@ -311,7 +317,7 @@ MathJax.Hub.Register.StartupHook("AsciiMath Jax Ready", function () {
     if node.sections? && (node.attr? 'toc') && (toc_p = node.attr 'toc-placement') != 'macro' && toc_p != 'preamble'
       result << %(<div id="toc" class="toc">
 <div id="toctitle">#{node.attr 'toc-title'}</div>
-#{convert_outline node}
+#{node.converter.convert node, 'outline'}
 </div>)
     end
 
@@ -628,9 +634,7 @@ Your browser does not support the audio tag.
       end
     end
     img ||= %(<img src="#{node.image_uri target}" alt="#{encode_attribute_value node.alt}"#{width_attr}#{height_attr}#{@void_element_slash}>)
-    if node.attr? 'link'
-      img = %(<a class="image" href="#{node.attr 'link'}"#{(append_link_constraint_attrs node).join}>#{img}</a>)
-    end
+    img = %(<a class="image" href="#{node.attr 'link'}"#{(append_link_constraint_attrs node).join}>#{img}</a>) if node.attr? 'link'
     id_attr = node.id ? %( id="#{node.id}") : ''
     classes = ['imageblock']
     classes << (node.attr 'float') if node.attr? 'float'
@@ -689,8 +693,8 @@ Your browser does not support the audio tag.
     open, close = BLOCK_MATH_DELIMITERS[style = node.style.to_sym]
     if (equation = node.content)
       if style == :asciimath && (equation.include? LF)
-        br = %(<br#{@void_element_slash}>#{LF})
-        equation = equation.gsub(StemBreakRx) { %(#{close}#{br * ($&.count LF)}#{open}) }
+        br = %(#{LF}<br#{@void_element_slash}>)
+        equation = equation.gsub(StemBreakRx) { %(#{close}#{br * (($&.count LF) - 1)}#{LF}#{open}) }
       end
       unless (equation.start_with? open) && (equation.end_with? close)
         equation = %(#{open}#{equation}#{close})
@@ -796,7 +800,7 @@ Your browser does not support the audio tag.
       toc = %(
 <div id="toc" class="#{doc.attr 'toc-class', 'toc'}">
 <div id="toctitle">#{doc.attr 'toc-title'}</div>
-#{convert_outline doc}
+#{doc.converter.convert doc, 'outline'}
 </div>)
     else
       toc = ''
@@ -848,7 +852,8 @@ Your browser does not support the audio tag.
   def convert_table node
     result = []
     id_attribute = node.id ? %( id="#{node.id}") : ''
-    classes = ['tableblock', %(frame-#{node.attr 'frame', 'all', 'table-frame'}), %(grid-#{node.attr 'grid', 'all', 'table-grid'})]
+    frame = 'ends' if (frame = node.attr 'frame', 'all', 'table-frame') == 'topbot'
+    classes = ['tableblock', %(frame-#{frame}), %(grid-#{node.attr 'grid', 'all', 'table-grid'})]
     if (stripes = node.attr 'stripes', nil, 'table-stripes')
       classes << %(stripes-#{stripes})
     end
@@ -934,7 +939,7 @@ Your browser does not support the audio tag.
 
     %(<div#{id_attr} class="#{role}">
 <div#{title_id_attr} class="title">#{title}</div>
-#{convert_outline doc, toclevels: levels}
+#{doc.converter.convert doc, 'outline', toclevels: levels}
 </div>)
   end
 
@@ -1089,7 +1094,7 @@ Your browser does not support the audio tag.
       time_anchor = (start_t || end_t) ? %(#t=#{start_t || ''}#{end_t ? ",#{end_t}" : ''}) : ''
       %(<div#{id_attribute}#{class_attribute}>#{title_element}
 <div class="content">
-<video src="#{node.media_uri(node.attr 'target')}#{time_anchor}"#{width_attribute}#{height_attribute}#{poster_attribute}#{(node.option? 'autoplay') ? (append_boolean_attribute 'autoplay', xml) : ''}#{(node.option? 'nocontrols') ? '' : (append_boolean_attribute 'controls', xml)}#{(node.option? 'loop') ? (append_boolean_attribute 'loop', xml) : ''}#{preload_attribute}>
+<video src="#{node.media_uri(node.attr 'target')}#{time_anchor}"#{width_attribute}#{height_attribute}#{poster_attribute}#{(node.option? 'autoplay') ? (append_boolean_attribute 'autoplay', xml) : ''}#{(node.option? 'muted') ? (append_boolean_attribute 'muted', xml) : ''}#{(node.option? 'nocontrols') ? '' : (append_boolean_attribute 'controls', xml)}#{(node.option? 'loop') ? (append_boolean_attribute 'loop', xml) : ''}#{preload_attribute}>
 Your browser does not support the video tag.
 </video>
 </div>
@@ -1107,8 +1112,13 @@ Your browser does not support the video tag.
         attrs = node.role ? %( class="#{node.role}") : ''
         unless (text = node.text)
           refid = node.attributes['refid']
-          if AbstractNode === (ref = (@refs ||= node.document.catalog[:refs])[refid])
-            text = (ref.xreftext node.attr('xrefstyle', nil, true)) || %([#{refid}])
+          if AbstractNode === (ref = (@refs ||= node.document.catalog[:refs])[refid]) && (@resolving_xref ||= (outer = true)) && outer
+            if !(text = ref.xreftext node.attr 'xrefstyle', nil, true)
+              text = %([#{refid}])
+            elsif text.include? '<a'
+              text = text.gsub DropAnchorRx, ''
+            end
+            @resolving_xref = nil
           else
             text = %([#{refid}])
           end
@@ -1144,8 +1154,10 @@ Your browser does not support the video tag.
     elsif node.document.attr? 'icons'
       src = node.icon_uri("callouts/#{node.text}")
       %(<img src="#{src}" alt="#{node.text}"#{@void_element_slash}>)
+    elsif ::Array === (guard = node.attributes['guard'])
+      %(&lt;!--<b class="conum">(#{node.text})</b>--&gt;)
     else
-      %(#{node.attributes['guard']}<b class="conum">(#{node.text})</b>)
+      %(#{guard}<b class="conum">(#{node.text})</b>)
     end
   end
 
@@ -1186,9 +1198,7 @@ Your browser does not support the video tag.
       end
       img ||= %(<img src="#{type == 'icon' ? (node.icon_uri target) : (node.image_uri target)}" alt="#{encode_attribute_value node.alt}"#{attrs}#{@void_element_slash}>)
     end
-    if node.attr? 'link'
-      img = %(<a class="image" href="#{node.attr 'link'}"#{(append_link_constraint_attrs node).join}>#{img}</a>)
-    end
+    img = %(<a class="image" href="#{node.attr 'link'}"#{(append_link_constraint_attrs node).join}>#{img}</a>) if node.attr? 'link'
     if (role = node.role)
       if node.attr? 'float'
         class_attr_val = %(#{type} #{node.attr 'float'} #{role})
@@ -1252,16 +1262,19 @@ Your browser does not support the video tag.
 
   # NOTE expose read_svg_contents for Bespoke converter
   def read_svg_contents node, target
-    if (svg = node.read_contents target, start: (node.document.attr 'imagesdir'), normalize: true, label: 'SVG')
+    if (svg = node.read_contents target, start: (node.document.attr 'imagesdir'), normalize: true, label: 'SVG', warn_if_empty: true)
+      return if svg.empty?
       svg = svg.sub SvgPreambleRx, '' unless svg.start_with? '<svg'
-      old_start_tag = new_start_tag = nil
+      old_start_tag = new_start_tag = start_tag_match = nil
       # NOTE width, height and style attributes are removed if either width or height is specified
       ['width', 'height'].each do |dim|
-        if node.attr? dim
-          new_start_tag = (old_start_tag = (svg.match SvgStartTagRx)[0]).gsub DimensionAttributeRx, '' unless new_start_tag
-          # QUESTION should we add px since it's already the default?
-          new_start_tag = %(#{new_start_tag.chop} #{dim}="#{node.attr dim}px">)
+        next unless node.attr? dim
+        unless new_start_tag
+          next if (start_tag_match ||= (svg.match SvgStartTagRx) || :no_match) == :no_match
+          new_start_tag = (old_start_tag = start_tag_match[0]).gsub DimensionAttributeRx, ''
         end
+        # NOTE a unitless value in HTML is assumed to be px, so we can pass the value straight through
+        new_start_tag = %(#{new_start_tag.chop} #{dim}="#{node.attr dim}">)
       end
       svg = %(#{new_start_tag}#{svg[old_start_tag.length..-1]}) if new_start_tag
     end

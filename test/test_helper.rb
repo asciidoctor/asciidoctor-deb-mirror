@@ -8,10 +8,10 @@ require File.join ASCIIDOCTOR_LIB_DIR, 'asciidoctor'
 Dir.chdir Asciidoctor::ROOT_DIR
 
 require 'nokogiri'
+# NOTE rouge has all sorts of warnings we don't want to see, so silence them
 proc do
   old_verbose, $VERBOSE = $VERBOSE, nil
   require 'rouge'
-  Rouge::Lexer.disable_debug!
   $VERBOSE = old_verbose
 end.call
 require 'socket'
@@ -19,7 +19,6 @@ require 'tempfile'
 require 'tmpdir'
 
 autoload :FileUtils, 'fileutils'
-autoload :Open3, 'open3'
 autoload :Pathname,  'pathname'
 
 RE_XMLNS_ATTRIBUTE = / xmlns="[^"]+"/
@@ -35,8 +34,12 @@ class Minitest::Test
     RUBY_ENGINE == 'jruby'
   end
 
+  def self.windows?
+    /mswin|msys|mingw/.match? RbConfig::CONFIG['host_os']
+  end
+
   def windows?
-    RbConfig::CONFIG['host_os'] =~ /win|ming/
+    Minitest::Test.windows?
   end
 
   def disk_root
@@ -65,17 +68,6 @@ class Minitest::Test
 
   def bindir
     File.join Asciidoctor::ROOT_DIR, 'bin'
-  end
-
-  def asciidoctor_cmd use_ruby = true, ruby_opts = nil
-    executable = File.join bindir, 'asciidoctor'
-    if use_ruby
-      ruby = File.join RbConfig::CONFIG['bindir'], RbConfig::CONFIG['ruby_install_name']
-      ruby = %(#{ruby} #{ruby_opts}) if ruby_opts
-      %(#{ruby} #{executable})
-    else
-      executable
-    end
   end
 
   def testdir
@@ -190,11 +182,11 @@ class Minitest::Test
   end
 
   def xmldoc_from_string content
-    if (content.start_with? '<?xml ') || RE_XMLNS_ATTRIBUTE =~ content
+    if (content.start_with? '<?xml ') || (RE_XMLNS_ATTRIBUTE.match? content)
       Nokogiri::XML::Document.parse content
-    elsif !(doctype_match = content.match RE_DOCTYPE)
+    elsif !(RE_DOCTYPE =~ content)
       Nokogiri::HTML::DocumentFragment.parse content
-    elsif doctype_match[1].start_with? 'html'
+    elsif $1.start_with? 'html'
       Nokogiri::HTML::Document.parse content
     else
       Nokogiri::XML::Document.parse content
@@ -335,35 +327,42 @@ class Minitest::Test
     end
   end
 
-  def run_command *args, &block
-    if Hash === (env = args[0])
-      cmd = args[1]
-    else
-      cmd, env = env, nil
+  def asciidoctor_cmd ruby_args = nil
+    [Gem.ruby, *ruby_args, (File.join bindir, 'asciidoctor')]
+  end
+
+  def run_command cmd, *args, &block
+    if Array === cmd
+      args.unshift(*cmd)
+      cmd = args.shift
     end
+    kw_args = Hash === args[-1] ? args.pop : {}
+    env = kw_args[:env]
+    (env ||= {})['RUBYOPT'] = nil unless kw_args[:use_bundler]
     opts = { err: [:child, :out] }
     if env
-      # NOTE remove workaround once https://github.com/jruby/jruby/issues/3428 is resolved
+      # NOTE while JRuby 9.2.10.0 implements support for unsetenv_others, it doesn't work in child
+      #if jruby? && (Gem::Version.new JRUBY_VERSION) < (Gem::Version.new '9.2.10.0')
       if jruby?
         begin
           old_env, env = ENV, (ENV.merge env)
           env.each {|key, val| env.delete key if val.nil? } if env.value? nil
           ENV.replace env
-          IO.popen cmd, opts, &block
+          IO.popen [cmd, *args, opts], &block
         ensure
           ENV.replace old_env
         end
       elsif env.value? nil
-        env = env.inject(ENV.to_h) do |acc, (key, val)|
-          val.nil? ? (acc.delete key) : (acc[key] = val)
-          acc
+        env = env.reduce ENV.to_h do |accum, (key, val)|
+          val.nil? ? (accum.delete key) : (accum[key] = val)
+          accum
         end
-        IO.popen env, cmd, (opts.merge unsetenv_others: true), &block
+        IO.popen [env, cmd, *args, (opts.merge unsetenv_others: true)], &block
       else
-        IO.popen env, cmd, opts, &block
+        IO.popen [env, cmd, *args, opts], &block
       end
     else
-      IO.popen cmd, opts, &block
+      IO.popen [cmd, *args, opts], &block
     end
   end
 
@@ -442,14 +441,24 @@ class Minitest::Test
       end
     end
 
-    def context *name, &block
+    def context name, opts = {}, &block
+      if opts.key? :if
+        return unless opts[:if]
+      elsif opts.key? :unless
+        return if opts[:unless]
+      end
       subclass = Class.new self
       remove_tests subclass
       subclass.class_eval(&block) if block_given?
-      const_set (context_name name.join(' ')), subclass
+      const_set (context_name name), subclass
     end
 
-    def test name, &block
+    def test name, opts = {}, &block
+      if opts.key? :if
+        return unless opts[:if]
+      elsif opts.key? :unless
+        return if opts[:unless]
+      end
       define_method (test_name name), &block
     end
 
@@ -478,6 +487,6 @@ class Minitest::Test
   end
 end
 
-def context *name, &block
+def context name, &block
   Minitest::Test.context name, &block
 end

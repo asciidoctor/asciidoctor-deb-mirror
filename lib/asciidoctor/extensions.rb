@@ -425,7 +425,7 @@ module Extensions
   # TIP: Postprocessors can also be used to relocate assets needed by the published
   # document.
   #
-  # Postprocessor implementations must Postprocessor.
+  # Postprocessor implementations must extend Postprocessor.
   class Postprocessor < Processor
     def process document, output
       raise ::NotImplementedError, %(#{Postprocessor} subclass #{self.class} must implement the ##{__method__} method)
@@ -610,7 +610,7 @@ module Extensions
   #--
   # TODO break this out into different pattern types
   # for example, FullInlineMacro, ShortInlineMacro (no target) and other patterns
-  # FIXME for inline passthrough, we need to have some way to specify the text as a passthrough
+  # FIXME for inline macro, we need to have some way to specify the text as a passthrough
   class InlineMacroProcessor < MacroProcessor
     @@rx_cache = {}
 

@@ -141,6 +141,11 @@ class AbstractBlock < AbstractNode
     (Integer @numeral) rescue @numeral
   end
 
+  # Deprecated: Legacy property to set the numeral of this section by coercing the value to a String.
+  def number= val
+    @numeral = val.to_s
+  end
+
   # Public: Walk the document tree and find all block-level nodes that match the specified selector (context, style, id,
   # role, and/or custom filter).
   #
@@ -338,17 +343,17 @@ class AbstractBlock < AbstractNode
     if (val = reftext) && !val.empty?
       val
     # NOTE xrefstyle only applies to blocks with a title and a caption or number
-    elsif xrefstyle && @title && @caption
+    elsif xrefstyle && @title && !@caption.nil_or_empty?
       case xrefstyle
       when 'full'
         quoted_title = sub_placeholder (sub_quotes @document.compat_mode ? %q(``%s'') : '"`%s`"'), title
-        if @numeral && (caption_attr_name = CAPTION_ATTR_NAMES[@context]) && (prefix = @document.attributes[caption_attr_name])
+        if @numeral && (caption_attr_name = CAPTION_ATTRIBUTE_NAMES[@context]) && (prefix = @document.attributes[caption_attr_name])
           %(#{prefix} #{@numeral}, #{quoted_title})
         else
           %(#{@caption.chomp '. '}, #{quoted_title})
         end
       when 'short'
-        if @numeral && (caption_attr_name = CAPTION_ATTR_NAMES[@context]) && (prefix = @document.attributes[caption_attr_name])
+        if @numeral && (caption_attr_name = CAPTION_ATTRIBUTE_NAMES[@context]) && (prefix = @document.attributes[caption_attr_name])
           %(#{prefix} #{@numeral})
         else
           @caption.chomp '. '
@@ -380,7 +385,7 @@ class AbstractBlock < AbstractNode
   # Returns nothing.
   def assign_caption value, caption_context = @context
     unless @caption || !@title || (@caption = value || @document.attributes['caption'])
-      if (attr_name = CAPTION_ATTR_NAMES[caption_context]) && (prefix = @document.attributes[attr_name])
+      if (attr_name = CAPTION_ATTRIBUTE_NAMES[caption_context]) && (prefix = @document.attributes[attr_name])
         @caption = %(#{prefix} #{@numeral = @document.increment_and_store_counter %(#{caption_context}-number), self}. )
         nil
       end

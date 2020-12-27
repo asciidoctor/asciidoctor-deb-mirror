@@ -3321,10 +3321,10 @@ context "Description lists (:dlist)" do
       # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
       input = <<~EOS
       [bibliography]
-      - [[[taoup]]] Eric Steven Raymond. 'The Art of Unix
-        Programming'. Addison-Wesley. ISBN 0-13-142901-9.
+      - [[[taoup]]] Eric Steven Raymond. _The Art of Unix
+        Programming_. Addison-Wesley. ISBN 0-13-142901-9.
       - [[[walsh-muellner]]] Norman Walsh & Leonard Muellner.
-        'DocBook - The Definitive Guide'. O'Reilly & Associates. 1999.
+        _DocBook - The Definitive Guide_. O'Reilly & Associates. 1999.
         ISBN 1-56592-580-7.
       EOS
       output = convert_string_to_embedded input
@@ -3334,18 +3334,17 @@ context "Description lists (:dlist)" do
       assert_css '.ulist.bibliography ul li p', output, 2
       assert_css '.ulist.bibliography ul li:nth-child(1) p a#taoup', output, 1
       assert_xpath '//a/*', output, 0
-      text = xmlnodes_at_xpath '(//a)[1]/following-sibling::text()', output, 1
-      assert text.text.start_with?('[taoup] ')
+      assert_xpath '(//a)[1][starts-with(following-sibling::text(), "[taoup] ")]', output, 1
     end
 
     test 'should convert bibliography list with proper semantics to DocBook' do
       # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
       input = <<~EOS
       [bibliography]
-      - [[[taoup]]] Eric Steven Raymond. 'The Art of Unix
-        Programming'. Addison-Wesley. ISBN 0-13-142901-9.
+      - [[[taoup]]] Eric Steven Raymond. _The Art of Unix
+        Programming_. Addison-Wesley. ISBN 0-13-142901-9.
       - [[[walsh-muellner]]] Norman Walsh & Leonard Muellner.
-        'DocBook - The Definitive Guide'. O'Reilly & Associates. 1999.
+        _DocBook - The Definitive Guide_. O'Reilly & Associates. 1999.
         ISBN 1-56592-580-7.
       EOS
       output = convert_string_to_embedded input, backend: 'docbook'
@@ -3354,8 +3353,10 @@ context "Description lists (:dlist)" do
       assert_css 'bibliodiv > bibliomixed > bibliomisc', output, 2
       assert_css 'bibliodiv > bibliomixed:nth-child(1) > bibliomisc > anchor', output, 1
       assert_css 'bibliodiv > bibliomixed:nth-child(1) > bibliomisc > anchor[xreflabel="[taoup]"]', output, 1
+      assert_xpath '(//bibliomixed)[1]/bibliomisc/anchor[starts-with(following-sibling::text(), "[taoup] Eric")]', output, 1
       assert_css 'bibliodiv > bibliomixed:nth-child(2) > bibliomisc > anchor', output, 1
       assert_css 'bibliodiv > bibliomixed:nth-child(2) > bibliomisc > anchor[xreflabel="[walsh-muellner]"]', output, 1
+      assert_xpath '(//bibliomixed)[2]/bibliomisc/anchor[starts-with(following-sibling::text(), "[walsh-muellner] Norman")]', output, 1
     end
 
     test 'should warn if a bibliography ID is already in use' do
@@ -3401,7 +3402,7 @@ context "Description lists (:dlist)" do
     test 'should not recognize bibliography anchor that begins with a digit' do
       input = <<~'EOS'
       [bibliography]
-      - [[[1984]]] George Orwell. '1984'. New American Library. 1950.
+      - [[[1984]]] George Orwell. _1984_. New American Library. 1950.
       EOS
 
       output = convert_string_to_embedded input
@@ -3412,7 +3413,7 @@ context "Description lists (:dlist)" do
     test 'should recognize bibliography anchor that contains a digit but does not start with one' do
       input = <<~'EOS'
       [bibliography]
-      - [[[_1984]]] George Orwell. '1984'. New American Library. 1950.
+      - [[[_1984]]] George Orwell. __1984__. New American Library. 1950.
       EOS
 
       output = convert_string_to_embedded input
@@ -3462,13 +3463,11 @@ context "Description lists (:dlist)" do
       assert_xpath '//a[@href="#Fowler_1997"]', result, 1
       assert_xpath '//a[@href="#Fowler_1997"][text()="[1]"]', result, 1
       assert_xpath '//a[@id="Fowler_1997"]', result, 1
-      fowler_1997_text = (xmlnodes_at_xpath '(//a[@id="Fowler_1997"])[1]/following-sibling::text()', result, 1).text
-      assert fowler_1997_text.start_with?('[1] ')
+      assert_xpath '(//a[@id="Fowler_1997"])[1][starts-with(following-sibling::text(), "[1] ")]', result, 1
       assert_xpath '//a[@href="#TMMM"]', result, 1
       assert_xpath '//a[@href="#TMMM"][text()="[TMMM]"]', result, 1
       assert_xpath '//a[@id="TMMM"]', result, 1
-      tmmm_text = (xmlnodes_at_xpath '(//a[@id="TMMM"])[1]/following-sibling::text()', result, 1).text
-      assert tmmm_text.start_with?('[TMMM] ')
+      assert_xpath '(//a[@id="TMMM"])[1][starts-with(following-sibling::text(), "[TMMM] ")]', result, 1
     end
 
     test 'should assign reftext of bibliography anchor to xreflabel in DocBook backend' do
@@ -3478,7 +3477,7 @@ context "Description lists (:dlist)" do
       EOS
 
       result = convert_string_to_embedded input, backend: :docbook
-      assert_includes result, '<anchor xml:id="Fowler_1997" xreflabel="[1]"/>'
+      assert_includes result, '<anchor xml:id="Fowler_1997" xreflabel="[1]"/>[1] Fowler'
     end
   end
 end
@@ -4526,7 +4525,7 @@ end
 
 context 'Callout lists' do
   test 'does not recognize callout list denoted by markers that only have a trailing bracket' do
-    input  = <<~'EOS'
+    input = <<~'EOS'
     ----
     require 'asciidoctor' # <1>
     ----
@@ -4535,6 +4534,39 @@ context 'Callout lists' do
 
     output = convert_string_to_embedded input
     assert_css '.colist', output, 0
+  end
+
+  test 'should not hang if obsolete callout list is found inside list item' do
+    input = <<~'EOS'
+    * foo
+    1> bar
+    EOS
+
+    output = convert_string_to_embedded input
+    assert_css '.colist', output, 0
+  end
+
+  test 'should not hang if obsolete callout list is found inside dlist item' do
+    input = <<~'EOS'
+    foo::
+    1> bar
+    EOS
+
+    output = convert_string_to_embedded input
+    assert_css '.colist', output, 0
+  end
+
+  test 'should recognize auto-numberd callout list inside list' do
+    input = <<~'EOS'
+    ----
+    require 'asciidoctor' # <1>
+    ----
+    * foo
+    <.> bar
+    EOS
+
+    output = convert_string_to_embedded input
+    assert_css '.colist', output, 1
   end
 
   test 'listing block with sequential callouts followed by adjacent callout list' do
@@ -5161,6 +5193,24 @@ context 'Checklists' do
     assert_xpath '(/*[@class="ulist checklist"]/ul/li)[5]/p[text()="plain"]', output, 1
   end
 
+  test 'entry is not a checklist item if the closing bracket is not immediately followed by the space character' do
+    input = <<~EOS
+    - [ ]    todo
+    - [x] \t done
+    - [ ]\t  another todo
+    - [x]\t  another done
+    EOS
+    doc = document_from_string input
+    checklist = doc.blocks[0]
+    assert checklist.option?('checklist')
+    assert checklist.items[0].attr?('checkbox')
+    refute checklist.items[0].attr?('checked')
+    assert checklist.items[1].attr?('checkbox')
+    assert checklist.items[1].attr?('checked')
+    refute checklist.items[2].attr?('checkbox')
+    refute checklist.items[3].attr?('checkbox')
+  end
+
   test 'should create checklist with font icons if at least one item has checkbox syntax and icons attribute is font' do
     input = <<~'EOS'
     - [ ] todo
@@ -5194,6 +5244,19 @@ context 'Checklists' do
     assert_css '.ulist.checklist li input[type="checkbox"]', output, 2
     assert_css '.ulist.checklist li input[type="checkbox"][disabled]', output, 0
     assert_css '.ulist.checklist li input[type="checkbox"][checked]', output, 1
+  end
+
+  test 'should not create checklist if checkbox on item is followed by a tab' do
+    ['[ ]', '[x]', '[*]'].each do |checkbox|
+      input = <<~EOS
+      - #{checkbox}\ttodo
+      EOS
+
+      doc = document_from_string input
+      list = doc.blocks[0]
+      assert_equal :ulist, list.context
+      refute list.option?('checklist')
+    end
   end
 end
 

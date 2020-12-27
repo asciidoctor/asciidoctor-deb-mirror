@@ -265,6 +265,9 @@ context 'Syntax Highlighter' do
       output = convert_string input, safe: Asciidoctor::SafeMode::SAFE, linkcss_default: true
       assert_xpath '//pre[@class="CodeRay highlight"]/code[@data-lang="ruby"]//span[@class = "constant"][text() = "CodeRay"]', output, 1
       assert_match(/\.CodeRay *\{/, output)
+      style_node = xmlnodes_at_xpath '//style[contains(text(), ".CodeRay")]', output, 1
+      refute_nil style_node
+      assert_equal 'head', style_node.parent.name
     end
 
     test 'should not fail if source language is invalid' do
@@ -336,7 +339,7 @@ context 'Syntax Highlighter' do
     end
 
     test 'should highlight lines specified in highlight attribute if linenums is set and source-highlighter is coderay' do
-      %w(highlight="1,4-6" highlight=1;4..6 highlight=1;4..;!7).each do |highlight_attr|
+      %w(highlight="1,4-6" highlight="4-6,1" highlight="5-6,1,4,5" highlight=1;4..6 highlight=1;4..;!7).each do |highlight_attr|
         input = <<~EOS
         :source-highlighter: coderay
 
@@ -531,7 +534,9 @@ context 'Syntax Highlighter' do
       EOS
       output = convert_string input, safe: Asciidoctor::SafeMode::SAFE, attributes: { 'linkcss' => '' }
       assert_xpath '//pre[@class="CodeRay highlight"]/code[@data-lang="ruby"]//span[@class = "constant"][text() = "CodeRay"]', output, 1
-      assert_css 'link[rel="stylesheet"][href="./coderay-asciidoctor.css"]', output, 1
+      link_node = xmlnodes_at_xpath '//link[@rel="stylesheet"][@href="./coderay-asciidoctor.css"]', output, 1
+      refute_nil link_node
+      assert_equal 'head', link_node.parent.name
     end
 
     test 'should highlight source inline if source-highlighter attribute is coderay and coderay-css is style' do
@@ -559,6 +564,19 @@ context 'Syntax Highlighter' do
   end
 
   context 'Highlight.js' do
+    test 'should add data-lang as last attribute on code tag when source-highlighter is highlight.js' do
+      input = <<~'EOS'
+      :source-highlighter: highlight.js
+
+      [source,ruby]
+      ----
+      puts 'Hello, World!'
+      ----
+      EOS
+      output = convert_string_to_embedded input, safe: :safe
+      assert_includes output, '<code class="language-ruby hljs" data-lang="ruby">'
+    end
+
     test 'should include remote highlight.js assets if source-highlighter attribute is highlight.js' do
       input = <<~'EOS'
       :source-highlighter: highlight.js
@@ -572,9 +590,9 @@ context 'Syntax Highlighter' do
       assert_css 'pre.highlightjs.highlight', output, 1
       assert_css 'pre.highlightjs.highlight > code.language-html.hljs[data-lang="html"]', output, 1
       assert_includes output, '&lt;p&gt;Highlight me!&lt;/p&gt;'
-      assert_css '#footer ~ link[href*="highlight.js"]', output, 1
+      assert_css 'head > link[href*="highlight.js"]', output, 1
       assert_css '#footer ~ script[src*="highlight.min.js"]', output, 1
-      assert_xpath '//script[text()="hljs.initHighlighting()"]', output, 1
+      assert_xpath '//script[contains(text(), "hljs.highlightBlock(el)")]', output, 1
     end
 
     test 'should add language-none class to source block when source-highlighter is highlight.js and language is not set' do
@@ -669,12 +687,79 @@ context 'Syntax Highlighter' do
       ----
       require 'rouge'
 
-      html = Rouge::Formatters::HTML.new.format(Rouge::Lexers::Ruby.new.lex('puts "Hello, world!"'))
+      html = Rouge::Formatters::HTML.format(Rouge::Lexers::Ruby.lex('puts "Hello, world!"'))
       ----
       EOS
       output = convert_string input, safe: :safe, linkcss_default: true
       assert_xpath '//pre[@class="rouge highlight"]/code[@data-lang="ruby"]/span[@class="no"][text()="Rouge"]', output, 2
       assert_includes output, 'pre.rouge .no {'
+      style_node = xmlnodes_at_xpath '//style[contains(text(), "pre.rouge")]', output, 1
+      refute_nil style_node
+      assert_equal 'head', style_node.parent.name
+    end
+
+    test 'should highlight source using a mixed lexer (HTML + JavaScript)' do
+      input = <<~'EOS'
+      [,html]
+      ----
+      <meta name="description" content="The dangerous and thrilling adventures of an open source documentation team.">
+      <script>alert("Do your worst!")</script>
+      ----
+      EOS
+      output = convert_string_to_embedded input, safe: :safe, attributes: { 'source-highlighter' => 'rouge' }
+      assert_css 'pre.rouge > code[data-lang="html"]', output, 1
+    end
+
+    test 'should enable start_inline for PHP by default' do
+      input = <<~'EOS'
+      [,php]
+      ----
+      echo "<?php";
+      ----
+      EOS
+      output = convert_string_to_embedded input, safe: :safe, attributes: { 'source-highlighter' => 'rouge' }
+      assert_css 'pre.rouge > code[data-lang="php"]', output, 1
+      assert_include '<span class="k">echo</span>', output
+    end
+
+    test 'should not enable start_inline for PHP if disabled using cgi-style option on language' do
+      input = <<~'EOS'
+      [,php?start_inline=0]
+      ----
+      echo "<?php";
+      ----
+      EOS
+      output = convert_string_to_embedded input, safe: :safe, attributes: { 'source-highlighter' => 'rouge' }
+      assert_css 'pre.rouge > code[data-lang="php"]', output, 1
+      refute_include '<span class="k">echo</span>', output
+      assert_include '<span class="cp">&lt;?php</span>', output
+    end
+
+    test 'should not enable start_inline for PHP if mixed option is set' do
+      input = <<~'EOS'
+      [%mixed,php]
+      ----
+      echo "<?php";
+      ----
+      EOS
+      output = convert_string_to_embedded input, safe: :safe, attributes: { 'source-highlighter' => 'rouge' }
+      assert_css 'pre.rouge > code[data-lang="php"]', output, 1
+      refute_include '<span class="k">echo</span>', output
+      assert_include '<span class="cp">&lt;?php</span>', output
+    end
+
+    test 'should preserve cgi-style options on language when setting start_inline option for PHP', if: (Rouge.version >= '2.1.0') do
+      input = <<~'EOS'
+      [,php?funcnamehighlighting=0]
+      ----
+      cal_days_in_month(CAL_GREGORIAN, 6, 2019)
+      ----
+      EOS
+      output = convert_string_to_embedded input, safe: :safe, attributes: { 'source-highlighter' => 'rouge' }
+      assert_css 'pre.rouge > code[data-lang="php"]', output, 1
+      # if class is "nb", then the funcnamehighlighting option is not honored
+      assert_include '<span class="nx">cal_days_in_month</span>', output
+      assert_include '<span class="mi">2019</span>', output
     end
 
     test 'should not crash if source-highlighter attribute is set and source block does not define a language' do
@@ -685,7 +770,7 @@ context 'Syntax Highlighter' do
       ----
       require 'rouge'
 
-      html = Rouge::Formatters::HTML.new.format(Rouge::Lexers::Ruby.new.lex('puts "Hello, world!"'))
+      html = Rouge::Formatters::HTML.format(Rouge::Lexers::Ruby.lex('puts "Hello, world!"'))
       ----
       EOS
       output = convert_string_to_embedded input, safe: :safe
@@ -709,11 +794,11 @@ context 'Syntax Highlighter' do
       assert_xpath %(//code[text()='CAN HAS STDIO?\nPLZ OPEN FILE "LOLCATS.TXT"?\nKTHXBYE']), output, 1
     end
 
-    test 'should honor cgi-style options on language' do
+    test 'should honor cgi-style options on language', if: (Rouge.version >= '2.1.0') do
       input = <<~'EOS'
       :source-highlighter: rouge
 
-      [source,"console?prompt=$> "]
+      [source,console?prompt=$>]
       ----
       $> asciidoctor --version
       ----
@@ -766,7 +851,7 @@ context 'Syntax Highlighter' do
         ----
         require 'rouge' # <1>
 
-        html = Rouge::Formatters::HTML.new.format(Rouge::Lexers::Ruby.new.lex('puts "Hello, world!"')) # <2>
+        html = Rouge::Formatters::HTML.format(Rouge::Lexers::Ruby.lex('puts "Hello, world!"')) # <2>
         puts html # <3> <4>
         exit 0 # <5><6>
         ----
@@ -829,6 +914,75 @@ context 'Syntax Highlighter' do
         output = convert_string_to_embedded input, safe: :safe
         assert_includes output, expected
       end
+    end
+
+    test 'should line highlight specified lines relative to start value' do
+      input = <<~EOS
+        :source-highlighter: rouge
+
+        [source%linenums,ruby,start=5,highlight=6]
+        ----
+        get {
+          render "Hello, World!"
+        }
+        ----
+      EOS
+
+      expected = <<~EOS.chop
+        <span class="n">get</span> <span class="p">{</span>
+        <span class="hll">  <span class="n">render</span> <span class="s2">"Hello, World!"</span>
+        </span><span class="p">}</span>
+        </pre>
+      EOS
+
+      output = convert_string_to_embedded input, safe: :safe
+      assert_includes output, expected
+    end
+
+    test 'should ignore start attribute when the value is 0' do
+      input = <<~EOS
+        :source-highlighter: rouge
+
+        [source%linenums,ruby,start=0,highlight=6]
+        ----
+        get {
+          render "Hello, World!"
+        }
+        ----
+      EOS
+
+      expected = <<~EOS.chop
+        <span class="n">get</span> <span class="p">{</span>
+          <span class="n">render</span> <span class="s2">"Hello, World!"</span>
+        <span class="p">}</span>
+        </pre>
+      EOS
+
+      output = convert_string_to_embedded input, safe: :safe
+      assert_includes output, expected
+    end
+
+    test 'should not line highlight when the start attribute is greater than highlight' do
+      input = <<~EOS
+        :source-highlighter: rouge
+
+        [source%linenums,ruby,start=7,highlight=6]
+        ----
+        get {
+          render "Hello, World!"
+        }
+        ----
+      EOS
+
+      expected = <<~EOS.chop
+        <span class="n">get</span> <span class="p">{</span>
+          <span class="n">render</span> <span class="s2">"Hello, World!"</span>
+        <span class="p">}</span>
+        </pre>
+      EOS
+
+      output = convert_string_to_embedded input, safe: :safe
+      assert_includes output, expected
     end
 
     test 'should restore callout marks to correct lines if line numbering and line highlighting are enabled' do
@@ -906,16 +1060,49 @@ context 'Syntax Highlighter' do
       assert_match(/\n# <b class="conum">\(1\)<\/b>\n<\/pre><\/td>/, output)
     end
 
+    test 'should preserve guard in front of callout if icons are not enabled' do
+      input = <<~'EOS'
+      [,ruby]
+      ----
+      puts 'Hello, World!' # <1>
+      puts 'Goodbye, World ;(' # <2>
+      ----
+      EOS
+
+      result = convert_string_to_embedded input
+      assert_include ' # <b class="conum">(1)</b>', result
+      assert_include ' # <b class="conum">(2)</b>', result
+    end
+
+    test 'should preserve guard around callout if icons are not enabled' do
+      input = <<~'EOS'
+      ----
+      <parent> <!--1-->
+        <child/> <!--2-->
+      </parent>
+      ----
+      EOS
+
+      result = convert_string_to_embedded input
+      assert_include ' &lt;!--<b class="conum">(1)</b>--&gt;', result
+      assert_include ' &lt;!--<b class="conum">(2)</b>--&gt;', result
+    end
+
     test 'should read stylesheet for specified style' do
       css = (Asciidoctor::SyntaxHighlighter.for 'rouge').read_stylesheet 'monokai'
       refute_nil css
       assert_includes css, 'pre.rouge {'
       assert_includes css, 'background-color: #49483e;'
     end
+
+    test 'should not fail to load rouge if the Asciidoctor module is included into the global namespace' do
+      result = run_command(asciidoctor_cmd, '-r', (fixture_path 'include-asciidoctor.rb'), '-s', '-o', '-', '-a', 'source-highlighter=rouge', (fixture_path 'source-block.adoc'), use_bundler: true) {|out| out.read }
+      assert_xpath '//pre[@class="rouge highlight"]', result, 1
+    end
   end
 
-  context 'Pygments' do
-    test 'should syntax highlight source if source-highlighter attribute is set' do
+  context 'Pygments', if: ENV['PYGMENTS_VERSION'] do
+    test 'wip should syntax highlight source if source-highlighter attribute is set' do
       input = <<~'EOS'
       :source-highlighter: pygments
       :pygments-style: monokai
@@ -933,6 +1120,9 @@ context 'Syntax Highlighter' do
       output = convert_string input, safe: :safe, linkcss_default: true
       assert_xpath '//pre[@class="pygments highlight"]/code[@data-lang="python"]/span[@class="tok-kn"][text()="import"]', output, 3
       assert_includes output, 'pre.pygments '
+      style_node = xmlnodes_at_xpath '//style[contains(text(), "pre.pygments")]', output, 1
+      refute_nil style_node
+      assert_equal 'head', style_node.parent.name
     end
 
     test 'should gracefully fallback to default style if specified style not recognized' do
@@ -1085,5 +1275,5 @@ context 'Syntax Highlighter' do
       output = convert_string_to_embedded input, safe: :safe
       assert_includes output, expected
     end
-  end if ENV['PYGMENTS']
+  end
 end

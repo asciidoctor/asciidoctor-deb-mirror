@@ -1,3 +1,16 @@
+asciidoctor (2.0.12-2) unstable; urgency=medium
+
+  * Team upload
+
+  [ Joseph Herlant ]
+  * Removing myself from the maintainers
+
+  [ Cédric Boutillier ]
+  * Set explicitly Testsuite to autopkgtest instead of autopkgtest-pkg-ruby
+    in the previous upload (fix autopkgtests)
+
+ -- Cédric Boutillier <boutil@debian.org>  Mon, 11 Jan 2021 23:51:22 +0100
+
 asciidoctor (2.0.12-1) unstable; urgency=medium
 
   * Team upload

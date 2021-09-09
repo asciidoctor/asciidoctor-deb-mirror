@@ -1,0 +1,23 @@
+From: Daniel Leidert <dleidert@debian.org>
+Date: Fri, 10 Sep 2021 01:40:19 +0200
+Subject: Fix test with rouge 3.26.0
+
+Origin: https://github.com/Mogztter/asciidoctor/commit/01aca7a491c058f4eca4acee9f685a1abb10a442
+Bug-Upstream: https://github.com/asciidoctor/asciidoctor/issues/3916
+---
+ test/syntax_highlighter_test.rb | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/test/syntax_highlighter_test.rb b/test/syntax_highlighter_test.rb
+index 662e9e0..d672ecd 100644
+--- a/test/syntax_highlighter_test.rb
++++ b/test/syntax_highlighter_test.rb
+@@ -758,7 +758,7 @@ def highlight?
+       output = convert_string_to_embedded input, safe: :safe, attributes: { 'source-highlighter' => 'rouge' }
+       assert_css 'pre.rouge > code[data-lang="php"]', output, 1
+       # if class is "nb", then the funcnamehighlighting option is not honored
+-      assert_include '<span class="nx">cal_days_in_month</span>', output
++      refute_include '<span class="nb">cal_days_in_month</span>', output
+       assert_include '<span class="mi">2019</span>', output
+     end
+ 

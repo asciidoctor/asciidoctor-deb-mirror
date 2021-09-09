@@ -1,43 +1,23 @@
-Description: Remove the badge in the readme to avoid lintian complaining about
- privacy-breach-generic
-Author: Joseph Herlant <herlantj@gmail.com>
+From: Joseph Herlant <herlantj@gmail.com>
+Date: Sat, 5 May 2018 17:12:08 -0700
+Subject: Fix privacy-breach-generic
+
+Remove the badge in the readme to avoid lintian complaining about privacy-breach-generic.
+
 Forwarded: not-needed
-Last-Update: 2018-05-05
 ---
-This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
---- a/README.adoc
-+++ b/README.adoc
-@@ -436,7 +436,6 @@
- But we can't do it without your feedback!
- We encourage you to ask questions and discuss any aspects of the project on the discussion list, on Twitter or in the chat room.
- 
--Chat (Gitter):: image:https://badges.gitter.im/Join%20In.svg[Gitter, link=https://gitter.im/asciidoctor/asciidoctor]
- Discussion list (Nabble):: {uri-discuss}
- Twitter:: https://twitter.com/search?f=tweets&q=%23asciidoctor[#asciidoctor] hashtag or https://twitter.com/asciidoctor[@asciidoctor] mention
- 
---- a/README-fr.adoc
-+++ b/README-fr.adoc
-@@ -391,7 +391,6 @@
- Mais nous ne pouvons pas le faire sans vos avis !
- Nous vous encourageons à poser vos questions et à discuter de n'importe quels aspects du projet sur la liste de discussion, Twitter ou dans le salon de discussion.
- 
--Chat (Gitter):: image:https://badges.gitter.im/Join%20In.svg[Gitter, link=https://gitter.im/asciidoctor/asciidoctor]
- Forum (Nabble):: {uri-discuss}
- Twitter:: hashtag https://twitter.com/search?f=tweets&q=%23asciidoctor[#asciidoctor] ou la mention https://twitter.com/asciidoctor[@asciidoctor]
- ////
---- a/README-zh_CN.adoc
-+++ b/README-zh_CN.adoc
-@@ -385,7 +385,6 @@
- 
- 讨论组 (Nabble):: {uri-discuss}
- Twitter:: https://twitter.com/search?f=tweets&q=%23asciidoctor[#asciidoctor] 来加入话题 或 https://twitter.com/asciidoctor[@asciidoctor] at并提醒我们
--聊天 (Gitter):: image:https://badges.gitter.im/Join%20In.svg[Gitter, link=https://gitter.im/asciidoctor/asciidoctor]
- 
- ifdef::env-github[]
- Further information and documentation about Asciidoctor can be found on the project's website.
+ README-de.adoc    | 1 -
+ README-fr.adoc    | 1 -
+ README-jp.adoc    | 1 -
+ README-zh_CN.adoc | 1 -
+ README.adoc       | 1 -
+ 5 files changed, 5 deletions(-)
+
+diff --git a/README-de.adoc b/README-de.adoc
+index 8e4d286..a15ba2d 100644
 --- a/README-de.adoc
 +++ b/README-de.adoc
-@@ -425,7 +425,6 @@
+@@ -425,7 +425,6 @@ Asciidoctor wurde entwickelt, um Ihnen das Schreiben und Veröffentlichen Ihrer
  Aber wir können es nicht ohne ihr Feedback machen!
  Wir ermutigen Sie, Fragen zu stellen und alle Aspekte des Projekts auf der Diskussionsliste, auf Twitter oder im Chatroom zu diskutieren.
  
@@ -45,13 +25,51 @@ This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
  Discussionsliste (Nabble):: {uri-discuss}
  Twitter:: https://twitter.com/search?f=tweets&q=%23asciidoctor[#asciidoctor] hashtag or https://twitter.com/asciidoctor[@asciidoctor] mention
  
+diff --git a/README-fr.adoc b/README-fr.adoc
+index 581d8e9..cea60be 100644
+--- a/README-fr.adoc
++++ b/README-fr.adoc
+@@ -391,7 +391,6 @@ Asciidoctor est développé dans le but de vous aider à écrire et publier du c
+ Mais nous ne pouvons pas le faire sans vos avis !
+ Nous vous encourageons à poser vos questions et à discuter de n'importe quels aspects du projet sur la liste de discussion, Twitter ou dans le salon de discussion.
+ 
+-Chat (Gitter):: image:https://badges.gitter.im/Join%20In.svg[Gitter, link=https://gitter.im/asciidoctor/asciidoctor]
+ Forum (Nabble):: {uri-discuss}
+ Twitter:: hashtag https://twitter.com/search?f=tweets&q=%23asciidoctor[#asciidoctor] ou la mention https://twitter.com/asciidoctor[@asciidoctor]
+ ////
+diff --git a/README-jp.adoc b/README-jp.adoc
+index ab026f3..f792373 100644
 --- a/README-jp.adoc
 +++ b/README-jp.adoc
-@@ -425,7 +425,6 @@
+@@ -425,7 +425,6 @@ Asciidoctorは, コンテンツの執筆と公開を簡単にするために開
  しかしあなたからのフィードバックがなくてはAsciidoctorの開発は進みません!
  ディスカッションリスト, Twitter, チャットルームを使って, 質問をしたりプロジェクトのさまざまな側面について話し合ったりすることをお勧めします.
  
 -チャット(Gitter):: image:https://badges.gitter.im/Join%20In.svg[Gitter, link=https://gitter.im/asciidoctor/asciidoctor]
  ディスカッションリスト(Nabble):: {uri-discuss}
  Twitter:: ハッシュタグ https://twitter.com/search?f=tweets&q=%23asciidoctor[#asciidoctor] またはメンション https://twitter.com/asciidoctor[@asciidoctor]
+ 
+diff --git a/README-zh_CN.adoc b/README-zh_CN.adoc
+index bc18a15..886bc74 100644
+--- a/README-zh_CN.adoc
++++ b/README-zh_CN.adoc
+@@ -385,7 +385,6 @@ Asciidoctor 支持自定义转化器，它可以操作从待处理文件到生
+ 
+ 讨论组 (Nabble):: {uri-discuss}
+ Twitter:: https://twitter.com/search?f=tweets&q=%23asciidoctor[#asciidoctor] 来加入话题 或 https://twitter.com/asciidoctor[@asciidoctor] at并提醒我们
+-聊天 (Gitter):: image:https://badges.gitter.im/Join%20In.svg[Gitter, link=https://gitter.im/asciidoctor/asciidoctor]
+ 
+ ifdef::env-github[]
+ Further information and documentation about Asciidoctor can be found on the project's website.
+diff --git a/README.adoc b/README.adoc
+index 00febdd..0c62f7e 100644
+--- a/README.adoc
++++ b/README.adoc
+@@ -436,7 +436,6 @@ Asciidoctor is developed to help you easily write and publish your content.
+ But we can't do it without your feedback!
+ We encourage you to ask questions and discuss any aspects of the project on the discussion list, on Twitter or in the chat room.
+ 
+-Chat (Gitter):: image:https://badges.gitter.im/Join%20In.svg[Gitter, link=https://gitter.im/asciidoctor/asciidoctor]
+ Discussion list (Nabble):: {uri-discuss}
+ Twitter:: https://twitter.com/search?f=tweets&q=%23asciidoctor[#asciidoctor] hashtag or https://twitter.com/asciidoctor[@asciidoctor] mention
  

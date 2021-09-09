@@ -1,10 +1,17 @@
 From: Guillaume Grossetie <ggrossetie@gmail.com>
+Date: Tue, 16 Jun 2015 19:46:04 +0200
 Subject: Load data from /usr/share/asciidoctor path
+
 Bug-Debian: https://bugs.debian.org/788052
-Last-update: 2019-06-11
+---
+ lib/asciidoctor.rb | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/lib/asciidoctor.rb b/lib/asciidoctor.rb
+index db3e71e..6bc8a1e 100644
 --- a/lib/asciidoctor.rb
 +++ b/lib/asciidoctor.rb
-@@ -182,7 +182,7 @@
+@@ -182,7 +182,7 @@ def define key, value
    LIB_DIR = ::File.join ROOT_DIR, 'lib'
  
    # The absolute data directory of the Asciidoctor RubyGem

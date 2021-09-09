@@ -1,6 +1,8 @@
 asciidoctor (2.0.12-3) UNRELEASED; urgency=medium
 
   * Team upload.
+  * d/control (Depends): Fix ruby-interpreter-is-deprecated and
+    ruby-script-but-no-ruby-dep.
   * d/patches/fix-test-with-rouge-3.26.0.patch: Add patch.
     - Fix tests with rouge 3.26.0.
   * d/patches/series: Enable new patch.

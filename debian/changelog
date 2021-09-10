@@ -1,4 +1,4 @@
-asciidoctor (2.0.12-3) UNRELEASED; urgency=medium
+asciidoctor (2.0.12-3) unstable; urgency=medium
 
   * Team upload.
   * d/control: Fix unnecessary-testsuite-autopkgtest-field.
@@ -7,7 +7,6 @@ asciidoctor (2.0.12-3) UNRELEASED; urgency=medium
   * d/patches/fix-test-with-rouge-3.26.0.patch: Add patch.
     - Fix tests with rouge 3.26.0.
   * d/patches/series: Enable new patch.
-  * 
 
  -- Daniel Leidert <dleidert@debian.org>  Fri, 10 Sep 2021 01:32:26 +0200
 

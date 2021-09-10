@@ -1,11 +1,13 @@
 asciidoctor (2.0.12-3) UNRELEASED; urgency=medium
 
   * Team upload.
-  * d/control (Depends): Fix ruby-interpreter-is-deprecated and
+  * d/control: Fix unnecessary-testsuite-autopkgtest-field.
+    (Depends): Fix ruby-interpreter-is-deprecated and
     ruby-script-but-no-ruby-dep.
   * d/patches/fix-test-with-rouge-3.26.0.patch: Add patch.
     - Fix tests with rouge 3.26.0.
   * d/patches/series: Enable new patch.
+  * 
 
  -- Daniel Leidert <dleidert@debian.org>  Fri, 10 Sep 2021 01:32:26 +0200
 

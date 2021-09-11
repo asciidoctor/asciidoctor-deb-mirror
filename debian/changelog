@@ -3,10 +3,13 @@ asciidoctor (2.0.16-1) UNRELEASED; urgency=medium
   * Team upload.
   * New upstream release.
   * d/control (Standards-Version): Bump to 4.6.0.
+    (Build-Depends): Add cucumber to run feature tests.
   * d/copyright: Add Upstream-Contact field.
     (Copyright): Update.
   * d/patches/fix-test-with-rouge-3.26.0.patch: Drop file. Patch applied.
   * d/patches/privacy_breach.patch: Drop file. Upstream changed sources.
+  * d/patches/run-cucumber-without-bundler.patch: Add new patch.
+    - Run cucumber using ruby instead of bundle.
   * d/patches/series: Adjust.
   * d/upstream/metadata: Complete file.
 

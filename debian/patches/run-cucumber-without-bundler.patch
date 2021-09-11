@@ -1,0 +1,20 @@
+From: Daniel Leidert <dleidert@debian.org>
+Date: Sat, 11 Sep 2021 15:24:49 +0200
+Subject: Run cucumber without bundler
+
+---
+ tasks/cucumber.rake | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/tasks/cucumber.rake b/tasks/cucumber.rake
+index 8237597..aef5dab 100644
+--- a/tasks/cucumber.rake
++++ b/tasks/cucumber.rake
+@@ -4,6 +4,7 @@ begin
+   Cucumber::Rake::Task.new :features do |t|
+     t.cucumber_opts = %w(-f progress)
+     t.cucumber_opts << '--no-color' if ENV['CI']
++    t.bundler = false # don't run as bundle exec
+   end
+ rescue LoadError
+   warn $!.message

@@ -1,0 +1,205 @@
+= Default Stylesheet
+
+When you use the HTML converter to generate a standalone HTML document, Asciidoctor includes a default stylesheet to ensure the HTML looks presentable right out of the box.
+This feature gets you up and running quickly by giving you a result you can preview or publish without having to do any additional work.
+
+This page covers why the default is necessary, how to apply it, and how to build on it so you don't have to create a stylesheet from scratch.
+
+NOTE: The default stylesheet that Asciidoctor provides is just that, _a default_.
+If you prefer a different style, you can customize it, extend it, or replace it with an entirely different one.
+When replacing the default stylesheet, it's important to understand that it does provide support for numerous features in AsciiDoc, as covered in the next section.
+You'll need to include these required styles when developing your own stylesheet if you want these features to continue to work.
+
+// TODO: we probably need a page to defines what styles any stylesheet must provide to be fully compatible with AsciiDoc
+== Why provide a default?
+
+Asciidoctor includes a default stylesheet to provide a nice out-of-the-box experience when generating HTML from AsciiDoc.
+But there's more to it.
+There are elements of AsciiDoc that require stylesheet support.
+
+One example is to honor *built-in roles*, such as `text-center`.
+In order for a role to take effect, it needs a companion CSS class in the stylesheet.
+To satisfy the expectations of a built-in role, a stylesheet is required.
+
+You may have noticed the floating anchors next to section titles when you hover over them.
+Although the HTML to make them is there, it's the stylesheet that brings them to life.
+
+Another example is to implement *list marker styles*.
+AsciiDoc allows you to specify the marker for a list using a block style (e.g., `loweralpha`).
+However, HTML does not apply these markers by default.
+Rather, it's something that the stylesheet provides.
+
+The default stylesheet also applies *borders and shading to table cells* to support all combinations of the frame, grid, and stripes attributes.
+
+Yet another example is the *TOC position*.
+To position the TOC on the left or right requires help from the stylesheet to change the layout of the page so the TOC appears as a sidebar.
+It's the stylesheet that handles that task.
+
+In order for the AsciiDoc experience to be complete when generating HTML, a stylesheet is required.
+The default stylesheet not only completes this experience, but also serves as a reference for the styles a custom stylesheet must provide.
+
+=== Web fonts
+
+The default stylesheet ensures that the same fonts are selected across all platforms.
+
+By default, the browser relies on system fonts.
+But system fonts vary widely by platform, so users end up getting a very different experience.
+That's where web fonts come in.
+
+When the default stylesheet is used, the converter adds additional HTML to load open source fonts from Google Fonts.
+The default stylesheet, in turn, specifies a preference for these fonts.
+
+The web fonts used by the default stylesheet are as follows:
+
+Noto Serif:: body text (default)
+Open Sans:: headings
+Droid Sans Mono:: monospaced phrases and verbatim blocks
+
+Loading and preferring these web fonts ensures everyone sees the same result.
+
+== Usage
+
+When generating HTML, there's nothing special you need to do to apply the default stylesheet.
+Asciidoctor automatically embeds the default stylesheet into the `<head>` of the generated HTML when you run the `asciidoctor` command.
+
+ $ asciidoctor document.adoc
+
+Since no stylesheet is specified, Asciidoctor uses the default stylesheet (which is located at [.path]_data/stylesheets/asciidoctor.css_ inside the installed gem).
+
+When you view the generated HTML file, [.path]_document.html_, you'll see styled HTML, as shown here:
+
+image::default-stylesheet.png[]
+
+If you want Asciidoctor to generate HTML that links to the default stylesheet instead of embedding it in the HTML, you can instruct it to do so by setting the `linkcss` and `copycss` attributes as follows:
+
+ $ asciidoctor -a linkcss -a copycss document.adoc
+
+When using the API, Asciidoctor already links to the stylesheet by default instead of embedding it (due to the default safe mode).
+However, Asciidoctor does not copy the stylesheet to the output directory.
+You would have to put it there yourself.
+Otherwise, the browser will not be able to find the stylesheet.
+
+To solve this problem, set the safe mode to server or lower (e.g., server, safe, or unsafe) and Asciidoctor will embed the default stylesheet, like when using the `asciidoctor` command.
+
+[source,ruby]
+----
+require 'asciidoctor'
+
+Asciidoctor.convert_file 'document.adoc', safe: :safe
+----
+
+== Disable or modify the web fonts
+
+When the default stylesheet is used, the converter adds a `<link rel="stylesheet">` tag to load web fonts from Google Fonts.
+You can disable this link by unsetting the `webfonts` document attribute from the CLI, API, or document header.
+
+ $ asciidoctor -a webfonts! document.adoc
+
+With the web fonts absent, the browser will drop back to the fallback system fonts specified in the stylesheet.
+But this also provides an opportunity to use <<customize-docinfo,docinfo>> to load the web fonts from a different source.
+
+Rather than disabling the link, you can also use the `webfonts` attribute to change which fonts are loaded.
+When set, the value of the `webfonts` attribute is used as the value of the `family` query string parameter in the font-loader URL.
+
+Let's say you want to use Ubuntu Mono instead of Droid Sans Mono for monospaced text.
+You would set the `webfonts` attribute as follows:
+
+ $ asciidoctor \
+ -a webfonts="Open+Sans:300,300italic,400,400italic,600,600italic%7CNoto+Serif:400,400italic,700,700italic%7CUbuntu+Mono:400" \
+ document.adoc
+
+In this case, you would still need to use <<customize-docinfo,docinfo>> to instruct the stylesheet to use the new font.
+
+== Customize the default stylesheet
+
+What if the default stylesheet is not exactly to your liking, but you don't want to go off and create a custom stylesheet from scratch?
+Can you customize it?
+Indeed, you can.
+
+There are at least two ways to customize the default stylesheet.
+One way is to add auxiliary styles using docinfo.
+Another way is to create a custom stylesheet, but import the default stylesheet as a starting point.
+
+[#customize-docinfo]
+=== Auxiliary styles with docinfo
+
+Adding auxiliary styles is a great use case for xref:ROOT:docinfo.adoc[docinfo].
+The docinfo feature in AsciiDoc allows you to inject auxiliary content from a file into various places in the HTML output.
+In this case, we're interested in the "head" position, which injects content at the bottom of the `<head>` tag.
+
+Let's say you want to change the color of headings (and other heading-like titles) to match the color of paragraph text.
+Start by creating a file named [.path]_docinfo.html_ (head is the default location) and populate it with a `<style>` tag with the necessary styles.
+
+.docinfo.html
+[source,html]
+----
+<style>
+h1, h2, h3, h4, h5, h6, #toctitle,
+.sidebarblock > .content > .title {
+  color: rgba(0, 0, 0, 0.8);
+}
+</style>
+----
+
+Now tell Asciidoctor to look for and load the docinfo file using the `docinfo` attribute:
+
+ $ asciidoctor -a docinfo=shared document.adoc
+
+The `<style>` tag in your docinfo file will be inserted directly below the default stylesheet in the generated HTML.
+
+[#customize-extend]
+=== Extend the default stylesheet
+
+Instead of writing a custom stylesheet from scratch, you can import the default stylesheet and add overrides for any styles you want to change (leveraging the cascading nature of CSS).
+This is also a good way to use the default stylesheet, but load web fonts from a different CDN.
+
+Let's again change the color of headings (and other heading-like titles) to match the color of paragraph text.
+Start by creating a stylesheet named [.path]_my-asciidoctor.css_.
+Next, add an `@import` declaration to import the default stylesheet.
+We use a CDN here to pull the default stylesheet directly out of the repository, but you can put it anywhere the browser can access it.
+Then, add another `@import` declaration to import the web fonts the default stylesheet uses (which are not imported by the default stylesheet).
+Finally, add your overrides below those `@import` directives.
+Here's how that looks altogether.
+
+[source,css,subs=attributes+]
+----
+@import "https://fonts.googleapis.com/css?family=Open+Sans:300,300italic,400,400italic,600,600italic%7CNoto+Serif:400,400italic,700,700italic%7CDroid+Sans+Mono:400,700";
+@import "https://cdn.jsdelivr.net/gh/asciidoctor/asciidoctor@{page-component-version}/data/stylesheets/asciidoctor-default.css";
+
+h1, h2, h3, h4, h5, h6, #toctitle,
+.sidebarblock > .content > .title {
+  color: rgba(0, 0, 0, 0.8);
+}
+----
+
+Now tell Asciidoctor to use your custom stylesheet instead of the default one:
+
+ $ asciidoctor -a stylesheet=my-asciidoctor.css document.adoc
+
+Asciidoctor will now embed the contents of your custom stylesheet instead of the default one.
+However, Asciidoctor will not embed the contents of the default stylesheet.
+Instead, the browser will fetch it from the location specified by the `@import` directive.
+You can avoid this network call by putting the default stylesheet in the same directory as your custom stylesheet and linking to it using `@import "asciidoctor.css"`.
+
+To get the default stylesheet, you can either https://github.com/asciidoctor/asciidoctor/blob/master/data/stylesheets/asciidoctor-default.css[download it^] from the source repository, or you can use the following `asciidoctor` command (or equivalent) to write it to the current directory:
+
+ $ echo | asciidoctor -o $TMPDIR/out.html -a linkcss -a copycss - && cp $TMPDIR/asciidoctor.css .
+
+Alternately, you can use this script to write the default stylesheet to the working directory:
+
+[,ruby]
+----
+require 'asciidoctor'
+
+Asciidoctor::Stylesheets.instance.write_primary_stylesheet '.'
+----
+
+To learn more about how to apply a custom stylesheet, see xref:custom-stylesheet.adoc[].
+
+== Are there different themes?
+
+The default stylesheet does not provide different themes.
+However, you can find stylesheets with different themes in the https://github.com/darshandsoni/asciidoctor-skins[Asciidoctor Skins^] project.
+These stylesheets take the approach of loading the default stylesheet (from a CDN), then overlaying additional styles to create a variety of themes.
+
+To learn how to apply a custom stylesheet, see xref:custom-stylesheet.adoc[].

@@ -1,0 +1,4 @@
+= CLI Options
+// um anchor: appendix#cli-options
+
+include::partial$man-asciidoctor.adoc[tag=options,leveloffset=-1]

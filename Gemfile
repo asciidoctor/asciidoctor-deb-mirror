@@ -1,12 +1,20 @@
+# frozen_string_literal: true
+
 source 'https://rubygems.org'
 
 # Look in asciidoctor.gemspec for runtime and development dependencies
 gemspec
 
 group :development do
-  gem 'pygments.rb', ENV['PYGMENTS_VERSION'] if ENV.key? 'PYGMENTS_VERSION'
-  gem 'rouge', ENV['ROUGE_VERSION'] if ENV.key? 'ROUGE_VERSION'
+  # asciimath is needed for testing AsciiMath in DocBook backend; Asciidoctor supports asciimath >= 1.0.0
+  gem 'asciimath', (ENV.fetch 'ASCIIMATH_VERSION', '~> 2.0')
+  # coderay is needed for testing source highlighting
+  gem 'coderay', '~> 1.1.0'
   gem 'haml', '~> 4.0' if RUBY_ENGINE == 'truffleruby'
+  # pygments.rb is needed for testing source highlighting; Asciidoctor supports pygments.rb >= 1.2.0
+  gem 'pygments.rb', ENV['PYGMENTS_VERSION'] if ENV.key? 'PYGMENTS_VERSION'
+  # rouge is needed for testing source highlighting; Asciidoctor supports rouge >= 2
+  gem 'rouge', (ENV.fetch 'ROUGE_VERSION', '~> 3.0')
 end
 
 group :docs do
@@ -24,6 +32,6 @@ end
 #end
 
 group :ci do
-  gem 'simplecov', '~> 0.16.0'
   gem 'json', '~> 2.2.0' if RUBY_ENGINE == 'truffleruby'
+  gem 'simplecov', '~> 0.16.0'
 end

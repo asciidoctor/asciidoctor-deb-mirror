@@ -44,11 +44,11 @@ class Reader
       @file = nil
       @dir = '.'
       @path = '<stdin>'
-      @lineno = 1 # IMPORTANT lineno assignment must proceed prepare_lines call!
+      @lineno = 1
     elsif ::String === cursor
       @file = cursor
       @dir, @path = ::File.split @file
-      @lineno = 1 # IMPORTANT lineno assignment must proceed prepare_lines call!
+      @lineno = 1
     else
       if (@file = cursor.file)
         @dir = cursor.dir || (::File.dirname @file)
@@ -57,10 +57,9 @@ class Reader
         @dir = cursor.dir || '.'
         @path = cursor.path || '<stdin>'
       end
-      @lineno = cursor.lineno || 1 # IMPORTANT lineno assignment must proceed prepare_lines call!
+      @lineno = cursor.lineno || 1
     end
-    @lines = prepare_lines data, opts
-    @source_lines = @lines.drop 0
+    @lines = (@source_lines = prepare_lines data, opts).reverse
     @mark = nil
     @look_ahead = 0
     @process_lines = true
@@ -127,7 +126,7 @@ class Reader
   # Returns nothing if there is no more data.
   def peek_line direct = false
     if direct || @look_ahead > 0
-      @unescape_next_line ? ((line = @lines[0]).slice 1, line.length) : @lines[0]
+      @unescape_next_line ? ((line = @lines[-1]).slice 1, line.length) : @lines[-1]
     elsif @lines.empty?
       @look_ahead = 0
       nil
@@ -135,7 +134,7 @@ class Reader
       # FIXME the problem with this approach is that we aren't
       # retaining the modified line (hence the @unescape_next_line tweak)
       # perhaps we need a stack of proxied lines
-      (line = process_line @lines[0]) ? line : peek_line
+      (process_line @lines[-1]) || peek_line
     end
   end
 
@@ -192,9 +191,7 @@ class Reader
   def read_lines
     lines = []
     # has_more_lines? triggers preprocessor
-    while has_more_lines?
-      lines << shift
-    end
+    lines << shift while has_more_lines?
     lines
   end
   alias readlines read_lines
@@ -241,7 +238,6 @@ class Reader
   # Returns nothing.
   def unshift_lines lines_to_restore
     unshift_all lines_to_restore
-    nil
   end
   alias restore_lines unshift_lines
 
@@ -334,7 +330,7 @@ class Reader
     comment_lines = []
     # optimized code for shortest execution path
     while (next_line = peek_line) && !next_line.empty?
-      if (next_line.start_with? '//')
+      if next_line.start_with? '//'
         comment_lines << shift
       else
         break
@@ -407,34 +403,22 @@ class Reader
       break_on_list_continuation = options[:break_on_list_continuation]
     end
     skip_comments = options[:skip_line_comments]
-    complete = line_read = line_restored = nil
+    line_read = line_restored = nil
     shift if options[:skip_first_line]
-    while !complete && (line = read_line)
-      complete = while true
-        break true if terminator && line == terminator
-        # QUESTION: can we get away with line.empty? here?
-        break true if break_on_blank_lines && line.empty?
-        if break_on_list_continuation && line_read && line == LIST_CONTINUATION
-          options[:preserve_last_line] = true
-          break true
-        end
-        break true if block_given? && (yield line)
-        break false
-      end
-      if complete
-        if options[:read_last_line]
-          result << line
-          line_read = true
-        end
+    while (line = read_line)
+      if terminator ? line == terminator : ((break_on_blank_lines && line.empty?) ||
+          (break_on_list_continuation && line_read && line == LIST_CONTINUATION && (options[:preserve_last_line] = true)) ||
+          (block_given? && (yield line)))
+        result << line if options[:read_last_line]
         if options[:preserve_last_line]
           unshift line
           line_restored = true
         end
-      else
-        unless skip_comments && (line.start_with? '//') && !(line.start_with? '///')
-          result << line
-          line_read = true
-        end
+        break
+      end
+      unless skip_comments && (line.start_with? '//') && !(line.start_with? '///')
+        result << line
+        line_read = true
       end
     end
     if restore_process_lines
@@ -459,21 +443,37 @@ class Reader
   def shift
     @lineno += 1
     @look_ahead -= 1 unless @look_ahead == 0
-    @lines.shift
+    @lines.pop
   end
 
   # Internal: Restore the line to the stack and decrement the lineno
   def unshift line
     @lineno -= 1
     @look_ahead += 1
-    @lines.unshift line
+    @lines.push line
+    nil
   end
 
-  # Internal: Restore the lines to the stack and decrement the lineno
-  def unshift_all lines
-    @lineno -= lines.size
-    @look_ahead += lines.size
-    @lines.unshift(*lines)
+  if ::RUBY_ENGINE == 'jruby'
+    # Internal: Restore the lines to the stack and decrement the lineno
+    def unshift_all lines_to_restore
+      @lineno -= lines_to_restore.size
+      @look_ahead += lines_to_restore.size
+      if lines_to_restore.respond_to? :reverse
+        @lines.push(*lines_to_restore.reverse)
+      else
+        lines_to_restore.reverse_each {|it| @lines.push it }
+      end
+      nil
+    end
+  else
+    # Internal: Restore the lines to the stack and decrement the lineno
+    def unshift_all lines_to_restore
+      @lineno -= lines_to_restore.size
+      @look_ahead += lines_to_restore.size
+      @lines.push(*lines_to_restore.reverse)
+      nil
+    end
   end
 
   def cursor
@@ -516,12 +516,12 @@ class Reader
   #
   # Returns A copy of the String Array of lines remaining in this Reader
   def lines
-    @lines.drop 0
+    @lines.reverse
   end
 
   # Public: Get a copy of the remaining lines managed by this Reader joined as a String
   def string
-    @lines.join LF
+    @lines.reverse.join LF
   end
 
   # Public: Get the source lines for this Reader joined as a String
@@ -576,8 +576,7 @@ class Reader
   # Returns A String Array of source lines. If the source data is an Array, this method returns a copy.
   def prepare_lines data, opts = {}
     if (normalize = opts[:normalize])
-      trim_end = normalize == :chomp ? false : true
-      ::Array === data ? (Helpers.prepare_source_array data, trim_end) : (Helpers.prepare_source_string data, trim_end)
+      ::Array === data ? (Helpers.prepare_source_array data, normalize != :chomp) : (Helpers.prepare_source_string data, normalize != :chomp)
     elsif ::Array === data
       data.drop 0
     elsif data
@@ -690,6 +689,7 @@ class PreprocessorReader < Reader
       @path = (path ||= ::File.basename file)
       # only process lines in AsciiDoc files
       if (@process_lines = file.end_with?(*ASCIIDOC_EXTENSIONS.keys))
+        # NOTE registering the include with a nil value tracks it while not making it visible to interdocument xrefs
         @includes[path.slice 0, (path.rindex '.')] = attributes['partial-option'] ? nil : true
       end
     else
@@ -697,6 +697,7 @@ class PreprocessorReader < Reader
       # we don't know what file type we have, so assume AsciiDoc
       @process_lines = true
       if (@path = path)
+        # NOTE registering the include with a nil value tracks it while not making it visible to interdocument xrefs
         @includes[Helpers.rootname path] = attributes['partial-option'] ? nil : true
       else
         @path = '<stdin>'
@@ -718,21 +719,16 @@ class PreprocessorReader < Reader
     end
 
     # effectively fill the buffer
-    if (@lines = prepare_lines data, normalize: @process_lines || :chomp, condense: @process_lines, indent: attributes['indent']).empty?
+    if (@lines = prepare_lines data, normalize: @process_lines || :chomp, condense: false, indent: attributes['indent']).empty?
       pop_include
     else
       # FIXME we eventually want to handle leveloffset without affecting the lines
       if attributes.key? 'leveloffset'
-        @lines.unshift ''
-        @lines.unshift %(:leveloffset: #{attributes['leveloffset']})
-        @lines << ''
-        if (old_leveloffset = @document.attr 'leveloffset')
-          @lines << %(:leveloffset: #{old_leveloffset})
-        else
-          @lines << ':leveloffset!:'
-        end
-        # compensate for these extra lines
+        @lines = [((leveloffset = @document.attr 'leveloffset') ? %(:leveloffset: #{leveloffset}) : ':leveloffset!:'), ''] + @lines.reverse + ['', %(:leveloffset: #{attributes['leveloffset']})]
+        # compensate for these extra lines at the top
         @lineno -= 2
+      else
+        @lines.reverse!
       end
 
       # FIXME kind of a hack
@@ -802,14 +798,11 @@ class PreprocessorReader < Reader
     result = super
 
     # QUESTION should this work for AsciiDoc table cell content? Currently it does not.
-    if @document && @document.attributes['skip-front-matter']
-      if (front_matter = skip_front_matter! result)
-        @document.attributes['front-matter'] = front_matter.join LF
-      end
+    if @document && @document.attributes['skip-front-matter'] && (front_matter = skip_front_matter! result)
+      @document.attributes['front-matter'] = front_matter.join LF
     end
 
     if opts.fetch :condense, true
-      result.shift && @lineno += 1 while (first = result[0]) && first.empty?
       result.pop while (last = result[-1]) && last.empty?
     end
 
@@ -956,11 +949,12 @@ class PreprocessorReader < Reader
         if no_target
           # the text in brackets must match a conditional expression
           if text && EvalExpressionRx =~ text.strip
+            # NOTE assignments must happen before call to resolve_expr_val for compatiblity with Opal
             lhs = $1
+            # regex enforces a restricted set of math-related operations (==, !=, <=, >=, <, >)
             op = $2
             rhs = $3
-            # regex enforces a restricted set of math-related operations (==, !=, <=, >=, <, >)
-            skip = ((resolve_expr_val lhs).send op, (resolve_expr_val rhs)) ? false : true
+            skip = ((resolve_expr_val lhs).send op, (resolve_expr_val rhs)) ? false : true rescue true
           else
             logger.error message_with_context %(malformed preprocessor directive - #{text ? 'invalid expression' : 'missing expression'}: ifeval::[#{text}]), source_location: cursor
             return true
@@ -1050,10 +1044,11 @@ class PreprocessorReader < Reader
 
       parsed_attrs = doc.parse_attributes attrlist, [], sub_input: true
       inc_path, target_type, relpath = resolve_include_path expanded_target, attrlist, parsed_attrs
-      if target_type == :file
+      case target_type
+      when :file
         reader = ::File.method :open
         read_mode = FILE_READ_MODE
-      elsif target_type == :uri
+      when :uri
         reader = ::OpenURI.method :open_uri
         read_mode = URI_READ_MODE
       else
@@ -1074,7 +1069,7 @@ class PreprocessorReader < Reader
           (split_delimited_value parsed_attrs['lines']).each do |linedef|
             if linedef.include? '..'
               from, _, to = linedef.partition '..'
-              inc_linenos += (to.empty? || (to = to.to_i) < 0) ? [from.to_i, 1.0/0.0] : (from.to_i..to).to_a
+              inc_linenos += (to.empty? || (to = to.to_i) < 0) ? [from.to_i, ::Float::INFINITY] : (from.to_i..to).to_a
             else
               inc_linenos << linedef.to_i
             end
@@ -1132,15 +1127,21 @@ class PreprocessorReader < Reader
       elsif inc_tags
         inc_lines, inc_offset, inc_lineno, tag_stack, tags_used, active_tag = [], nil, 0, [], ::Set.new, nil
         if inc_tags.key? '**'
+          select = base_select = inc_tags.delete '**'
           if inc_tags.key? '*'
-            select = base_select = inc_tags.delete '**'
             wildcard = inc_tags.delete '*'
+          elsif !select && inc_tags.values.first == false
+            wildcard = true
+          end
+        elsif inc_tags.key? '*'
+          if inc_tags.keys.first == '*'
+            select = base_select = !(wildcard = inc_tags.delete '*')
           else
-            select = base_select = wildcard = inc_tags.delete '**'
+            select = base_select = false
+            wildcard = inc_tags.delete '*'
           end
         else
           select = base_select = !(inc_tags.value? true)
-          wildcard = inc_tags.delete '*'
         end
         begin
           reader.call inc_path, read_mode do |f|
@@ -1191,7 +1192,7 @@ class PreprocessorReader < Reader
         end
         shift
         if inc_offset
-          parsed_attrs['partial-option'] = '' unless base_select && wildcard && inc_tags.empty?
+          parsed_attrs['partial-option'] = '' unless base_select && wildcard != false && inc_tags.empty?
           # FIXME not accounting for skipped lines in reader line numbering
           push_include inc_lines, inc_path, relpath, inc_offset, parsed_attrs
         end
@@ -1262,7 +1263,7 @@ class PreprocessorReader < Reader
   end
 
   def pop_include
-    if @include_stack.size > 0
+    unless @include_stack.empty?
       @lines, @file, @dir, @path, @lineno, @maxdepth, @process_lines = @include_stack.pop
       # FIXME kind of a hack
       #Document::AttributeEntry.new('infile', @file).save_to_next_block @document

@@ -1412,7 +1412,7 @@ context 'Extensions' do
       end
     end
 
-    test 'should apply specified subs to inline node returned by process method' do
+    test 'should apply subs specified as symbol to inline node returned by process method' do
       begin
         Asciidoctor::Extensions.register do
           inline_macro do
@@ -1425,6 +1425,42 @@ context 'Extensions' do
 
         output = convert_string_to_embedded 'say:yo[]', doctype: :inline
         assert_equal '<strong>yo</strong>', output
+      ensure
+        Asciidoctor::Extensions.unregister_all
+      end
+    end
+
+    test 'should apply subs specified as array to inline node returned by process method' do
+      begin
+        Asciidoctor::Extensions.register do
+          inline_macro do
+            named :say
+            process do |parent, target, attrs|
+              create_inline_pass parent, %(*#{target}*), attributes: { 'subs' => [:specialchars, :quotes] }
+            end
+          end
+        end
+
+        output = convert_string_to_embedded 'say:{lt}message{gt}[]', doctype: :inline
+        assert_equal '<strong>&lt;message&gt;</strong>', output
+      ensure
+        Asciidoctor::Extensions.unregister_all
+      end
+    end
+
+    test 'should apply subs specified as string to inline node returned by process method' do
+      begin
+        Asciidoctor::Extensions.register do
+          inline_macro do
+            named :say
+            process do |parent, target, attrs|
+              create_inline_pass parent, %(*#{target}*), attributes: { 'subs' => 'specialchars,quotes' }
+            end
+          end
+        end
+
+        output = convert_string_to_embedded 'say:{lt}message{gt}[]', doctype: :inline
+        assert_equal '<strong>&lt;message&gt;</strong>', output
       ensure
         Asciidoctor::Extensions.unregister_all
       end
@@ -1637,11 +1673,11 @@ context 'Extensions' do
         {
           ''                       => ['chapter',  1, false, true, '_section_title'],
           'level=0'                => ['part',     0, false, false, '_section_title'],
-          'level=0,alt'            => ['part',     0, false, true, '_section_title', { 'partnums' => '' }],
+          'level=0,alt'            => ['part',     0, false, true, '_section_title', 'partnums' => ''],
           'level=0,style=appendix' => ['appendix', 1, true,  true, '_section_title'],
           'style=appendix'         => ['appendix', 1, true,  true, '_section_title'],
           'style=glossary'         => ['glossary', 1, true,  false, '_section_title'],
-          'style=glossary,alt'     => ['glossary', 1, true,  :chapter, '_section_title', { 'sectnums' => 'all' }],
+          'style=glossary,alt'     => ['glossary', 1, true,  :chapter, '_section_title', 'sectnums' => 'all'],
           'style=abstract'         => ['chapter',  1, false, true, '_section_title'],
           'id=section-title'       => ['chapter',  1, false, true, 'section-title'],
           'id=false'               => ['chapter',  1, false, true, nil]

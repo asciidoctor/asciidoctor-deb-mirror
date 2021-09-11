@@ -1,0 +1,39 @@
+= Process AsciiDoc Using the CLI
+:url-asciidoctor-1: https://github.com/asciidoctor/asciidoctor/blob/v{release-version}/man/asciidoctor.adoc
+
+////
+command-line-usage.adoc
+Command line usage quick start for Asciidoctor
+included in the install-toolchain and user-manual documents
+////
+
+When the Asciidoctor gem is installed successfully, the Asciidoctor command line interface (CLI) named `asciidoctor` will be available on your PATH.
+To confirm that the CLI is available, execute the following command in your terminal application:
+
+ $ asciidoctor --version
+
+If this command completes successfully, information about Asciidoctor and the runtime environment will be printed to the standard output of your terminal:
+
+[subs=attributes+]
+ Asciidoctor {release-version} [https://asciidoctor.org]
+ Runtime Environment ({ruby-description}) (lc:UTF-8 fs:UTF-8 in:UTF-8 ex:UTF-8)
+
+The runtime environment information varies based on the version of Ruby you're using and the encoding settings of your operating system.
+
+To invoke Asciidoctor from the CLI and convert an `.adoc` file, execute:
+
+ $ asciidoctor <asciidoc-file>
+
+This will use the built-in defaults for options and create a new file in the same directory as the input file, with the same base name, but with the `.html` extension.
+
+The xref:options.adoc[] describes the available Asciidoctor CLI options and parameters.
+
+You can output the usage for the `asciidoctor` command by appending the `--help` option:
+
+ $ asciidoctor --help
+
+You can generate the full documentation (i.e., man page) for the `asciidoctor` command by passing the `manpage` argument to the `--help` option, which you can then pipe to the `man` pager for viewing:
+
+ $ asciidoctor --help manpage | man -l -
+
+You can find the AsciiDoc source for the {url-asciidoctor-1}[Asciidoctor man page^] online in the Asciidoctor repository, which you can preview in a browser.

@@ -1,0 +1,50 @@
+= Supported Platforms and System Requirements
+:navtitle: Supported Platforms
+
+Asciidoctor operates on Linux, macOS and Windows and requires one of the supported Ruby implementations listed in the next section.
+
+Our general policy is to align Asciidoctor's support of a platform version with the upstream project's lifecycle schedule for that version.
+When a platform version reaches the end of active support by its maintainers or its end of life--which ever comes first--Asciidoctor no longer supports it.
+
+== Ruby runtimes
+
+Asciidoctor requires one of the following implementations of {url-ruby}[Ruby^].
+
+[%autowidth]
+|===
+|Supported Runtime |Supported Versions
+
+|Ruby
+|&#8805; 2.3
+
+|JRuby
+|&#8805; 9.1
+
+|TruffleRuby
+|&#8805; 20.2
+|===
+
+== Operating systems
+
+[%autowidth]
+|===
+|Supported OS |Supported Versions
+
+|Ubuntu
+|18.04 LTS +
+20.04 LTS
+
+|Fedora
+|&#8805; 33
+
+|macOS
+|Mojave +
+Catalina +
+Big Sur
+
+|Microsoft
+|Windows 10 +
+Windows Server 2019
+|===
+
+While the community tests Asciidoctor on a variety of Linux distributions, it's only officially tested on Ubuntu and Fedora.

@@ -259,12 +259,14 @@ class Document < AbstractBlock
       options[:catalog_assets] = true if parent_doc.options[:catalog_assets]
       @catalog = parent_doc.catalog.merge footnotes: []
       # QUESTION should we support setting attribute in parent document from nested document?
-      # NOTE we must dup or else all the assignments to the overrides clobbers the real attributes
-      @attribute_overrides = attr_overrides = parent_doc.attributes.merge
-      parent_doctype = attr_overrides.delete 'doctype'
+      @attribute_overrides = attr_overrides = (parent_doc.instance_variable_get :@attribute_overrides).merge parent_doc.attributes
       attr_overrides.delete 'compat-mode'
+      parent_doctype = attr_overrides.delete 'doctype'
+      attr_overrides.delete 'notitle'
+      attr_overrides.delete 'showtitle'
+      # QUESTION if toc is hard unset in parent document, should it be hard unset in nested document?
       attr_overrides.delete 'toc'
-      attr_overrides.delete 'toc-placement'
+      @attributes['toc-placement'] = (attr_overrides.delete 'toc-placement') || 'auto'
       attr_overrides.delete 'toc-position'
       @safe = parent_doc.safe
       @attributes['compat-mode'] = '' if (@compat_mode = parent_doc.compat_mode)
@@ -284,7 +286,6 @@ class Document < AbstractBlock
         footnotes: [],
         links: [],
         images: [],
-        #indexterms: [],
         callouts: Callouts.new,
         includes: {},
       }
@@ -309,7 +310,7 @@ class Document < AbstractBlock
         end
         attr_overrides[key.downcase] = val
       end
-      if (to_file = options[:to_file])
+      if ::String === (to_file = options[:to_file])
         attr_overrides['outfilesuffix'] = Helpers.extname to_file
       end
       # safely resolve the safe mode from const, int or string
@@ -339,11 +340,13 @@ class Document < AbstractBlock
     (@options = options).freeze
 
     attrs = @attributes
-    attrs['attribute-undefined'] = Compliance.attribute_undefined
-    attrs['attribute-missing'] = Compliance.attribute_missing
-    attrs.update DEFAULT_ATTRIBUTES
-    # TODO if lang attribute is set, @safe mode < SafeMode::SERVER, and !parent_doc,
-    # load attributes from data/locale/attributes-<lang>.adoc
+    unless parent_doc
+      attrs['attribute-undefined'] = Compliance.attribute_undefined
+      attrs['attribute-missing'] = Compliance.attribute_missing
+      attrs.update DEFAULT_ATTRIBUTES
+      # TODO if lang attribute is set, @safe mode < SafeMode::SERVER, and !parent_doc,
+      # load attributes from data/locale/attributes-<lang>.adoc
+    end
 
     if standalone
       # sync embedded attribute with :standalone option value
@@ -356,9 +359,9 @@ class Document < AbstractBlock
       # sync embedded attribute with :standalone option value
       attr_overrides['embedded'] = ''
       if (attr_overrides.key? 'showtitle') && (attr_overrides.keys & %w(notitle showtitle))[-1] == 'showtitle'
-        attr_overrides['notitle'] = { nil => '', false => '@', '@' => false}[attr_overrides['showtitle']]
+        attr_overrides['notitle'] = { nil => '', false => '@', '@' => false }[attr_overrides['showtitle']]
       elsif attr_overrides.key? 'notitle'
-        attr_overrides['showtitle'] = { nil => '', false => '@', '@' => false}[attr_overrides['notitle']]
+        attr_overrides['showtitle'] = { nil => '', false => '@', '@' => false }[attr_overrides['notitle']]
       else
         attrs['notitle'] = ''
       end
@@ -371,13 +374,11 @@ class Document < AbstractBlock
     attr_overrides[%(safe-mode-#{safe_mode_name})] = ''
     attr_overrides['safe-mode-level'] = @safe
 
-    # the only way to set the max-include-depth attribute is via the API; default to 64 like AsciiDoc Python
+    # the only way to set the max-include-depth attribute is via the API; default to 64 like AsciiDoc.py
     attr_overrides['max-include-depth'] ||= 64
 
     # the only way to set the allow-uri-read attribute is via the API; disabled by default
     attr_overrides['allow-uri-read'] ||= nil
-
-    attr_overrides['user-home'] = USER_HOME
 
     # remap legacy attribute names
     attr_overrides['sectnums'] = attr_overrides.delete 'numbered' if attr_overrides.key? 'numbered'
@@ -397,11 +398,11 @@ class Document < AbstractBlock
 
     # allow common attributes backend and doctype to be set using options hash, coerce values to string
     if (backend_val = options[:backend])
-      attr_overrides['backend'] = %(#{backend_val})
+      attr_overrides['backend'] = backend_val.to_s
     end
 
     if (doctype_val = options[:doctype])
-      attr_overrides['doctype'] = %(#{doctype_val})
+      attr_overrides['doctype'] = doctype_val.to_s
     end
 
     if @safe >= SafeMode::SERVER
@@ -414,7 +415,7 @@ class Document < AbstractBlock
         attr_overrides['docfile'] = attr_overrides['docfile'][(attr_overrides['docdir'].length + 1)..-1]
       end
       attr_overrides['docdir'] = ''
-      attr_overrides['user-home'] = '.'
+      attr_overrides['user-home'] ||= '.'
       if @safe >= SafeMode::SECURE
         attr_overrides['max-attribute-value-size'] = 4096 unless attr_overrides.key? 'max-attribute-value-size'
         # assign linkcss (preventing css embedding) unless explicitly disabled from the commandline or API
@@ -423,6 +424,8 @@ class Document < AbstractBlock
         # restrict document from enabling icons
         attr_overrides['icons'] ||= nil
       end
+    else
+      attr_overrides['user-home'] ||= USER_HOME
     end
 
     # the only way to set the max-attribute-value-size attribute is via the API; disabled by default
@@ -562,13 +565,15 @@ class Document < AbstractBlock
   # returns the next number in the sequence for the specified counter
   def counter name, seed = nil
     return @parent_document.counter name, seed if @parent_document
-    if (attr_seed = !(attr_val = @attributes[name]).nil_or_empty?) && (@counters.key? name)
-      @attributes[name] = @counters[name] = Helpers.nextval attr_val
+    if ((locked = attribute_locked? name) && (curr_val = @counters[name])) || !(curr_val = @attributes[name]).nil_or_empty?
+      next_val = @counters[name] = Helpers.nextval curr_val
     elsif seed
-      @attributes[name] = @counters[name] = seed == seed.to_i.to_s ? seed.to_i : seed
+      next_val = @counters[name] = seed == seed.to_i.to_s ? seed.to_i : seed
     else
-      @attributes[name] = @counters[name] = Helpers.nextval attr_seed ? attr_val : 0
+      next_val = @counters[name] = 1
     end
+    @attributes[name] = next_val unless locked
+    next_val
   end
 
   # Public: Increment the specified counter and store it in the block's attributes
@@ -610,10 +615,17 @@ class Document < AbstractBlock
       # @reftexts is set eagerly to prevent nested lazy init
       (@reftexts = {}).tap {|accum| @catalog[:refs].each {|id, ref| accum[ref.xreftext] ||= id } }[text]
     else
-      # @reftexts is set eagerly to prevent nested lazy init
       resolved_id = nil
-      # NOTE short-circuit early since we're throwing away this table
-      (@reftexts = {}).tap {|accum| @catalog[:refs].each {|id, ref| (xreftext = ref.xreftext) == text ? (break (resolved_id = id)) : (accum[xreftext] ||= id) } }
+      # @reftexts is set eagerly to prevent nested lazy init
+      @reftexts = accum = {}
+      @catalog[:refs].each do |id, ref|
+        # NOTE short-circuit early since we're throwing away this table anyway
+        if (xreftext = ref.xreftext) == text
+          resolved_id = id
+          break
+        end
+        accum[xreftext] ||= id
+      end
       @reftexts = nil
       resolved_id
     end
@@ -671,7 +683,7 @@ class Document < AbstractBlock
   #
   # title - the String title to assign as the title of the document header
   #
-  # Returns the new [String] title assigned to the document header
+  # Returns the specified [String] title
   def title= title
     unless (sect = @header)
       (sect = (@header = Section.new self, 0)).sectname = 'header'
@@ -980,25 +992,6 @@ class Document < AbstractBlock
     nil
   end
 
-=begin
-  def convert_to target, opts = {}
-    start = ::Time.now.to_f if (monitor = opts[:monitor])
-    output = (r = converter opts).convert
-    monitor[:convert] = ::Time.now.to_f - start if monitor
-
-    unless target.respond_to? :write
-      @attributes['outfile'] = target = ::File.expand_path target
-      @attributes['outdir'] = ::File.dirname target
-    end
-
-    start = ::Time.now.to_f if monitor
-    r.write output, target
-    monitor[:write] = ::Time.now.to_f - start if monitor
-
-    output
-  end
-=end
-
   def content
     # NOTE per AsciiDoc-spec, remove the title before converting the body
     @attributes.delete('title')
@@ -1020,7 +1013,7 @@ class Document < AbstractBlock
   def docinfo location = :head, suffix = nil
     if safe < SafeMode::SECURE
       qualifier = %(-#{location}) unless location == :head
-      suffix = @outfilesuffix unless suffix
+      suffix ||= @outfilesuffix
 
       if (docinfo = @attributes['docinfo']).nil_or_empty?
         if @attributes.key? 'docinfo2'
@@ -1077,7 +1070,7 @@ class Document < AbstractBlock
   end
 
   def to_s
-    %(#<#{self.class}@#{object_id} {doctype: #{doctype.inspect}, doctitle: #{(@header != nil ? @header.title : nil).inspect}, blocks: #{@blocks.size}}>)
+    %(#<#{self.class}@#{object_id} {doctype: #{doctype.inspect}, doctitle: #{(@header && @header.title).inspect}, blocks: #{@blocks.size}}>)
   end
 
   private
@@ -1206,8 +1199,8 @@ class Document < AbstractBlock
       end
     end
 
-    if (@compat_mode = attrs.key? 'compat-mode')
-      attrs['source-language'] = attrs['language'] if attrs.key? 'language'
+    if (@compat_mode = attrs.key? 'compat-mode') && (attrs.key? 'language')
+      attrs['source-language'] = attrs['language']
     end
 
     unless @parent_document
@@ -1380,7 +1373,7 @@ class Document < AbstractBlock
         attrs[%(basebackend-#{current_basebackend}-doctype-#{new_doctype})] = '' if current_basebackend
       end
       attrs[%(doctype-#{new_doctype})] = ''
-      return @doctype = attrs['doctype'] = new_doctype
+      @doctype = attrs['doctype'] = new_doctype
     end
   end
 end

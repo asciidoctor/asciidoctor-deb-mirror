@@ -330,13 +330,13 @@ module Substitutors
             # NOTE for convenience, map content (unparsed attrlist) to target when format is short
             target ||= ext_config[:format] == :short ? content : target
           end
-          if (Inline === (replacement = extension.process_method[self, target, attributes]))
-            if (inline_subs = replacement.attributes.delete 'subs')
-              replacement.text = apply_subs replacement.text, (expand_subs inline_subs)
+          if Inline === (replacement = extension.process_method[self, target, attributes])
+            if (inline_subs = replacement.attributes.delete 'subs') && (inline_subs = expand_subs inline_subs, 'custom inline macro')
+              replacement.text = apply_subs replacement.text, inline_subs
             end
             replacement.convert
           elsif replacement
-            logger.info %(expected substitution value for custom inline macro to be of type Inline; got #{replacement.class}: #{match})
+            logger.info { %(expected substitution value for custom inline macro to be of type Inline; got #{replacement.class}: #{match}) }
             replacement
           else
             ''
@@ -445,23 +445,16 @@ module Substitutors
           # indexterm:[Tigers,Big cats]
           if (attrlist = normalize_text $2, true, true).include? '='
             if (primary = (attrs = (AttributeList.new attrlist, self).parse)[1])
-              attrs['terms'] = terms = [primary]
-              if (secondary = attrs[2])
-                terms << secondary
-                if (tertiary = attrs[3])
-                  terms << tertiary
-                end
-              end
+              attrs['terms'] = [primary]
               if (see_also = attrs['see-also'])
                 attrs['see-also'] = (see_also.include? ',') ? (see_also.split ',').map {|it| it.lstrip } : [see_also]
               end
             else
-              attrs = { 'terms' => (terms = attrlist) }
+              attrs = { 'terms' => attrlist }
             end
           else
-            attrs = { 'terms' => (terms = split_simple_csv attrlist) }
+            attrs = { 'terms' => (split_simple_csv attrlist) }
           end
-          #doc.register :indexterms, terms
           (Inline.new self, :indexterm, nil, attributes: attrs).convert
         when 'indexterm2'
           # honor the escape
@@ -474,34 +467,33 @@ module Substitutors
               attrs['see-also'] = (see_also.include? ',') ? (see_also.split ',').map {|it| it.lstrip } : [see_also]
             end
           end
-          #doc.register :indexterms, [term]
           (Inline.new self, :indexterm, term, attributes: attrs, type: :visible).convert
         else
-          text = $3
+          encl_text = $3
           # honor the escape
           if $&.start_with? RS
             # escape concealed index term, but process nested flow index term
-            if (text.start_with? '(') && (text.end_with? ')')
-              text = text.slice 1, text.length - 2
+            if (encl_text.start_with? '(') && (encl_text.end_with? ')')
+              encl_text = encl_text.slice 1, encl_text.length - 2
               visible, before, after = true, '(', ')'
             else
               next $&.slice 1, $&.length
             end
           else
             visible = true
-            if text.start_with? '('
-              if text.end_with? ')'
-                text, visible = (text.slice 1, text.length - 2), false
+            if encl_text.start_with? '('
+              if encl_text.end_with? ')'
+                encl_text, visible = (encl_text.slice 1, encl_text.length - 2), false
               else
-                text, before, after = (text.slice 1, text.length), '(', ''
+                encl_text, before, after = (encl_text.slice 1, encl_text.length), '(', ''
               end
-            elsif text.end_with? ')'
-              text, before, after = text.chop, '', ')'
+            elsif encl_text.end_with? ')'
+              encl_text, before, after = encl_text.chop, '', ')'
             end
           end
           if visible
             # ((Tigers))
-            if (term = normalize_text text, true).include? ';&'
+            if (term = normalize_text encl_text, true).include? ';&'
               if term.include? ' &gt;&gt; '
                 term, _, see = term.partition ' &gt;&gt; '
                 attrs = { 'see' => see }
@@ -510,12 +502,11 @@ module Substitutors
                 attrs = { 'see-also' => see_also }
               end
             end
-            #doc.register :indexterms, [term]
             subbed_term = (Inline.new self, :indexterm, term, attributes: attrs, type: :visible).convert
           else
             # (((Tigers,Big cats)))
             attrs = {}
-            if (terms = normalize_text text, true).include? ';&'
+            if (terms = normalize_text encl_text, true).include? ';&'
               if terms.include? ' &gt;&gt; '
                 terms, _, see = terms.partition ' &gt;&gt; '
                 attrs['see'] = see
@@ -524,8 +515,7 @@ module Substitutors
                 attrs['see-also'] = see_also
               end
             end
-            attrs['terms'] = terms = split_simple_csv terms
-            #doc.register :indexterms, terms
+            attrs['terms'] = split_simple_csv terms
             subbed_term = (Inline.new self, :indexterm, nil, attributes: attrs).convert
           end
           before ? %(#{before}#{subbed_term}#{after}) : subbed_term
@@ -545,7 +535,7 @@ module Substitutors
         # NOTE if $4 is set, we're looking at a formal macro (e.g., https://example.org[])
         if $4
           prefix = '' if prefix == 'link:'
-          text = $4
+          link_text = nil if (link_text = $4).empty?
         else
           # invalid macro syntax (link: prefix w/o trailing square brackets or enclosed in double quotes)
           # FIXME we probably shouldn't even get here when the link: prefix is present; the regex is doing too much
@@ -553,12 +543,13 @@ module Substitutors
           when 'link:', ?", ?'
             next $&
           end
-          text = ''
           case $3
-          when ')'
-            # move trailing ) out of URL
+          when ')', '?', '!'
             target = target.chop
-            suffix = ')'
+            if (suffix = $3) == ')' && (target.end_with? '.', '?', '!')
+              suffix = target[-1] + suffix
+              target = target.chop
+            end
             # NOTE handle case when modified target is a URI scheme (e.g., http://)
             next $& if target.end_with? '://'
           when ';'
@@ -591,27 +582,37 @@ module Substitutors
         end
 
         attrs, link_opts = nil, { type: :link }
-        unless text.empty?
-          text = text.gsub ESC_R_SB, R_SB if text.include? R_SB
-          if !doc.compat_mode && (text.include? '=')
-            # NOTE if an equals sign (=) is present, extract attributes from text
-            text, attrs = extract_attributes_from_text text, ''
+
+        if link_text
+          new_link_text = link_text = link_text.gsub ESC_R_SB, R_SB if link_text.include? R_SB
+          if !doc.compat_mode && (link_text.include? '=')
+            # NOTE if an equals sign (=) is present, extract attributes from link text
+            link_text, attrs = extract_attributes_from_text link_text, ''
+            new_link_text = link_text
             link_opts[:id] = attrs['id']
           end
 
-          if text.end_with? '^'
-            text = text.chop
+          if link_text.end_with? '^'
+            new_link_text = link_text = link_text.chop
             if attrs
               attrs['window'] ||= '_blank'
             else
               attrs = { 'window' => '_blank' }
             end
           end
+
+          if new_link_text && new_link_text.empty?
+            # NOTE it's not possible for the URI scheme to be bare in this case
+            link_text = (doc_attrs.key? 'hide-uri-scheme') ? (target.sub UriSniffRx, '') : target
+            bare = true
+          end
+        else
+          # NOTE it's not possible for the URI scheme to be bare in this case
+          link_text = (doc_attrs.key? 'hide-uri-scheme') ? (target.sub UriSniffRx, '') : target
+          bare = true
         end
 
-        if text.empty?
-          # NOTE it's not possible for the URI scheme to be bare in this case
-          text = (doc_attrs.key? 'hide-uri-scheme') ? (target.sub UriSniffRx, '') : target
+        if bare
           if attrs
             attrs['role'] = (attrs.key? 'role') ? %(bare #{attrs['role']}) : 'bare'
           else
@@ -621,7 +622,7 @@ module Substitutors
 
         doc.register :links, (link_opts[:target] = target)
         link_opts[:attributes] = attrs if attrs
-        %(#{prefix}#{(Inline.new self, :anchor, text, link_opts).convert}#{suffix})
+        %(#{prefix}#{(Inline.new self, :anchor, link_text, link_opts).convert}#{suffix})
       end
     end
 
@@ -637,12 +638,12 @@ module Substitutors
           target = $2
         end
         attrs, link_opts = nil, { type: :link }
-        unless (text = $3).empty?
-          text = text.gsub ESC_R_SB, R_SB if text.include? R_SB
+        unless (link_text = $3).empty?
+          link_text = link_text.gsub ESC_R_SB, R_SB if link_text.include? R_SB
           if mailto
-            if !doc.compat_mode && (text.include? ',')
-              # NOTE if a comma (,) is present, extract attributes from text
-              text, attrs = extract_attributes_from_text text, ''
+            if !doc.compat_mode && (link_text.include? ',')
+              # NOTE if a comma (,) is present, extract attributes from link text
+              link_text, attrs = extract_attributes_from_text link_text, ''
               link_opts[:id] = attrs['id']
               if attrs.key? 2
                 if attrs.key? 3
@@ -652,14 +653,14 @@ module Substitutors
                 end
               end
             end
-          elsif !doc.compat_mode && (text.include? '=')
-            # NOTE if an equals sign (=) is present, extract attributes from text
-            text, attrs = extract_attributes_from_text text, ''
+          elsif !doc.compat_mode && (link_text.include? '=')
+            # NOTE if an equals sign (=) is present, extract attributes from link text
+            link_text, attrs = extract_attributes_from_text link_text, ''
             link_opts[:id] = attrs['id']
           end
 
-          if text.end_with? '^'
-            text = text.chop
+          if link_text.end_with? '^'
+            link_text = link_text.chop
             if attrs
               attrs['window'] ||= '_blank'
             else
@@ -668,17 +669,17 @@ module Substitutors
           end
         end
 
-        if text.empty?
+        if link_text.empty?
           # mailto is a special case, already processed
           if mailto
-            text = mailto_text
+            link_text = mailto_text
           else
             if doc_attrs.key? 'hide-uri-scheme'
-              if (text = target.sub UriSniffRx, '').empty?
-                text = target
+              if (link_text = target.sub UriSniffRx, '').empty?
+                link_text = target
               end
             else
-              text = target
+              link_text = target
             end
             if attrs
               attrs['role'] = (attrs.key? 'role') ? %(bare #{attrs['role']}) : 'bare'
@@ -691,7 +692,7 @@ module Substitutors
         # QUESTION should a mailto be registered as an e-mail address?
         doc.register :links, (link_opts[:target] = target)
         link_opts[:attributes] = attrs if attrs
-        Inline.new(self, :anchor, text, link_opts).convert
+        Inline.new(self, :anchor, link_text, link_opts).convert
       end
     end
 
@@ -738,15 +739,17 @@ module Substitutors
 
         attrs = {}
         if (refid = $1)
-          refid, text = refid.split ',', 2
-          text = text.lstrip if text
+          if refid.include? ','
+            refid, _, link_text = refid.partition ','
+            link_text = nil if (link_text = link_text.lstrip).empty?
+          end
         else
           macro = true
           refid = $2
-          if (text = $3)
-            text = text.gsub ESC_R_SB, R_SB if text.include? R_SB
-            # NOTE if an equals sign (=) is present, extract attributes from text
-            text, attrs = extract_attributes_from_text text if !doc.compat_mode && (text.include? '=')
+          if (link_text = $3)
+            link_text = link_text.gsub ESC_R_SB, R_SB if link_text.include? R_SB
+            # NOTE if an equals sign (=) is present, extract attributes from link text
+            link_text, attrs = extract_attributes_from_text link_text if !doc.compat_mode && (link_text.include? '=')
           end
         end
 
@@ -800,7 +803,7 @@ module Substitutors
               refid, path, target = nil, nil, '#'
             end
           else
-            refid, path = path, %(#{doc.attributes['relfileprefix']}#{path}#{src2src ? (doc.attributes.fetch 'relfilesuffix', doc.outfilesuffix) : ''})
+            refid, path = path, %(#{doc.attributes['relfileprefix'] || ''}#{path}#{src2src ? (doc.attributes.fetch 'relfilesuffix', doc.outfilesuffix) : ''})
             if fragment
               refid, target = %(#{refid}##{fragment}), %(#{path}##{fragment})
             else
@@ -825,7 +828,7 @@ module Substitutors
         attrs['path'] = path
         attrs['fragment'] = fragment
         attrs['refid'] = refid
-        Inline.new(self, :anchor, text, type: :xref, target: target, attributes: attrs).convert
+        Inline.new(self, :anchor, link_text, type: :xref, target: target, attributes: attrs).convert
       end
     end
 
@@ -837,7 +840,7 @@ module Substitutors
         # footnoteref
         if $1
           if $3
-            id, text = $3.split ',', 2
+            id, content = $3.split ',', 2
             logger.warn %(found deprecated footnoteref macro: #{$&}; use footnote macro with target instead) unless doc.compat_mode
           else
             next $&
@@ -845,31 +848,31 @@ module Substitutors
         # footnote
         else
           id = $2
-          text = $3
+          content = $3
         end
 
         if id
           if (footnote = doc.footnotes.find {|candidate| candidate.id == id })
-            index, text = footnote.index, footnote.text
+            index, content = footnote.index, footnote.text
             type, target, id = :xref, id, nil
-          elsif text
-            text = restore_passthroughs(normalize_text text, true, true)
+          elsif content
+            content = restore_passthroughs(normalize_text content, true, true)
             index = doc.counter('footnote-number')
-            doc.register(:footnotes, Document::Footnote.new(index, id, text))
+            doc.register(:footnotes, Document::Footnote.new(index, id, content))
             type, target = :ref, nil
           else
             logger.warn %(invalid footnote reference: #{id})
-            type, target, text, id = :xref, id, id, nil
+            type, target, content, id = :xref, id, id, nil
           end
-        elsif text
-          text = restore_passthroughs(normalize_text text, true, true)
+        elsif content
+          content = restore_passthroughs(normalize_text content, true, true)
           index = doc.counter('footnote-number')
-          doc.register(:footnotes, Document::Footnote.new(index, id, text))
+          doc.register(:footnotes, Document::Footnote.new(index, id, content))
           type = target = nil
         else
           next $&
         end
-        Inline.new(self, :footnote, text, attributes: { 'index' => index }, id: id, target: target, type: type).convert
+        Inline.new(self, :footnote, content, attributes: { 'index' => index }, id: id, target: target, type: type).convert
       end
     end
 
@@ -946,8 +949,9 @@ module Substitutors
 
     doc_attrs = @document.attributes
     syntax_hl_name = syntax_hl.name
-    if (linenums_mode = (attr? 'linenums') ? (doc_attrs[%(#{syntax_hl_name}-linenums-mode)] || :table).to_sym : nil)
-      start_line_number = 1 if (start_line_number = (attr 'start', 1).to_i) < 1
+    if (linenums_mode = (attr? 'linenums') ? (doc_attrs[%(#{syntax_hl_name}-linenums-mode)] || :table).to_sym : nil) &&
+        (start_line_number = (attr 'start', 1).to_i) < 1
+      start_line_number = 1
     end
     highlight_lines = resolve_lines_to_highlight source, (attr 'highlight'), start_line_number if attr? 'highlight'
 
@@ -984,7 +988,7 @@ module Substitutors
         negate = true
       end
       if (delim = (entry.include? '..') ? '..' : ((entry.include? '-') ? '-' : nil))
-        from, delim, to = entry.partition delim
+        from, _, to = entry.partition delim
         to = (source.count LF) + 1 if to.empty? || (to = to.to_i) < 0
         if negate
           lines -= (from.to_i..to).to_a
@@ -1118,7 +1122,7 @@ module Substitutors
       end
       subs = $2
       content = normalize_text $3, nil, true
-      # NOTE drop enclosing $ signs around latexmath for backwards compatibility with AsciiDoc Python
+      # NOTE drop enclosing $ signs around latexmath for backwards compatibility with AsciiDoc.py
       content = content.slice 1, content.length - 2 if type == :latexmath && (content.start_with? '$') && (content.end_with? '$')
       subs = subs ? (resolve_pass_subs subs) : ((@document.basebackend? 'html') ? BASIC_SUBS : nil)
       passthrus[passthru_key = passthrus.size] = { text: content, subs: subs, type: type }
@@ -1232,17 +1236,17 @@ module Substitutors
     resolve_subs subs, :inline, nil, 'passthrough macro'
   end
 
-  # Public: Expand all groups in the subs list and return. If no subs are resolve, return nil.
+  # Public: Expand all groups in the subs list and return. If no subs are resolved, return nil.
   #
-  # subs - The substitutions to expand; can be a Symbol, Symbol Array or nil
+  # subs - The substitutions to expand; can be a Symbol, Symbol Array, or String
+  # subject - The String to use in log messages to communicate the subject for which subs are being resolved (default: nil)
   #
   # Returns a Symbol Array of substitutions to pass to apply_subs or nil if no substitutions were resolved.
-  def expand_subs subs
-    if ::Symbol === subs
-      unless subs == :none
-        SUB_GROUPS[subs] || [subs]
-      end
-    else
+  def expand_subs subs, subject = nil
+    case subs
+    when ::Symbol
+      subs == :none ? nil : SUB_GROUPS[subs] || [subs]
+    when ::Array
       expanded_subs = []
       subs.each do |key|
         unless key == :none
@@ -1253,8 +1257,9 @@ module Substitutors
           end
         end
       end
-
       expanded_subs.empty? ? nil : expanded_subs
+    else
+      resolve_subs subs, :inline, nil, subject
     end
   end
 
@@ -1276,7 +1281,7 @@ module Substitutors
         # NOTE :literal with listparagraph-option gets folded into text of list item later
         default_subs = @context == :verse ? NORMAL_SUBS : VERBATIM_SUBS
       when :raw
-        # TODO make pass subs a compliance setting; AsciiDoc Python performs :attributes and :macros on a pass block
+        # TODO make pass subs a compliance setting; AsciiDoc.py performs :attributes and :macros on a pass block
         default_subs = @context == :stem ? BASIC_SUBS : NO_SUBS
       else
         return @subs
@@ -1472,33 +1477,28 @@ module Substitutors
   #
   # Returns a Hash of attributes (role and id only)
   def parse_quoted_text_attributes str
-    return {} if (str = str.rstrip).empty?
     # NOTE attributes are typically resolved after quoted text, so substitute eagerly
     str = sub_attributes str if str.include? ATTR_REF_HEAD
     # for compliance, only consider first positional attribute (very unlikely)
     str = str.slice 0, (str.index ',') if str.include? ','
-
-    if (str.start_with? '.', '#') && Compliance.shorthand_property_syntax
-      segments = str.split '#', 2
-
-      if segments.size > 1
-        id, *more_roles = segments[1].split('.')
-      else
-        more_roles = []
-      end
-
-      roles = segments[0].empty? ? [] : segments[0].split('.')
-      if roles.size > 1
-        roles.shift
-      end
-
-      if more_roles.size > 0
-        roles.concat more_roles
-      end
-
+    if (str = str.strip).empty?
+      {}
+    elsif (str.start_with? '.', '#') && Compliance.shorthand_property_syntax
+      before, _, after = str.partition '#'
       attrs = {}
-      attrs['id'] = id if id
-      attrs['role'] = roles.join ' ' unless roles.empty?
+      if after.empty?
+        attrs['role'] = (before.tr '.', ' ').lstrip if before.length > 1
+      else
+        id, _, roles = after.partition '.'
+        attrs['id'] = id unless id.empty?
+        if roles.empty?
+          attrs['role'] = (before.tr '.', ' ').lstrip if before.length > 1
+        elsif before.length > 1
+          attrs['role'] = ((before + '.' + roles).tr '.', ' ').lstrip
+        else
+          attrs['role'] = roles.tr '.', ' '
+        end
+      end
       attrs
     else
       { 'role' => str }
@@ -1532,7 +1532,7 @@ module Substitutors
         case c
         when ','
           if quote_open
-            accum = accum + c
+            accum += c
           else
             values << accum.strip
             accum = ''
@@ -1540,7 +1540,7 @@ module Substitutors
         when '"'
           quote_open = !quote_open
         else
-          accum = accum + c
+          accum += c
         end
       end
       values << accum.strip

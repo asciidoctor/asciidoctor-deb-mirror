@@ -1754,9 +1754,9 @@ context "Bulleted lists (:ulist)" do
       end
     end
 
-    # NOTE this is not consistent w/ AsciiDoc output, but this is some screwy input anyway
-=begin
-    test "consecutive list continuation lines are folded" do
+    # NOTE this is not consistent w/ AsciiDoc.py, but this is some screwy input anyway
+    # FIXME one list continuation is left behind
+    test 'consecutive list continuation lines are folded' do
       input = <<~'EOS'
       Lists
       =====
@@ -1771,15 +1771,15 @@ context "Bulleted lists (:ulist)" do
       +
       +
       EOS
-      output = convert_string input
+      output = convert_string_to_embedded input
       assert_xpath '//ul', output, 1
       assert_xpath '//ul/li', output, 2
       assert_xpath '//ul/li[1]/p', output, 1
-      assert_xpath '//ul/li[1]//p', output, 2
+      assert_xpath '//ul/li[1]/div/p', output, 1
       assert_xpath '//ul/li[1]//p[text() = "Item one, paragraph one"]', output, 1
-      assert_xpath '//ul/li[1]//p[text() = "Item one, paragraph two"]', output, 1
+      # NOTE this is a negative assertion
+      assert_xpath %(//ul/li[1]//p[text() = "+\nItem one, paragraph two"]), output, 1
     end
-=end
 
     test 'should warn if unterminated block is detected in list item' do
       input = <<~'EOS'
@@ -4069,9 +4069,8 @@ context 'Description lists redux' do
       assert_includes output, 'not a term::: def'
     end
 
-    # FIXME pending
-=begin
-    test 'attached paragraph does not break on adjacent sibling description list term' do
+    # FIXME this is a negative test; the behavior should be the other way around
+    test 'attached paragraph is terminated by adjacent sibling description list term' do
       input = <<~'EOS'
       term1:: def
       +
@@ -4080,12 +4079,11 @@ context 'Description lists redux' do
       EOS
 
       output = convert_string_to_embedded input
-      assert_css '.dlist > dl > dt', output, 1
-      assert_css '.dlist > dl > dd', output, 1
+      assert_css '.dlist > dl > dt', output, 2
+      assert_css '.dlist > dl > dd', output, 2
       assert_css '.dlist > dl > dd > .paragraph', output, 1
-      assert_includes output, 'not a term:: def'
+      refute_includes output, 'not a term:: def'
     end
-=end
 
     test 'attached styled paragraph does not break on adjacent nested description list term' do
       input = <<~'EOS'

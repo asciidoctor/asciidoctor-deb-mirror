@@ -23,7 +23,7 @@ context 'Attributes' do
       assert_nil doc.attributes['foo']
     end
 
-    # NOTE AsciiDoc Python recognizes this entry
+    # NOTE AsciiDoc.py recognizes this entry
     test 'does not recognize attribute entry if name contains colon' do
       input = ':foo:bar: baz'
       doc = document_from_string input
@@ -32,7 +32,7 @@ context 'Attributes' do
       assert_equal :paragraph, doc.blocks[0].context
     end
 
-    # NOTE AsciiDoc Python recognizes this entry
+    # NOTE AsciiDoc.py recognizes this entry
     test 'does not recognize attribute entry if name ends with colon' do
       input = ':foo:: bar'
       doc = document_from_string input
@@ -41,7 +41,7 @@ context 'Attributes' do
       assert_equal :dlist, doc.blocks[0].context
     end
 
-    # NOTE AsciiDoc Python does not recognize this entry
+    # NOTE AsciiDoc.py does not recognize this entry
     test 'allows any word character defined by Unicode in an attribute name' do
       [['café', 'a coffee shop'], ['سمن', %(سازمان مردمنهاد)]].each do |(name, value)|
         str = <<~EOS
@@ -248,6 +248,22 @@ context 'Attributes' do
       EOS
       output = convert_inline_string input, safe: :server
       assert_equal './etc/images', output
+    end
+
+    test 'user-home attribute can be overridden by API if safe mode is less than SERVER' do
+      input = <<~'EOS'
+      Go {user-home}!
+      EOS
+      output = convert_inline_string input, attributes: { 'user-home' => '/home' }
+      assert_equal 'Go /home!', output
+    end
+
+    test 'user-home attribute can be overridden by API if safe mode is SERVER or greater' do
+      input = <<~'EOS'
+      Go {user-home}!
+      EOS
+      output = convert_inline_string input, safe: :server, attributes: { 'user-home' => '/home' }
+      assert_equal 'Go /home!', output
     end
 
     test "apply custom substitutions to text in passthrough macro and assign to attribute" do
@@ -468,37 +484,37 @@ context 'Attributes' do
     end
 
     test 'attr should not retrieve attribute from document if not set on block' do
-      doc = document_from_string 'paragraph', :attributes => { 'name' => 'value' }
+      doc = document_from_string 'paragraph', attributes: { 'name' => 'value' }
       para = doc.blocks[0]
       assert_nil para.attr 'name'
     end
 
     test 'attr looks for attribute on document if fallback name is true' do
-      doc = document_from_string 'paragraph', :attributes => { 'name' => 'value' }
+      doc = document_from_string 'paragraph', attributes: { 'name' => 'value' }
       para = doc.blocks[0]
       assert_equal 'value', (para.attr 'name', nil, true)
     end
 
     test 'attr uses fallback name when looking for attribute on document' do
-      doc = document_from_string 'paragraph', :attributes => { 'alt-name' => 'value' }
+      doc = document_from_string 'paragraph', attributes: { 'alt-name' => 'value' }
       para = doc.blocks[0]
       assert_equal 'value', (para.attr 'name', nil, 'alt-name')
     end
 
     test 'attr? should not check for attribute on document if not set on block' do
-      doc = document_from_string 'paragraph', :attributes => { 'name' => 'value' }
+      doc = document_from_string 'paragraph', attributes: { 'name' => 'value' }
       para = doc.blocks[0]
       refute para.attr? 'name'
     end
 
     test 'attr? checks for attribute on document if fallback name is true' do
-      doc = document_from_string 'paragraph', :attributes => { 'name' => 'value' }
+      doc = document_from_string 'paragraph', attributes: { 'name' => 'value' }
       para = doc.blocks[0]
       assert para.attr? 'name', nil, true
     end
 
     test 'attr? checks for fallback name when looking for attribute on document' do
-      doc = document_from_string 'paragraph', :attributes => { 'alt-name' => 'value' }
+      doc = document_from_string 'paragraph', attributes: { 'alt-name' => 'value' }
       para = doc.blocks[0]
       assert para.attr? 'name', nil, 'alt-name'
     end
@@ -1032,34 +1048,120 @@ context 'Attributes' do
       assert_equal 'A', doc.attributes['mycounter']
     end
 
-    test 'increments counter with numeric value' do
+    test 'can seed counter to start at 1' do
       input = <<~'EOS'
-      :mycounter: 1
+      :mycounter: 0
 
       {counter:mycounter}
-
-      {mycounter}
       EOS
 
-      doc = document_from_string input
-      output = doc.convert
-      assert_equal 2, doc.attributes['mycounter']
-      assert_xpath '//p[text()="2"]', output, 2
+      output = convert_string_to_embedded input
+      assert_xpath '//p[text()="1"]', output, 1
     end
 
-    test 'increments counter with character value' do
+    test 'can seed counter to start at A' do
       input = <<~'EOS'
       :mycounter: @
 
       {counter:mycounter}
-
-      {mycounter}
       EOS
 
-      doc = document_from_string input
+      output = convert_string_to_embedded input
+      assert_xpath '//p[text()="A"]', output, 1
+    end
+
+    test 'increments counter with positive numeric value' do
+      input = <<~'EOS'
+      [subs=attributes]
+      ++++
+      {counter:mycounter:1}
+      {counter:mycounter}
+      {counter:mycounter}
+      {mycounter}
+      ++++
+      EOS
+
+      doc = document_from_string input, standalone: false
       output = doc.convert
-      assert_equal 'A', doc.attributes['mycounter']
-      assert_xpath '//p[text()="A"]', output, 2
+      assert_equal 3, doc.attributes['mycounter']
+      assert_equal %w(1 2 3 3), output.lines.map {|l| l.rstrip }
+    end
+
+    test 'increments counter with negative numeric value' do
+      input = <<~'EOS'
+      [subs=attributes]
+      ++++
+      {counter:mycounter:-2}
+      {counter:mycounter}
+      {counter:mycounter}
+      {mycounter}
+      ++++
+      EOS
+
+      doc = document_from_string input, standalone: false
+      output = doc.convert
+      assert_equal 0, doc.attributes['mycounter']
+      assert_equal %w(-2 -1 0 0), output.lines.map {|l| l.rstrip }
+    end
+
+    test 'increments counter with ASCII character value' do
+      input = <<~'EOS'
+      [subs=attributes]
+      ++++
+      {counter:mycounter:A}
+      {counter:mycounter}
+      {counter:mycounter}
+      {mycounter}
+      ++++
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_equal %w(A B C C), output.lines.map {|l| l.rstrip }
+    end
+
+    test 'increments counter with non-ASCII character value' do
+      input = <<~'EOS'
+      [subs=attributes]
+      ++++
+      {counter:mycounter:é}
+      {counter:mycounter}
+      {counter:mycounter}
+      {mycounter}
+      ++++
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_equal %w(é ê ë ë), output.lines.map {|l| l.rstrip }
+    end
+
+    test 'increments counter with emoji character value' do
+      input = <<~'EOS'
+      [subs=attributes]
+      ++++
+      {counter:smiley:😋}
+      {counter:smiley}
+      {counter:smiley}
+      {smiley}
+      ++++
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_equal %w(😋 😌 😍 😍), output.lines.map {|l| l.rstrip }
+    end
+
+    test 'increments counter with multi-character value' do
+      input = <<~'EOS'
+      [subs=attributes]
+      ++++
+      {counter:math:1x}
+      {counter:math}
+      {counter:math}
+      {math}
+      ++++
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_equal %w(1x 1y 1z 1z), output.lines.map {|l| l.rstrip }
     end
 
     test 'counter uses 0 as seed value if seed attribute is nil' do
@@ -1095,6 +1197,22 @@ context 'Attributes' do
       assert_xpath '//p[text()="after: 1"]', output, 1
     end
 
+    test 'counter value can be advanced by attribute entry' do
+      input = <<~'EOS'
+      before: {counter:mycounter}
+
+      :mycounter: 10
+
+      after: {counter:mycounter}
+      EOS
+
+      doc = document_from_string input
+      output = doc.convert standalone: false
+      assert_equal 11, doc.attributes['mycounter']
+      assert_xpath '//p[text()="before: 1"]', output, 1
+      assert_xpath '//p[text()="after: 11"]', output, 1
+    end
+
     test 'nested document should use counter from parent document' do
       input = <<~'EOS'
       .Title for Foo
@@ -1121,6 +1239,46 @@ context 'Attributes' do
       assert_xpath '//div[@class="title"][text() = "Figure 2. Title for Bar"]', output, 1
       assert_xpath '//div[@class="title"][text() = "Figure 3. Title for Baz"]', output, 1
       assert_xpath '//div[@class="title"][text() = "Figure 4. Title for Qux"]', output, 1
+    end
+
+    test 'should not allow counter to modify locked attribute' do
+      input = <<~'EOS'
+      {counter:foo:ignored} is not {foo}
+      EOS
+
+      output = convert_string_to_embedded input, attributes: { 'foo' => 'bar' }
+      assert_xpath '//p[text()="bas is not bar"]', output, 1
+    end
+
+    test 'should not allow counter2 to modify locked attribute' do
+      input = <<~'EOS'
+      {counter2:foo:ignored}{foo}
+      EOS
+
+      output = convert_string_to_embedded input, attributes: { 'foo' => 'bar' }
+      assert_xpath '//p[text()="bar"]', output, 1
+    end
+
+    test 'should not allow counter to modify built-in locked attribute' do
+      input = <<~'EOS'
+      {counter:max-include-depth:128} is one more than {max-include-depth}
+      EOS
+
+      doc = document_from_string input, standalone: false
+      output = doc.convert
+      assert_xpath '//p[text()="65 is one more than 64"]', output, 1
+      assert_equal 64, doc.attributes['max-include-depth']
+    end
+
+    test 'should not allow counter2 to modify built-in locked attribute' do
+      input = <<~'EOS'
+      {counter2:max-include-depth:128}{max-include-depth}
+      EOS
+
+      doc = document_from_string input, standalone: false
+      output = doc.convert
+      assert_xpath '//p[text()="64"]', output, 1
+      assert_equal 64, doc.attributes['max-include-depth']
     end
   end
 

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 require_relative 'test_helper'
-require 'tilt' unless defined? ::Tilt.new
+require 'tilt' unless defined? Tilt.new
 
 context 'Converter' do
   context 'View options' do
@@ -179,26 +179,26 @@ context 'Converter' do
         caches = Asciidoctor::Converter::TemplateConverter.caches
         if defined? ::Concurrent::Map
           assert_kind_of ::Concurrent::Map, caches[:templates]
-          refute_empty caches[:templates]
-          paragraph_template_before = caches[:templates].values.find {|t| File.basename(t.file) == 'block_paragraph.html.haml' }
-          refute_nil paragraph_template_before
-
-          # should use cache
-          doc = Asciidoctor::Document.new [], template_dir: template_dir
-          template_converter = doc.converter.find_converter('paragraph')
-          paragraph_template_after = template_converter.templates['paragraph']
-          refute_nil paragraph_template_after
-          assert paragraph_template_before.eql?(paragraph_template_after)
-
-          # should not use cache
-          doc = Asciidoctor::Document.new [], template_dir: template_dir, template_cache: false
-          template_converter = doc.converter.find_converter('paragraph')
-          paragraph_template_after = template_converter.templates['paragraph']
-          refute_nil paragraph_template_after
-          refute paragraph_template_before.eql?(paragraph_template_after)
         else
-          assert_empty caches
+          assert_kind_of ::Hash, caches[:templates]
         end
+        refute_empty caches[:templates]
+        paragraph_template_before = caches[:templates].values.find {|t| File.basename(t.file) == 'block_paragraph.html.haml' }
+        refute_nil paragraph_template_before
+
+        # should use cache
+        doc = Asciidoctor::Document.new [], template_dir: template_dir
+        template_converter = doc.converter.find_converter('paragraph')
+        paragraph_template_after = template_converter.templates['paragraph']
+        refute_nil paragraph_template_after
+        assert paragraph_template_before.eql?(paragraph_template_after)
+
+        # should not use cache
+        doc = Asciidoctor::Document.new [], template_dir: template_dir, template_cache: false
+        template_converter = doc.converter.find_converter('paragraph')
+        paragraph_template_after = template_converter.templates['paragraph']
+        refute_nil paragraph_template_after
+        refute paragraph_template_before.eql?(paragraph_template_after)
       ensure
         # clean up
         Asciidoctor::Converter::TemplateConverter.clear_caches if defined? Asciidoctor::Converter::TemplateConverter
@@ -224,8 +224,8 @@ context 'Converter' do
         doc = Asciidoctor::Document.new [], template_dir: (fixture_path 'custom-backends/haml'), template_cache: false
         doc.converter
         caches = Asciidoctor::Converter::TemplateConverter.caches
-        assert caches.empty? || caches[:scans].empty?
-        assert caches.empty? || caches[:templates].empty?
+        assert_empty caches[:scans]
+        assert_empty caches[:templates]
       ensure
         # clean up
         Asciidoctor::Converter::TemplateConverter.clear_caches if defined? Asciidoctor::Converter::TemplateConverter
@@ -336,6 +336,12 @@ context 'Converter' do
   end
 
   context 'Custom converters' do
+    test 'should not expose included method on Converter class' do
+      refute_includes Asciidoctor::Converter.methods, :included
+      assert_includes Asciidoctor::Converter.private_methods, :included
+      refute_respond_to Asciidoctor::Converter, :included
+    end
+
     test 'should derive backend traits for the given backend' do
       expected = { basebackend: 'dita', filetype: 'dita', outfilesuffix: '.dita' }
       actual = Asciidoctor::Converter.derive_backend_traits 'dita2'
@@ -364,7 +370,7 @@ context 'Converter' do
       doc = document_from_string input, converter: CustomHtmlConverterA
       assert_kind_of CustomHtmlConverterA, doc.converter
       assert_equal 'html', doc.attributes['filetype']
-      assert 'document', doc.convert
+      assert_equal 'document', doc.convert
     end
 
     test 'should use specified converter for specified backend' do
@@ -389,7 +395,7 @@ context 'Converter' do
       doc = document_from_string input, backend: 'text', converter: CustomTextConverterA
       assert_kind_of CustomTextConverterA, doc.converter
       assert_equal 'text', doc.attributes['filetype']
-      assert 'document', doc.convert
+      assert_equal 'document', doc.convert
     end
 
     test 'should get converter from specified converter factory' do
@@ -414,7 +420,7 @@ context 'Converter' do
       doc = document_from_string input, converter_factory: converter_factory
       assert_kind_of my_converter_class, doc.converter
       assert_equal 'html', doc.attributes['filetype']
-      assert 'document', doc.convert
+      assert_equal 'document', doc.convert
     end
 
     test 'should allow converter to set htmlsyntax when basebackend is html' do
@@ -452,7 +458,7 @@ context 'Converter' do
         assert converters.size == converters_before.size + 1
         assert converters['foobar'] == CustomConverterB
         output = convert_string input, backend: 'foobar'
-        assert 'foobar content', output
+        assert_equal 'foobar content', output
       ensure
         Asciidoctor::Converter.unregister_all
       end
@@ -619,7 +625,7 @@ context 'Converter' do
         assert_nil converters['*']
         assert_equal CustomConverterF, (Asciidoctor::Converter.send :catch_all)
         output = convert_string input, backend: 'foobaz'
-        assert 'foobaz content', output
+        assert_equal 'foobaz content', output
       ensure
         Asciidoctor::Converter.unregister_all
       end
@@ -673,8 +679,17 @@ context 'Converter' do
 
     test 'should delegate to method on HTML 5 converter with convert_ prefix if called without prefix' do
       doc = document_from_string 'paragraph'
+      assert_respond_to doc.converter, :paragraph
       result = doc.converter.paragraph doc.blocks[0]
       assert_css 'p', result, 1
+    end
+
+    test 'should not delegate unprefixed method on HTML 5 converter if converter does not handle transform' do
+      doc = document_from_string 'paragraph'
+      refute_respond_to doc.converter, :sentence
+      assert_raises NoMethodError do
+        doc.converter.sentence doc.blocks[0]
+      end
     end
 
     test 'can call read_svg_contents on built-in HTML5 converter; should remove markup prior the root svg element' do

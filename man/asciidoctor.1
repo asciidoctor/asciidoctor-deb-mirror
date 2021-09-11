@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: asciidoctor
 .\"    Author: Dan Allen, Sarah White, Ryan Waldron
-.\" Generator: Asciidoctor 2.0.12
-.\"      Date: 2020-11-10
+.\" Generator: Asciidoctor 2.0.16
+.\"      Date: 2021-08-03
 .\"    Manual: Asciidoctor Manual
-.\"    Source: Asciidoctor 2.0.12
+.\"    Source: Asciidoctor 2.0.16
 .\"  Language: English
 .\"
-.TH "ASCIIDOCTOR" "1" "2020-11-10" "Asciidoctor 2.0.12" "Asciidoctor Manual"
+.TH "ASCIIDOCTOR" "1" "2021-08-03" "Asciidoctor 2.0.16" "Asciidoctor Manual"
 .ie \n(.g .ds Aq \(aq
 .el       .ds Aq '
 .ss \n[.ss] 0
@@ -109,11 +109,10 @@ This name is also used to build the full path to the custom converter templates.
 If a template engine is not specified, it will be auto\-detected based on the file extension of the custom converter templates found.
 .RE
 .sp
-\fB\-e, \-\-eruby\fP
+\fB\-e, \-\-embedded\fP
 .RS 4
-Specifies the eRuby implementation to use for executing the custom converter templates written in ERB.
-Supported values are \fIerb\fP and \fIerubis\fP.
-Defaults to \fIerb\fP.
+Output an embeddable document, which excludes the header, the footer, and everything outside the body of the document.
+This option is useful for producing documents that can be inserted into an external template.
 .RE
 .sp
 \fB\-I, \-\-load\-path\fP=\fIDIRECTORY\fP
@@ -188,7 +187,7 @@ Include backtrace information when reporting errors.
 .sp
 \fB\-v, \-\-verbose\fP
 .RS 4
-Verbosely print processing information to stderr, including debug\-level log messages.
+Sets log level to DEBUG so application messages logged at INFO or DEBUG level are printed to stderr.
 .RE
 .sp
 \fB\-w, \-\-warnings\fP
@@ -220,7 +219,7 @@ Print program version number.
 \fBAsciidoctor\fP honors the \fBSOURCE_DATE_EPOCH\fP environment variable.
 If this variable is assigned an integer value, that value is used as the epoch of all input documents and as the local date and time.
 See \c
-.URL "https://reproducible\-builds.org/specs/source\-date\-epoch/" "" " "
+.URL "https://reproducible\-builds.org/specs/source\-date\-epoch/" "" ""
 for more information about this environment variable.
 .SH "EXIT STATUS"
 .sp
@@ -257,7 +256,7 @@ Refer to the \fBAsciidoctor\fP issue tracker at \c
 .URL "http://discuss.asciidoctor.org" "" ""
 .SH "COPYING"
 .sp
-Copyright (C) 2012\-2020 Dan Allen, Ryan Waldron, and the Asciidoctor Project.
+Copyright (C) 2012\-present Dan Allen, Ryan Waldron, and the Asciidoctor Project.
 Free use of this software is granted under the terms of the MIT License.
 .SH "AUTHORS"
 .sp

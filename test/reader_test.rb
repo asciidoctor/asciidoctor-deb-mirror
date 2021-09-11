@@ -454,7 +454,7 @@ class ReaderTest < Minitest::Test
         data.push ''
         doc = Asciidoctor::Document.new data
         reader = doc.reader
-        assert_equal SAMPLE_DATA, reader.lines
+        assert_equal [''] + SAMPLE_DATA, reader.lines
       end
 
       test 'should prepare and normalize lines from String data' do
@@ -464,7 +464,14 @@ class ReaderTest < Minitest::Test
         data_as_string = data * ::Asciidoctor::LF
         doc = Asciidoctor::Document.new data_as_string
         reader = doc.reader
-        assert_equal SAMPLE_DATA, reader.lines
+        assert_equal [''] + SAMPLE_DATA, reader.lines
+      end
+
+      test 'should drop all lines if all lines are empty' do
+        data = ['', ' ', '', ' ']
+        doc = Asciidoctor::Document.new data
+        reader = doc.reader
+        assert reader.lines.empty?
       end
 
       test 'should clean CRLF from end of lines' do
@@ -629,7 +636,7 @@ class ReaderTest < Minitest::Test
         assert doc.catalog[:includes]['fixtures/include-file']
       end
 
-      test 'strips BOM from include file' do
+      test 'should strip BOM from include file' do
         input = %(:showtitle:\ninclude::fixtures/file-with-utf8-bom.adoc[])
         output = convert_string_to_embedded input, safe: :safe, base_dir: DIRNAME
         assert_css '.paragraph', output, 0
@@ -770,7 +777,7 @@ class ReaderTest < Minitest::Test
         end
       end
 
-      test 'should ignore encoding attribute if value is not an valid encoding' do
+      test 'should ignore encoding attribute if value is not a valid encoding' do
         input = <<~'EOS'
         ....
         include::fixtures/encoding.adoc[tag=romé,encoding=iso-1000-1]
@@ -815,7 +822,7 @@ class ReaderTest < Minitest::Test
         end
       end
 
-      test 'missing file referenced by include directive is skipped when optional option is set' do
+      test 'should skip include directive that references missing file if optional option is set' do
         input = <<~'EOS'
         include::fixtures/no-such-file.adoc[opts=optional]
 
@@ -834,7 +841,7 @@ class ReaderTest < Minitest::Test
         end
       end
 
-      test 'missing file referenced by include directive is replaced by warning' do
+      test 'should replace include directive that references missing file with message' do
         input = <<~'EOS'
         include::fixtures/no-such-file.adoc[]
 
@@ -854,9 +861,10 @@ class ReaderTest < Minitest::Test
         end
       end
 
-      test 'unreadable file referenced by include directive is replaced by warning', unless: windows? do
+      test 'should replace include directive that references unreadable file with message', unless: (windows? || Process.euid == 0) do
         include_file = File.join DIRNAME, 'fixtures', 'chapter-a.adoc'
-        FileUtils.chmod 0000, include_file
+        old_mode = (File.stat include_file).mode
+        FileUtils.chmod 0o000, include_file
         input = <<~'EOS'
         include::fixtures/chapter-a.adoc[]
 
@@ -874,7 +882,7 @@ class ReaderTest < Minitest::Test
         rescue
           flunk 'include directive should not raise exception on missing file'
         ensure
-          FileUtils.chmod 0644, include_file
+          FileUtils.chmod old_mode, include_file
         end
       end
 
@@ -977,7 +985,7 @@ class ReaderTest < Minitest::Test
         end
       end
 
-      test 'tag filtering is supported for remote includes' do
+      test 'should support tag filtering for remote includes' do
         url = %(http://#{resolve_localhost}:9876/fixtures/tagged-class.rb)
         input = <<~EOS
         [source,ruby]
@@ -998,7 +1006,7 @@ class ReaderTest < Minitest::Test
         assert_includes output, expected
       end
 
-      test 'inaccessible uri referenced by include directive does not crash processor' do
+      test 'should not crash if include directive references inaccessible uri' do
         url = %(http://#{resolve_localhost}:9876/no_such_file)
         input = <<~EOS
         ....
@@ -1034,7 +1042,21 @@ class ReaderTest < Minitest::Test
         assert_match(/last line of included content/, output)
       end
 
-      test 'include directive supports line ranges specified in quoted attribute value' do
+      test 'include directive supports line ranges separated by commas in quoted attribute value' do
+        input = 'include::fixtures/include-file.adoc[lines="1,3..4,6..-1"]'
+        output = convert_string_to_embedded input, safe: :safe, base_dir: DIRNAME
+        assert_match(/first line/, output)
+        refute_match(/second line/, output)
+        assert_match(/third line/, output)
+        assert_match(/fourth line/, output)
+        refute_match(/fifth line/, output)
+        assert_match(/sixth line/, output)
+        assert_match(/seventh line/, output)
+        assert_match(/eighth line/, output)
+        assert_match(/last line of included content/, output)
+      end
+
+      test 'include directive ignores spaces between line ranges in quoted attribute value' do
         input = 'include::fixtures/include-file.adoc[lines="1, 3..4 , 6 .. -1"]'
         output = convert_string_to_embedded input, safe: :safe, base_dir: DIRNAME
         assert_match(/first line/, output)
@@ -1062,7 +1084,7 @@ class ReaderTest < Minitest::Test
         assert_match(/last line of included content/, output)
       end
 
-      test 'include directive ignores empty lines attribute' do
+      test 'include directive ignores lines attribute if empty' do
         input = <<~'EOS'
         ++++
         include::fixtures/include-file.adoc[lines=]
@@ -1122,7 +1144,7 @@ class ReaderTest < Minitest::Test
         end
       end
 
-      test 'include directive supports selecting tagged lines in file that has CRLF line endings' do
+      test 'include directive supports selecting lines by tag in file that has CRLF line endings' do
         begin
           tmp_include = Tempfile.new %w(include- .adoc)
           tmp_include_dir, tmp_include_path = File.split tmp_include.path
@@ -1155,7 +1177,7 @@ class ReaderTest < Minitest::Test
         end
       end
 
-      test 'include directive does not select lines with tag directives within selected tag region' do
+      test 'include directive does not select lines containing tag directives within selected tag region' do
         input = <<~'EOS'
         ++++
         include::fixtures/include-file.adoc[tags=snippet]
@@ -1173,7 +1195,7 @@ class ReaderTest < Minitest::Test
         assert_equal expected, output
       end
 
-      test 'include directive skips lines marked with negated tags' do
+      test 'include directive skips lines inside tag which is negated' do
         input = <<~'EOS'
         ----
         include::fixtures/tagged-class-enclosed.rb[tags=all;!bark]
@@ -1189,10 +1211,10 @@ class ReaderTest < Minitest::Test
           end
         end
         EOS
-        assert_includes output, expected
+        assert_includes output, %(<pre>#{expected}</pre>)
       end
 
-      test 'include directive takes all lines without tag directives when value is double asterisk' do
+      test 'include directive selects all lines without a tag directive when value is double asterisk' do
         input = <<~'EOS'
         ----
         include::fixtures/tagged-class.rb[tags=**]
@@ -1216,10 +1238,10 @@ class ReaderTest < Minitest::Test
           end
         end
         EOS
-        assert_includes output, expected
+        assert_includes output, %(<pre>#{expected}</pre>)
       end
 
-      test 'include directive takes all lines except negated tags when value contains double asterisk' do
+      test 'include directive selects all lines except lines inside tag which is negated when value starts with double asterisk' do
         input = <<~'EOS'
         ----
         include::fixtures/tagged-class.rb[tags=**;!bark]
@@ -1235,10 +1257,220 @@ class ReaderTest < Minitest::Test
           end
         end
         EOS
-        assert_includes output, expected
+        assert_includes output, %(<pre>#{expected}</pre>)
       end
 
-      test 'include directive selects lines for all tags when value of tags attribute is wildcard' do
+      test 'include directive selects all lines, including lines inside nested tags, except lines inside tag which is negated when value starts with double asterisk' do
+        input = <<~'EOS'
+        ----
+        include::fixtures/tagged-class.rb[tags=**;!init]
+        ----
+        EOS
+
+        output = convert_string_to_embedded input, safe: :safe, base_dir: DIRNAME
+        # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+        expected = <<~EOS.chop
+        class Dog
+
+          def bark
+            if @breed == 'beagle'
+              'woof woof woof woof woof'
+            else
+              'woof woof'
+            end
+          end
+        end
+        EOS
+        assert_includes output, %(<pre>#{expected}</pre>)
+      end
+
+      test 'include directive selects all lines outside of tags when value is double asterisk followed by negated wildcard' do
+        input = <<~'EOS'
+        ----
+        include::fixtures/tagged-class.rb[tags=**;!*]
+        ----
+        EOS
+
+        output = convert_string_to_embedded input, safe: :safe, base_dir: DIRNAME
+        expected = <<~'EOS'.chop
+        class Dog
+        end
+        EOS
+        assert_includes output, %(<pre>#{expected}</pre>)
+      end
+
+      test 'include directive skips all tagged regions when value of tags attribute is negated wildcard' do
+        input = <<~'EOS'
+        ----
+        include::fixtures/tagged-class.rb[tags=!*]
+        ----
+        EOS
+
+        output = convert_string_to_embedded input, safe: :safe, base_dir: DIRNAME
+        expected = %(class Dog\nend)
+        assert_includes output, %(<pre>#{expected}</pre>)
+      end
+
+      # FIXME this is a weird one since we'd expect it to only select the specified tags; but it's always been this way
+      test 'include directive selects all lines except for lines containing tag directive if value is double asterisk followed by nested tag names' do
+        input = <<~'EOS'
+        ----
+        include::fixtures/tagged-class.rb[tags=**;bark-beagle;bark-all]
+        ----
+        EOS
+
+        output = convert_string_to_embedded input, safe: :safe, base_dir: DIRNAME
+        # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+        expected = <<~EOS.chop
+        class Dog
+          def initialize breed
+            @breed = breed
+          end
+
+          def bark
+            if @breed == 'beagle'
+              'woof woof woof woof woof'
+            else
+              'woof woof'
+            end
+          end
+        end
+        EOS
+        assert_includes output, %(<pre>#{expected}</pre>)
+      end
+
+      # FIXME this is a weird one since we'd expect it to only select the specified tags; but it's always been this way
+      test 'include directive selects all lines except for lines containing tag directive when value is double asterisk followed by outer tag name' do
+        input = <<~'EOS'
+        ----
+        include::fixtures/tagged-class.rb[tags=**;bark]
+        ----
+        EOS
+
+        output = convert_string_to_embedded input, safe: :safe, base_dir: DIRNAME
+        # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+        expected = <<~EOS.chop
+        class Dog
+          def initialize breed
+            @breed = breed
+          end
+
+          def bark
+            if @breed == 'beagle'
+              'woof woof woof woof woof'
+            else
+              'woof woof'
+            end
+          end
+        end
+        EOS
+        assert_includes output, %(<pre>#{expected}</pre>)
+      end
+
+      test 'include directive selects all lines inside unspecified tags when value is negated double asterisk followed by negated tags' do
+        input = <<~'EOS'
+        ----
+        include::fixtures/tagged-class.rb[tags=!**;!init]
+        ----
+        EOS
+
+        output = convert_string_to_embedded input, safe: :safe, base_dir: DIRNAME
+        expected = <<~EOS.chop
+        \x20 def bark
+        \x20   if @breed == 'beagle'
+        \x20     'woof woof woof woof woof'
+        \x20   else
+        \x20     'woof woof'
+        \x20   end
+        \x20 end
+        EOS
+        assert_includes output, %(<pre>#{expected}</pre>)
+      end
+
+      test 'include directive selects all lines except tag which is negated when value only contains negated tag' do
+        input = <<~'EOS'
+        ----
+        include::fixtures/tagged-class.rb[tag=!bark]
+        ----
+        EOS
+
+        output = convert_string_to_embedded input, safe: :safe, base_dir: DIRNAME
+        # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+        expected = <<~EOS.chop
+        class Dog
+          def initialize breed
+            @breed = breed
+          end
+        end
+        EOS
+        assert_includes output, %(<pre>#{expected}</pre>)
+      end
+
+      test 'include directive selects all lines except tags which are negated when value only contains negated tags' do
+        input = <<~'EOS'
+        ----
+        include::fixtures/tagged-class.rb[tags=!bark;!init]
+        ----
+        EOS
+
+        output = convert_string_to_embedded input, safe: :safe, base_dir: DIRNAME
+        expected = <<~'EOS'.chop
+        class Dog
+        end
+        EOS
+        assert_includes output, %(<pre>#{expected}</pre>)
+      end
+
+      test 'should recognize tag wildcard if not at start of tags list' do
+        input = <<~'EOS'
+        ----
+        include::fixtures/tagged-class.rb[tags=init;**;*;!bark-other]
+        ----
+        EOS
+
+        output = convert_string_to_embedded input, safe: :safe, base_dir: DIRNAME
+        # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+        expected = <<~EOS.chop
+        class Dog
+          def initialize breed
+            @breed = breed
+          end
+
+          def bark
+            if @breed == 'beagle'
+              'woof woof woof woof woof'
+            end
+          end
+        end
+        EOS
+        assert_includes output, %(<pre>#{expected}</pre>)
+      end
+
+      test 'include directive selects lines between tags when value of tags attribute is wildcard' do
+        input = <<~'EOS'
+        ----
+        include::fixtures/tagged-class.rb[tags=*]
+        ----
+        EOS
+
+        output = convert_string_to_embedded input, safe: :safe, base_dir: DIRNAME
+        expected = <<~EOS.chop
+        \x20 def initialize breed
+        \x20   @breed = breed
+        \x20 end
+
+        \x20 def bark
+        \x20   if @breed == 'beagle'
+        \x20     'woof woof woof woof woof'
+        \x20   else
+        \x20     'woof woof'
+        \x20   end
+        \x20 end
+        EOS
+        assert_includes output, %(<pre>#{expected}</pre>)
+      end
+
+      test 'include directive selects lines inside tags when value of tags attribute is wildcard and tag surrounds content' do
         input = <<~'EOS'
         ----
         include::fixtures/tagged-class-enclosed.rb[tags=*]
@@ -1262,10 +1494,10 @@ class ReaderTest < Minitest::Test
           end
         end
         EOS
-        assert_includes output, expected
+        assert_includes output, %(<pre>#{expected}</pre>)
       end
 
-      test 'include directive selects lines for all tags except exclusions when value of tags attribute is wildcard' do
+      test 'include directive selects lines inside all tags except tag which is negated when value of tags attribute is wildcard followed by negated tag' do
         input = <<~'EOS'
         ----
         include::fixtures/tagged-class-enclosed.rb[tags=*;!init]
@@ -1286,22 +1518,119 @@ class ReaderTest < Minitest::Test
           end
         end
         EOS
-        assert_includes output, expected
+        assert_includes output, %(<pre>#{expected}</pre>)
       end
 
-      test 'include directive skips lines all tagged lines when value of tags attribute is negated wildcard' do
+      test 'include directive skips all tagged regions except ones reenabled when value of tags attribute is negated wildcard followed by tag name' do
+        ['!*;init', '**;!*;init'].each do |pattern|
+          input = <<~EOS
+          ----
+          include::fixtures/tagged-class.rb[tags=#{pattern}]
+          ----
+          EOS
+
+          output = convert_string_to_embedded input, safe: :safe, base_dir: DIRNAME
+          # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+          expected = <<~EOS.chop
+          class Dog
+            def initialize breed
+              @breed = breed
+            end
+          end
+          EOS
+          assert_includes output, %(<pre>#{expected}</pre>)
+        end
+      end
+
+      test 'include directive includes regions outside tags and inside specified tags when value begins with negated wildcard' do
         input = <<~'EOS'
         ----
-        include::fixtures/tagged-class.rb[tags=!*]
+        include::fixtures/tagged-class.rb[tags=!*;bark]
         ----
         EOS
 
         output = convert_string_to_embedded input, safe: :safe, base_dir: DIRNAME
-        expected = %(class Dog\nend)
-        assert_includes output, expected
+        # NOTE cannot use single-quoted heredoc because of https://github.com/jruby/jruby/issues/4260
+        expected = <<~EOS.chop
+        class Dog
+
+          def bark
+          end
+        end
+        EOS
+        assert_includes output, %(<pre>#{expected}</pre>)
       end
 
-      test 'include directive selects specified tagged lines and ignores the other tag directives' do
+      test 'include directive includes lines inside tag except for lines inside nested tags when tag is followed by negated wildcard' do
+        ['bark;!*', '!**;bark;!*', '!**;!*;bark'].each do |pattern|
+          input = <<~EOS
+          ----
+          include::fixtures/tagged-class.rb[tags=#{pattern}]
+          ----
+          EOS
+
+          output = convert_string_to_embedded input, safe: :safe, base_dir: DIRNAME
+          expected = <<~EOS.chop
+          \x20 def bark
+          \x20 end
+          EOS
+          assert_includes output, %(<pre>#{expected}</pre>)
+        end
+      end
+
+      test 'include directive selects lines inside tag except for lines inside nested tags when tag is preceded by negated double asterisk and negated wildcard' do
+        input = <<~'EOS'
+        ----
+        include::fixtures/tagged-class.rb[tags=!**;!*;bark]
+        ----
+        EOS
+
+        output = convert_string_to_embedded input, safe: :safe, base_dir: DIRNAME
+        expected = <<~EOS.chop
+        \x20 def bark
+        \x20 end
+        EOS
+        assert_includes output, %(<pre>#{expected}</pre>)
+      end
+
+      test 'include directive does not select lines inside tag that has been included then excluded' do
+        input = <<~'EOS'
+        ----
+        include::fixtures/tagged-class.rb[tags=!*;init;!init]
+        ----
+        EOS
+
+        output = convert_string_to_embedded input, safe: :safe, base_dir: DIRNAME
+        expected = <<~'EOS'.chop
+        class Dog
+        end
+        EOS
+        assert_includes output, %(<pre>#{expected}</pre>)
+      end
+
+      test 'include directive only selects lines inside specified tag, even if proceeded by negated double asterisk' do
+        ['bark', '!**;bark'].each do |pattern|
+          input = <<~EOS
+          ----
+          include::fixtures/tagged-class.rb[tags=#{pattern}]
+          ----
+          EOS
+
+          output = convert_string_to_embedded input, safe: :safe, base_dir: DIRNAME
+          expected = <<~EOS.chop
+          \x20 def bark
+          \x20   if @breed == 'beagle'
+          \x20     'woof woof woof woof woof'
+          \x20   else
+          \x20     'woof woof'
+          \x20   end
+          \x20 end
+          EOS
+          assert_includes output, %(<pre>#{expected}</pre>)
+        end
+      end
+
+      test 'include directive selects lines inside specified tag and ignores lines inside a negated tag' do
         input = <<~'EOS'
         [indent=0]
         ----
@@ -1318,7 +1647,7 @@ class ReaderTest < Minitest::Test
           end
         end
         EOS
-        assert_includes output, expected
+        assert_includes output, %(<pre>#{expected}</pre>)
       end
 
       test 'should warn if specified tag is not found in include file' do
@@ -1440,8 +1769,7 @@ class ReaderTest < Minitest::Test
       test 'should fall back to built-in include directive behavior when not handled by include processor' do
         input = 'include::fixtures/include-file.adoc[]'
         include_processor = Class.new do
-          def initialize document
-          end
+          def initialize document; end
 
           def handles? target
             false
@@ -2152,6 +2480,38 @@ class ReaderTest < Minitest::Test
       test 'ifeval comparing missing attribute to 0 drops content' do
         input = <<~'EOS'
         ifeval::[{leveloffset} == 0]
+        I didn't make the cut!
+        endif::[]
+        EOS
+
+        doc = Asciidoctor::Document.new input
+        reader = doc.reader
+        lines = []
+        while reader.has_more_lines?
+          lines << reader.read_line
+        end
+        assert_equal '', (lines * ::Asciidoctor::LF)
+      end
+
+      test 'ifeval running unsupported operation on missing attribute drops content' do
+        input = <<~'EOS'
+        ifeval::[{leveloffset} >= 3]
+        I didn't make the cut!
+        endif::[]
+        EOS
+
+        doc = Asciidoctor::Document.new input
+        reader = doc.reader
+        lines = []
+        while reader.has_more_lines?
+          lines << reader.read_line
+        end
+        assert_equal '', (lines * ::Asciidoctor::LF)
+      end
+
+      test 'ifeval running invalid operation drops content' do
+        input = <<~'EOS'
+        ifeval::[{asciidoctor-version} > true]
         I didn't make the cut!
         endif::[]
         EOS

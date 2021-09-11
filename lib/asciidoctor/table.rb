@@ -259,7 +259,8 @@ class Table::Cell < AbstractBlock
         cell_style = attributes['style'] || cell_style unless in_header_row
         update_attributes attributes
       end
-      if cell_style == :asciidoc
+      case cell_style
+      when :asciidoc
         asciidoc = true
         inner_document_cursor = opts[:cursor]
         if (cell_text = cell_text.rstrip).start_with? LF
@@ -270,7 +271,7 @@ class Table::Cell < AbstractBlock
         else
           cell_text = cell_text.lstrip
         end
-      elsif cell_style == :literal
+      when :literal
         literal = true
         cell_text = cell_text.rstrip
         # QUESTION should we use same logic as :asciidoc cell? strip leading space if text doesn't start with newline?
@@ -357,14 +358,10 @@ class Table::Cell < AbstractBlock
     apply_subs @text, @subs
   end
 
-  # Public: Set the String text.
+  # Public: Set the String text for this cell.
   #
   # This method shouldn't be used for cells that have the AsciiDoc style.
-  #
-  # Returns the new String text assigned to this Cell
-  def text= val
-    @text = val
-  end
+  attr_writer :text
 
   # Public: Handles the body data (tbody, tfoot), applying styles and partitioning into paragraphs
   #
@@ -406,7 +403,7 @@ class Table::Cell < AbstractBlock
   end
 
   def to_s
-    "#{super.to_s} - [text: #@text, colspan: #{@colspan || 1}, rowspan: #{@rowspan || 1}, attributes: #@attributes]"
+    %(#{super} - [text: #{@text}, colspan: #{@colspan || 1}, rowspan: #{@rowspan || 1}, attributes: #{@attributes}])
   end
 end
 
@@ -534,12 +531,13 @@ class Table::ParserContext
   #
   # returns true if the buffer has unclosed quotes, false if it doesn't or it
   # isn't quoted data
-  def buffer_has_unclosed_quotes? append = nil
-    if (record = append ? (@buffer + append).strip : @buffer.strip) == '"'
+  def buffer_has_unclosed_quotes? append = nil, q = '"'
+    if (record = append ? (@buffer + append).strip : @buffer.strip) == q
       true
-    elsif record.start_with? '"'
-      if ((trailing_quote = record.end_with? '"') && (record.end_with? '""')) || (record.start_with? '""')
-        ((record = record.gsub '""', '').start_with? '"') && !(record.end_with? '"')
+    elsif record.start_with? q
+      qq = q + q
+      if ((trailing_quote = record.end_with? q) && (record.end_with? qq)) || (record.start_with? qq)
+        ((record = record.gsub qq, '').start_with? q) && !(record.end_with? q)
       else
         !trailing_quote
       end
@@ -632,20 +630,20 @@ class Table::ParserContext
       @buffer = ''
       cellspec = nil
       repeat = 1
-      if @format == 'csv' && !cell_text.empty? && cell_text.include?('"')
+      if @format == 'csv' && !cell_text.empty? && (cell_text.include? (q = '"'))
         # this may not be perfect logic, but it hits the 99%
-        if cell_text.start_with?('"') && cell_text.end_with?('"')
+        if (cell_text.start_with? q) && (cell_text.end_with? q)
           # unquote
           if (cell_text = cell_text.slice(1, cell_text.length - 2))
             # trim whitespace and collapse escaped quotes
-            cell_text = cell_text.strip.squeeze('"')
+            cell_text = cell_text.strip.squeeze q
           else
             logger.error message_with_context 'unclosed quote in CSV data; setting cell to empty', source_location: @reader.cursor_at_prev_line
             cell_text = ''
           end
         else
           # collapse escaped quotes
-          cell_text = cell_text.squeeze('"')
+          cell_text = cell_text.squeeze q
         end
       end
     end
@@ -664,7 +662,7 @@ class Table::ParserContext
         # QUESTION is this right for cells that span columns?
         unless (column = @table.columns[@current_row.size])
           logger.error message_with_context 'dropping cell because it exceeds specified number of columns', source_location: @reader.cursor_before_mark
-          return
+          return nil
         end
       end
 

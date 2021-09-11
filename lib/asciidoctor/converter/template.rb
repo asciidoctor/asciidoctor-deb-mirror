@@ -40,13 +40,13 @@ class Converter::TemplateConverter < Converter::Base
     @caches = { scans: {}, templates: {} }
   end
 
-  def self.caches
-    @caches
-  end
+  class << self
+    attr_reader :caches
 
-  def self.clear_caches
-    @caches[:scans].clear if @caches[:scans]
-    @caches[:templates].clear if @caches[:templates]
+    def clear_caches
+      @caches[:scans].clear
+      @caches[:templates].clear
+    end
   end
 
   def initialize backend, template_dirs, opts = {}
@@ -134,12 +134,10 @@ class Converter::TemplateConverter < Converter::Base
   #
   # Returns the Tilt template object
   def register name, template
-    @templates[name] = if (template_cache = @caches[:templates])
+    if (template_cache = @caches[:templates])
       template_cache[template.file] = template
-    else
-      template
     end
-    #create_handler name, template
+    @templates[name] = template
   end
 
   private
@@ -155,6 +153,7 @@ class Converter::TemplateConverter < Converter::Base
     engine = @engine
     @template_dirs.each do |template_dir|
       # FIXME need to think about safe mode restrictions here
+      # Ruby 2.3 requires the extra brackets around the path_resolver.system_path method call
       next unless ::File.directory?(template_dir = (path_resolver.system_path template_dir))
 
       if engine
@@ -186,8 +185,8 @@ class Converter::TemplateConverter < Converter::Base
       else
         @templates.update scan_dir(template_dir, pattern, @caches[:templates])
       end
-      nil
     end
+    nil
   end
 
   # Internal: Scan the specified directory for template files matching pattern and instantiate
@@ -262,7 +261,7 @@ class Converter::TemplateConverter < Converter::Base
       [::Tilt::ErubiTemplate, {}]
     elsif name == 'erubis'
       Helpers.require_library 'erubis' unless defined? ::Erubis::FastEruby
-      [::Tilt::ErubisTemplate, { engine_class: ::Erubis::FastEruby }]
+      [::Tilt::ErubisTemplate, engine_class: ::Erubis::FastEruby]
     else
       raise ::ArgumentError, %(Unknown ERB implementation: #{name})
     end

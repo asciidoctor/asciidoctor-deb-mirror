@@ -804,7 +804,31 @@ context 'Blocks' do
       assert_equal 'B', doc.attributes['example-number']
     end
 
-    test "explicit caption is used if provided" do
+    test 'should increment counter for example even when example-number is locked by the API' do
+      input = <<~'EOS'
+      .Writing Docs with AsciiDoc
+      ====
+      Here's how you write AsciiDoc.
+
+      You just write.
+      ====
+
+      .Writing Docs with DocBook
+      ====
+      Here's how you write DocBook.
+
+      You futz with XML.
+      ====
+      EOS
+
+      doc = document_from_string input, attributes: { 'example-number' => '`' }
+      output = doc.convert
+      assert_xpath '(//*[@class="exampleblock"])[1]/*[@class="title"][text()="Example a. Writing Docs with AsciiDoc"]', output, 1
+      assert_xpath '(//*[@class="exampleblock"])[2]/*[@class="title"][text()="Example b. Writing Docs with DocBook"]', output, 1
+      assert_equal 'b', doc.attributes['example-number']
+    end
+
+    test 'should use explicit caption if specified' do
       input = <<~'EOS'
       [caption="Look! "]
       .Writing Docs with AsciiDoc
@@ -819,7 +843,7 @@ context 'Blocks' do
       assert_nil doc.blocks[0].numeral
       output = doc.convert
       assert_xpath '(//*[@class="exampleblock"])[1]/*[@class="title"][text()="Look! Writing Docs with AsciiDoc"]', output, 1
-      refute doc.attributes.has_key?('example-number')
+      refute doc.attributes.key? 'example-number'
     end
 
     test 'automatic caption can be turned off and on and modified' do
@@ -850,6 +874,62 @@ context 'Blocks' do
       assert_xpath '(/*[@class="exampleblock"])[1]/*[@class="title"][starts-with(text(), "Example ")]', output, 1
       assert_xpath '(/*[@class="exampleblock"])[2]/*[@class="title"][text()="second example"]', output, 1
       assert_xpath '(/*[@class="exampleblock"])[3]/*[@class="title"][starts-with(text(), "Exhibit ")]', output, 1
+    end
+
+    test 'should use explicit caption if specified even if block-specific global caption is disabled' do
+      input = <<~'EOS'
+      :!example-caption:
+
+      [caption="Look! "]
+      .Writing Docs with AsciiDoc
+      ====
+      Here's how you write AsciiDoc.
+
+      You just write.
+      ====
+      EOS
+
+      doc = document_from_string input
+      assert_nil doc.blocks[0].numeral
+      output = doc.convert
+      assert_xpath '(//*[@class="exampleblock"])[1]/*[@class="title"][text()="Look! Writing Docs with AsciiDoc"]', output, 1
+      refute doc.attributes.key? 'example-number'
+    end
+
+    test 'should use global caption if specified even if block-specific global caption is disabled' do
+      input = <<~'EOS'
+      :!example-caption:
+      :caption: Look!{sp}
+
+      .Writing Docs with AsciiDoc
+      ====
+      Here's how you write AsciiDoc.
+
+      You just write.
+      ====
+      EOS
+
+      doc = document_from_string input
+      assert_nil doc.blocks[0].numeral
+      output = doc.convert
+      assert_xpath '(//*[@class="exampleblock"])[1]/*[@class="title"][text()="Look! Writing Docs with AsciiDoc"]', output, 1
+      refute doc.attributes.key? 'example-number'
+    end
+
+    test 'should not process caption attribute on block that does not support a caption' do
+      input = <<~'EOS'
+      [caption="Look! "]
+      .No caption here
+      --
+      content
+      --
+      EOS
+
+      doc = document_from_string input
+      assert_nil doc.blocks[0].caption
+      assert_equal 'Look! ', (doc.blocks[0].attr 'caption')
+      output = doc.convert
+      assert_xpath '(//*[@class="openblock"])[1]/*[@class="title"][text()="No caption here"]', output, 1
     end
 
     test 'should create details/summary set if collapsible option is set' do
@@ -1223,7 +1303,7 @@ context 'Blocks' do
       ----
       EOS
 
-      expected = (input.lines.slice 4, 5).map {|l| l.sub '    ', ' '}.join.chop
+      expected = (input.lines.slice 4, 5).map {|l| l.sub '    ', ' ' }.join.chop
 
       output = convert_string_to_embedded input
       assert_css 'pre', output, 1
@@ -1323,7 +1403,7 @@ context 'Blocks' do
       EOS
 
       block = block_from_string input
-      assert_equal [:specialcharacters,:callouts,:quotes], block.subs
+      assert_equal [:specialcharacters, :callouts, :quotes], block.subs
       output = block.convert
       assert_includes output, 'Map&lt;String, String&gt; <strong>attributes</strong>;'
       assert_xpath '//pre/b[text()="(1)"]', output, 1
@@ -1416,6 +1496,45 @@ context 'Blocks' do
       assert_xpath '/formalpara/para/screen[text()="listing block"]', output, 1
     end
 
+    test 'should not prepend caption to title of listing block with title if listing-caption attribute is not set' do
+      input = <<~'EOS'
+      .title
+      ----
+      listing block content
+      ----
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_xpath '/*[@class="listingblock"][1]/*[@class="title"][text()="title"]', output, 1
+    end
+
+    test 'should prepend caption specified by listing-caption attribute and number to title of listing block with title' do
+      input = <<~'EOS'
+      :listing-caption: Listing
+
+      .title
+      ----
+      listing block content
+      ----
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_xpath '/*[@class="listingblock"][1]/*[@class="title"][text()="Listing 1. title"]', output, 1
+    end
+
+    test 'should prepend caption specified by caption attribute on listing block even if listing-caption attribute is not set' do
+      input = <<~'EOS'
+      [caption="Listing {counter:listing-number}. "]
+      .Behold!
+      ----
+      listing block content
+      ----
+      EOS
+
+      output = convert_string_to_embedded input
+      assert_xpath '/*[@class="listingblock"][1]/*[@class="title"][text()="Listing 1. Behold!"]', output, 1
+    end
+
     test 'listing block without an explicit style and with a second positional argument should be promoted to a source block' do
       input = <<~'EOS'
       [,ruby]
@@ -1451,7 +1570,7 @@ context 'Blocks' do
       matches = (document_from_string input).find_by context: :listing
       assert_equal 1, matches.length
       assert_equal 'listing', matches[0].style
-      assert_nil (matches[0].attr 'language')
+      assert_nil matches[0].attr 'language'
     end
 
     test 'listing block with an explicit style should not be promoted to a source block if source-language is set' do
@@ -1466,7 +1585,7 @@ context 'Blocks' do
       matches = (document_from_string input).find_by context: :listing
       assert_equal 1, matches.length
       assert_equal 'listing', matches[0].style
-      assert_nil (matches[0].attr 'language')
+      assert_nil matches[0].attr 'language'
     end
 
     test 'source block with no title or language should generate screen element in docbook' do
@@ -2471,6 +2590,13 @@ context 'Blocks' do
       assert_xpath '/*[@class="imageblock"]//img[@src="images/tiger.png"][@alt="Tiger"][@width="200"][@height="300"]', output, 1
     end
 
+    test 'should not output empty width attribute if positional width attribute is empty' do
+      input = 'image::images/tiger.png[Tiger,]'
+      output = convert_string_to_embedded input
+      assert_xpath '/*[@class="imageblock"]//img[@src="images/tiger.png"]', output, 1
+      assert_xpath '/*[@class="imageblock"]//img[@src="images/tiger.png"][@width]', output, 0
+    end
+
     test "can convert block image with link" do
       input = <<~'EOS'
       image::images/tiger.png[Tiger, link='http://en.wikipedia.org/wiki/Tiger']
@@ -2524,7 +2650,7 @@ context 'Blocks' do
       output = doc.convert
       assert_xpath '//*[@class="imageblock"]//img[@src="images/tiger.png"][@alt="Tiger"]', output, 1
       assert_xpath '//*[@class="imageblock"]/*[@class="title"][text()="Voila! The AsciiDoc Tiger"]', output, 1
-      refute doc.attributes.has_key?('figure-number')
+      refute doc.attributes.key?('figure-number')
     end
 
     test 'can align image in DocBook backend' do
@@ -3221,7 +3347,6 @@ context 'Blocks' do
       assert_equal absolute_path, block.normalize_asset_path(absolute_path)
       assert_equal File.expand_path(File.join(basedir, '../../images')), block.normalize_asset_path('../../images')
     end
-
   end
 
   context 'Source code' do

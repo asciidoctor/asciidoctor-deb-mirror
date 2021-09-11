@@ -11,6 +11,14 @@ context 'Options' do
     end
   end
 
+  test 'should show safe modes in severity order' do
+    redirect_streams do |stdout, stderr|
+      exitval = Asciidoctor::Cli::Options.parse!(%w(-h))
+      assert_equal 0, exitval
+      assert_match(/unsafe, safe, server, secure/, stdout.string)
+    end
+  end
+
   test 'should print usage and return error code 0 when help flag is unknown' do
     exitval, output = redirect_streams do |out, _|
       [Asciidoctor::Cli::Options.parse!(%w(-h unknown)), out.string]
@@ -88,11 +96,19 @@ context 'Options' do
   end
 
   test 'basic argument assignment' do
-    options = Asciidoctor::Cli::Options.parse!(%w(-w -v -s -d book test/fixtures/sample.adoc))
+    options = Asciidoctor::Cli::Options.parse!(%w(-w -v -e -d book test/fixtures/sample.adoc))
 
     assert_equal 2, options[:verbose]
     assert_equal false, options[:standalone]
     assert_equal 'book', options[:attributes]['doctype']
+    assert_equal 1, options[:input_files].size
+    assert_equal 'test/fixtures/sample.adoc', options[:input_files][0]
+  end
+
+  test 'supports legacy option for no header footer' do
+    options = Asciidoctor::Cli::Options.parse!(%w(-s test/fixtures/sample.adoc))
+
+    assert_equal false, options[:standalone]
     assert_equal 1, options[:input_files].size
     assert_equal 'test/fixtures/sample.adoc', options[:input_files][0]
   end
@@ -192,36 +208,36 @@ context 'Options' do
 
   test '-I option appends paths to $LOAD_PATH' do
     options = Asciidoctor::Cli::Options.new
-    old_load_path = $LOAD_PATH.dup
+    old_load_path = $:.dup
     begin
       exitval = options.parse! %w(-I foobar -I foobaz test/fixtures/sample.adoc)
       refute_equal 1, exitval
-      assert_equal old_load_path.size + 2, $LOAD_PATH.size
-      assert_equal File.expand_path('foobar'), $LOAD_PATH[0]
-      assert_equal File.expand_path('foobaz'), $LOAD_PATH[1]
+      assert_equal old_load_path.size + 2, $:.size
+      assert_equal File.expand_path('foobar'), $:[0]
+      assert_equal File.expand_path('foobaz'), $:[1]
       assert_equal ['foobar', 'foobaz'], options[:load_paths]
     ensure
-      ($LOAD_PATH.size - old_load_path.size).times { $LOAD_PATH.shift }
+      ($:.size - old_load_path.size).times { $:.shift }
     end
   end
 
   test '-I option appends multiple paths to $LOAD_PATH' do
     options = Asciidoctor::Cli::Options.new
-    old_load_path = $LOAD_PATH.dup
+    old_load_path = $:.dup
     begin
       exitval = options.parse! %W(-I foobar#{File::PATH_SEPARATOR}foobaz test/fixtures/sample.adoc)
       refute_equal 1, exitval
-      assert_equal old_load_path.size + 2, $LOAD_PATH.size
-      assert_equal File.expand_path('foobar'), $LOAD_PATH[0]
-      assert_equal File.expand_path('foobaz'), $LOAD_PATH[1]
+      assert_equal old_load_path.size + 2, $:.size
+      assert_equal File.expand_path('foobar'), $:[0]
+      assert_equal File.expand_path('foobaz'), $:[1]
       assert_equal ['foobar', 'foobaz'], options[:load_paths]
     ensure
-      ($LOAD_PATH.size - old_load_path.size).times { $LOAD_PATH.shift }
+      ($:.size - old_load_path.size).times { $:.shift }
     end
   end
 
   test 'should set failure level to FATAL by default' do
-    options = Asciidoctor::Cli::Options.parse! %W(test/fixtures/sample.adoc)
+    options = Asciidoctor::Cli::Options.parse! %w(test/fixtures/sample.adoc)
     assert_equal ::Logger::Severity::FATAL, options[:failure_level]
   end
 
@@ -241,7 +257,7 @@ context 'Options' do
 
   test 'should not allow failure level to be set to unknown value' do
     exit_code, messages = redirect_streams do |_, err|
-      [(Asciidoctor::Cli::Options.parse! %W(--failure-level=foobar test/fixtures/sample.adoc)), err.string]
+      [(Asciidoctor::Cli::Options.parse! %w(--failure-level=foobar test/fixtures/sample.adoc)), err.string]
     end
     assert_equal 1, exit_code
     assert_includes messages, 'invalid argument: --failure-level=foobar'

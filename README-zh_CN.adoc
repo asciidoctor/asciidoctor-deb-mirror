@@ -1,6 +1,6 @@
 = Asciidoctor
 Dan Allen <https://github.com/mojavelinux[@mojavelinux]>; Sarah White <https://github.com/graphitefriction[@graphitefriction]>; Ryan Waldron <https://github.com/erebor[@erebor]>
-v2.0.12, 2020-11-10
+v2.0.16, 2021-08-03
 // settings:
 :page-layout: base
 :idprefix:
@@ -9,6 +9,7 @@ v2.0.12, 2020-11-10
 :language: {source-language}
 ifndef::env-github[:icons: font]
 ifdef::env-github[]
+:status:
 :outfilesuffix: .adoc
 :caution-caption: :fire:
 :important-caption: :exclamation:
@@ -17,7 +18,7 @@ ifdef::env-github[]
 :warning-caption: :warning:
 endif::[]
 // Variables:
-:release-version: 2.0.12
+:release-version: 2.0.16
 // URIs:
 :uri-org: https://github.com/asciidoctor
 :uri-repo: {uri-org}/asciidoctor
@@ -41,7 +42,7 @@ endif::[]
 :uri-license: {uri-rel-file-base}LICENSE
 :uri-tests: {uri-rel-tree-base}test
 :uri-discuss: https://discuss.asciidoctor.org
-:uri-irc: irc://irc.freenode.org/#asciidoctor
+:uri-chat: https://asciidoctor.zulipchat.com
 :uri-rubygem: https://rubygems.org/gems/asciidoctor
 :uri-what-is-asciidoc: {uri-docs}/what-is-asciidoc
 :uri-user-manual: {uri-docs}/user-manual
@@ -76,6 +77,14 @@ Asciidoctor 是开源的，link:{uri-repo}[代码托管在 GitHub]，遵从 {uri
 * {uri-docs}/asciidoc-writers-guide[AsciiDoc 写作指南]
 * {uri-docs}/asciidoc-syntax-quick-reference[AsciiDoc 语法快速参考]
 * {uri-docs}/user-manual[Asciidoctor 用户手册]
+
+ifdef::status[]
+image:https://img.shields.io/gem/v/asciidoctor.svg[Latest Release, link={uri-gem}]
+image:https://img.shields.io/badge/rubydoc.info-{release-version}-blue.svg[library (API) docs,link=https://www.rubydoc.info/gems/asciidoctor/{release-version}]
+image:https://github.com/asciidoctor/asciidoctor/workflows/CI/badge.svg[Build Status (GitHub Actions),link={uri-repo}/actions]
+image:https://inch-ci.org/github/asciidoctor/asciidoctor.svg?branch=master[Inline docs,link=https://inch-ci.org/github/asciidoctor/asciidoctor]
+image:https://img.shields.io/badge/zulip-join_chat-brightgreen.svg[project chat,link=https://asciidoctor.zulipchat.com/]
+endif::[]
 
 .Ruby 所至， Asciidoctor 相随
 ****
@@ -383,9 +392,9 @@ Asciidoctor 支持自定义转化器，它可以操作从待处理文件到生�
 但是，如果没有反馈，我们将寸步难行。
 我们鼓励你在讨论组、Twitter或聊天室里，提问为题，讨论项目的方方面面，
 
+聊天 (Zulip):: {uri-chat}
 讨论组 (Nabble):: {uri-discuss}
 Twitter:: https://twitter.com/search?f=tweets&q=%23asciidoctor[#asciidoctor] 来加入话题 或 https://twitter.com/asciidoctor[@asciidoctor] at并提醒我们
-聊天 (Gitter):: image:https://badges.gitter.im/Join%20In.svg[Gitter, link=https://gitter.im/asciidoctor/asciidoctor]
 
 ifdef::env-github[]
 Further information and documentation about Asciidoctor can be found on the project's website.
@@ -402,7 +411,7 @@ Asciidoctor 组织在 GitHub 托管代码、议案跟踪和相关子项目。
 [#copyright-and-licensing]
 == 版权和协议
 
-Copyright (C) 2012-2020 Dan Allen, Sarah White, Ryan Waldron, and the individual contributors to Asciidoctor.
+Copyright (C) 2012-present Dan Allen, Sarah White, Ryan Waldron, and the individual contributors to Asciidoctor.
 这个软件的免费使用是在MIT许可条款授予的。
 
 请看 {uri-license}[版权声明] 文件来获取更多详细信息。

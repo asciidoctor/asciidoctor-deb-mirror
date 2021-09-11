@@ -34,10 +34,36 @@ context 'Manpage' do
       assert_equal 'command', doc.attributes['docname']
     end
 
+    test 'should not escape hyphen when printing manname in NAME section' do
+      input = SAMPLE_MANPAGE_HEADER.sub(/^command - /, 'git-describe - ')
+      output = Asciidoctor.convert input, backend: :manpage, standalone: true
+      assert_includes output, %(\n.SH "NAME"\ngit-describe \\- does stuff\n)
+    end
+
     test 'should output multiple mannames in NAME section' do
       input = SAMPLE_MANPAGE_HEADER.sub(/^command - /, 'command, alt_command - ')
       output = Asciidoctor.convert input, backend: :manpage, standalone: true
       assert_includes output.lines, %(command, alt_command \\- does stuff\n)
+    end
+
+    test 'should substitute attributes in manname and manpurpose in NAME section' do
+      input = <<~'EOS'
+      = {cmdname} (1)
+      Author Name
+      :doctype: manpage
+      :man manual: Foo Bar Manual
+      :man source: Foo Bar 1.0
+
+      == NAME
+
+      {cmdname} - {cmdname} puts the foo in your bar
+      EOS
+
+      doc = Asciidoctor.load input, backend: :manpage, standalone: true, attributes: { 'cmdname' => 'foobar' }
+      assert_equal 'foobar', (doc.attr 'manname')
+      assert_equal ['foobar'], (doc.attr 'mannames')
+      assert_equal 'foobar puts the foo in your bar', (doc.attr 'manpurpose')
+      assert_equal 'foobar', (doc.attr 'docname')
     end
 
     test 'should not parse NAME section if manname and manpurpose attributes are set' do
@@ -196,6 +222,26 @@ context 'Manpage' do
       assert_equal '\\(co & \\(rg are translated to character references, but not the &.', output.lines.last.chomp
     end
 
+    test 'should replace numeric character reference for plus' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      A {plus} B
+      EOS
+      output = Asciidoctor.convert input, backend: :manpage
+      assert_equal 'A + B', output.lines.last.chomp
+    end
+
+    test 'should replace numeric character reference for degree sign' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      0{deg} is freezing
+      EOS
+      output = Asciidoctor.convert input, backend: :manpage
+      assert_equal '0\(de is freezing', output.lines.last.chomp
+    end
+
     test 'should replace em dashes' do
       input = <<~EOS.chop
       #{SAMPLE_MANPAGE_HEADER}
@@ -207,6 +253,16 @@ context 'Manpage' do
       output = Asciidoctor.convert input, backend: :manpage
       assert_includes output, 'go \\(em to'
       assert_includes output, 'go\\(emto'
+    end
+
+    test 'should replace quotes' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      'command'
+      EOS
+      output = Asciidoctor.convert input, backend: :manpage
+      assert_includes output, '\*(Aqcommand\*(Aq'
     end
 
     test 'should escape lone period' do
@@ -317,11 +373,23 @@ context 'Manpage' do
       assert_includes output, 'Source: Control All The Things 5.0'
       assert_includes output, '"Control All The Things 5.0" "General Commands Manual"'
     end
+
+    test 'should uppercase section titles without mangling formatting macros' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      does stuff
+
+      == "`Main`" _<Options>_
+      EOS
+      output = Asciidoctor.convert input, backend: :manpage
+      assert_includes output, '.SH "\(lqMAIN\(rq \fI<OPTIONS>\fP"'
+    end
   end
 
   context 'Backslash' do
     test 'should not escape spaces for empty manual or source fields' do
-      input = SAMPLE_MANPAGE_HEADER.lines.select {|l| !l.start_with?(':man ') }
+      input = SAMPLE_MANPAGE_HEADER.lines.reject {|l| l.start_with? ':man ' }
       output = Asciidoctor.convert input, backend: :manpage, standalone: true
       assert_match ' Manual: \ \&', output
       assert_match ' Source: \ \&', output
@@ -401,7 +469,7 @@ context 'Manpage' do
       http://asciidoc.org[AsciiDoc] can be used to create man pages.
       EOS
       expected = <<~'EOS'.chop
-      .URL "http://asciidoc.org" "AsciiDoc" " "
+      .URL "http://asciidoc.org" "AsciiDoc" ""
       can be used to create man pages.
       EOS
       output = Asciidoctor.convert input, backend: :manpage
@@ -507,7 +575,7 @@ context 'Manpage' do
       expected = <<~'EOS'.chop
       .sp
       Enter the \c
-      .URL "cat" "\f(CRcat\fP" " "
+      .URL "cat" "\f(CRcat\fP" ""
       command.
       EOS
       output = Asciidoctor.convert input, backend: :manpage
@@ -765,6 +833,35 @@ context 'Manpage' do
     end
   end
 
+  context 'Verse Block' do
+    test 'should preserve hard line breaks in verse block' do
+      input = SAMPLE_MANPAGE_HEADER.lines
+      synopsis_idx = input.find_index {|it| it == %(== SYNOPSIS\n) } + 2
+      input[synopsis_idx..synopsis_idx] = <<~'EOS'.lines
+      [verse]
+      _command_ [_OPTION_]... _FILE_...
+      EOS
+      input = <<~EOS.chop
+      #{input.join}
+
+      description
+      EOS
+      expected_coda = <<~'EOS'.chop
+      .SH "SYNOPSIS"
+      .sp
+      .nf
+      \fIcommand\fP [\fIOPTION\fP]... \fIFILE\fP...
+      .fi
+      .br
+      .SH "DESCRIPTION"
+      .sp
+      description
+      EOS
+      output = Asciidoctor.convert input, backend: :manpage
+      assert output.end_with? expected_coda
+    end
+  end
+
   context 'Callout List' do
     test 'should generate callout list using proper formatting commands' do
       input = <<~EOS.chop
@@ -786,6 +883,337 @@ context 'Manpage' do
       EOS
       output = Asciidoctor.convert input, backend: :manpage
       assert output.end_with? expected_coda
+    end
+  end
+
+  context 'Page breaks' do
+    test 'should insert page break at location of page break macro' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      == Section With Break
+
+      before break
+
+      <<<
+
+      after break
+      EOS
+      expected_coda = <<~'EOS'.chop
+      .SH "SECTION WITH BREAK"
+      .sp
+      before break
+      .bp
+      .sp
+      after break
+      EOS
+      output = Asciidoctor.convert input, backend: :manpage
+      assert output.end_with? expected_coda
+    end
+  end
+
+  context 'UI macros' do
+    test 'should enclose button in square brackets and format as bold' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      == UI Macros
+
+      btn:[Save]
+      EOS
+      expected_coda = <<~'EOS'.chop
+      .SH "UI MACROS"
+      .sp
+      \fB[\0Save\0]\fP
+      EOS
+      output = Asciidoctor.convert input, backend: :manpage, attributes: { 'experimental' => '' }
+      assert output.end_with? expected_coda
+    end
+
+    test 'should format single key in monospaced text' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      == UI Macros
+
+      kbd:[Enter]
+      EOS
+      expected_coda = <<~'EOS'.chop
+      .SH "UI MACROS"
+      .sp
+      \f(CREnter\fP
+      EOS
+      output = Asciidoctor.convert input, backend: :manpage, attributes: { 'experimental' => '' }
+      assert output.end_with? expected_coda
+    end
+
+    test 'should format each key in sequence as monospaced text separated by +' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      == UI Macros
+
+      kbd:[Ctrl,s]
+      EOS
+      expected_coda = <<~'EOS'.chop
+      .SH "UI MACROS"
+      .sp
+      \f(CRCtrl\0+\0s\fP
+      EOS
+      output = Asciidoctor.convert input, backend: :manpage, attributes: { 'experimental' => '' }
+      assert output.end_with? expected_coda
+    end
+
+    test 'should format single menu reference in italic' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      == UI Macros
+
+      menu:File[]
+      EOS
+      expected_coda = <<~'EOS'.chop
+      .SH "UI MACROS"
+      .sp
+      \fIFile\fP
+      EOS
+      output = Asciidoctor.convert input, backend: :manpage, attributes: { 'experimental' => '' }
+      assert output.end_with? expected_coda
+    end
+
+    test 'should format menu sequence in italic separated by carets' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      == UI Macros
+
+      menu:File[New Tab]
+      EOS
+      expected_coda = <<~'EOS'.chop
+      .SH "UI MACROS"
+      .sp
+      \fIFile\0\(fc\0New Tab\fP
+      EOS
+      output = Asciidoctor.convert input, backend: :manpage, attributes: { 'experimental' => '' }
+      assert output.end_with? expected_coda
+    end
+
+    test 'should format menu sequence with submenu in italic separated by carets' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      == UI Macros
+
+      menu:View[Zoom > Zoom In]
+      EOS
+      expected_coda = <<~'EOS'.chop
+      .SH "UI MACROS"
+      .sp
+      \fIView\fP\0\(fc\0\fIZoom\fP\0\(fc\0\fIZoom In\fP
+      EOS
+      output = Asciidoctor.convert input, backend: :manpage, attributes: { 'experimental' => '' }
+      assert output.end_with? expected_coda
+    end
+  end
+
+  context 'xrefs' do
+    test 'should populate automatic link text for internal xref' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      You can access this information using the options listed under <<_generic_program_information>>.
+
+      == Options
+
+      === Generic Program Information
+
+      --help:: Output a usage message and exit.
+
+      -V, --version:: Output the version number of grep and exit.
+      EOS
+      output = Asciidoctor.convert input, backend: :manpage, attributes: { 'experimental' => '' }
+      assert_includes output, 'You can access this information using the options listed under Generic Program Information.'
+    end
+
+    test 'should populate automatic link text for each occurrence of internal xref' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      You can access this information using the options listed under <<_generic_program_information>>.
+
+      The options listed in <<_generic_program_information>> should always be used by themselves.
+
+      == Options
+
+      === Generic Program Information
+
+      --help:: Output a usage message and exit.
+
+      -V, --version:: Output the version number of grep and exit.
+      EOS
+      output = Asciidoctor.convert input, backend: :manpage, attributes: { 'experimental' => '' }
+      assert_includes output, 'You can access this information using the options listed under Generic Program Information.'
+      assert_includes output, 'The options listed in Generic Program Information should always be used by themselves.'
+    end
+
+    test 'should uppercase the reftext for level-2 section titles if the reftext matches the secton title' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      If you read nothing else, read the <<_foo_bar>> section.
+
+      === Options
+
+      --foo-bar _foobar_::
+      Puts the foo in your bar.
+      See <<_foo_bar>> section for details.
+
+      == Foo Bar
+
+      Foo goes with bar, not baz.
+      EOS
+
+      output = Asciidoctor.convert input, backend: :manpage, attributes: { 'experimental' => '' }
+      assert_includes output, 'If you read nothing else, read the FOO BAR section.'
+      assert_includes output, 'See FOO BAR section for details.'
+    end
+  end
+
+  context 'Footnotes' do
+    test 'should generate list of footnotes using numbered list with numbers enclosed in brackets' do
+      [true, false].each do |standalone|
+        input = <<~EOS.chop
+        #{SAMPLE_MANPAGE_HEADER}
+
+        text.footnote:[first footnote]
+
+        more text.footnote:[second footnote]
+        EOS
+        expected_coda = <<~'EOS'.chop
+        .sp
+        text.[1]
+        .sp
+        more text.[2]
+        .SH "NOTES"
+        .IP [1]
+        first footnote
+        .IP [2]
+        second footnote
+        EOS
+        if standalone
+          expected_coda = <<~EOS.chop
+          #{expected_coda}
+          .SH "AUTHOR"
+          .sp
+          Author Name
+          EOS
+        end
+        output = Asciidoctor.convert input, backend: :manpage, standalone: standalone
+        assert output.end_with? expected_coda
+      end
+    end
+
+    test 'should number footnotes according to footnote index' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      text.footnote:fn1[first footnote]footnote:[second footnote]
+
+      more text.footnote:fn1[]
+      EOS
+      expected_coda = <<~'EOS'.chop
+      .sp
+      text.[1][2]
+      .sp
+      more text.[1]
+      .SH "NOTES"
+      .IP [1]
+      first footnote
+      .IP [2]
+      second footnote
+      EOS
+      output = Asciidoctor.convert input, backend: :manpage
+      assert output.end_with? expected_coda
+    end
+
+    test 'should format footnote with bare URL' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      text.footnote:[https://example.org]
+      EOS
+      expected_coda = <<~'EOS'.chop
+      .SH "NOTES"
+      .IP [1]
+      .URL "https://example.org" "" ""
+      EOS
+      output = Asciidoctor.convert input, backend: :manpage
+      assert output.end_with? expected_coda
+    end
+
+    test 'should format footnote with text before bare URL' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      text.footnote:[see https://example.org]
+      EOS
+      expected_coda = <<~'EOS'.chop
+      .SH "NOTES"
+      .IP [1]
+      see \c
+      .URL "https://example.org" "" ""
+      EOS
+      output = Asciidoctor.convert input, backend: :manpage
+      assert output.end_with? expected_coda
+    end
+
+    test 'should format footnote with text after bare URL' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      text.footnote:[https://example.org is the place]
+      EOS
+      expected_coda = <<~'EOS'.chop
+      .SH "NOTES"
+      .IP [1]
+      .URL "https://example.org" "" ""
+      is the place
+      EOS
+      output = Asciidoctor.convert input, backend: :manpage
+      assert output.end_with? expected_coda
+    end
+
+    test 'should format footnote with URL macro' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      text.footnote:[go to https://example.org[example site].]
+      EOS
+      expected_coda = <<~'EOS'.chop
+      .SH "NOTES"
+      .IP [1]
+      go to \c
+      .URL "https://example.org" "example site" "."
+      EOS
+      output = Asciidoctor.convert input, backend: :manpage
+      assert output.end_with? expected_coda
+    end
+
+    test 'should produce a warning message and output fallback text at location of macro of unresolved footnote' do
+      input = <<~EOS.chop
+      #{SAMPLE_MANPAGE_HEADER}
+
+      text.footnote:does-not-exist[]
+      EOS
+      expected_coda = <<~'EOS'.chop
+      .sp
+      text.[does\-not\-exist]
+      EOS
+      using_memory_logger do |logger|
+        output = Asciidoctor.convert input, backend: :manpage
+        assert output.end_with? expected_coda
+        assert_message logger, :WARN, 'invalid footnote reference: does-not-exist'
+      end
     end
   end
 

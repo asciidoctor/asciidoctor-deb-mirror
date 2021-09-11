@@ -119,7 +119,7 @@ class Parser
   # returns the Hash of orphan block attributes captured above the header
   def self.parse_document_header(reader, document)
     # capture lines of block-level metadata and plow away comment lines that precede first block
-    block_attrs = parse_block_metadata_lines reader, document
+    block_attrs = reader.skip_blank_lines ? (parse_block_metadata_lines reader, document) : {}
     doc_attrs = document.attributes
 
     # special case, block title is not allowed above document title,
@@ -144,7 +144,10 @@ class Parser
         l0_section_title = nil
       else
         document.title = l0_section_title
-        doc_attrs['doctitle'] = doctitle_attr_val = document.apply_header_subs l0_section_title
+        if (doc_attrs['doctitle'] = doctitle_attr_val = document.sub_specialchars l0_section_title).include? ATTR_REF_HEAD
+          # QUESTION should we defer substituting attributes until the end of the header? or should we substitute again if necessary?
+          doc_attrs['doctitle'] = doctitle_attr_val = document.sub_attributes doctitle_attr_val, attribute_missing: 'skip'
+        end
       end
       document.header.source_location = source_location if source_location
       # default to compat-mode if document has setext doctitle
@@ -215,9 +218,6 @@ class Parser
           name_section = initialize_section reader, document, {}
           name_section_buffer = (reader.read_lines_until break_on_blank_lines: true, skip_line_comments: true).map {|l| l.lstrip }.join ' '
           if ManpageNamePurposeRx =~ name_section_buffer
-            doc_attrs['manname-title'] ||= name_section.title
-            doc_attrs['manname-id'] = name_section.id if name_section.id
-            doc_attrs['manpurpose'] = $2
             if (manname = $1).include? ATTR_REF_HEAD
               manname = document.sub_attributes manname
             end
@@ -226,8 +226,14 @@ class Parser
             else
               mannames = [manname]
             end
+            if (manpurpose = $2).include? ATTR_REF_HEAD
+              manpurpose = document.sub_attributes manpurpose
+            end
+            doc_attrs['manname-title'] ||= name_section.title
+            doc_attrs['manname-id'] = name_section.id if name_section.id
             doc_attrs['manname'] = manname
             doc_attrs['mannames'] = mannames
+            doc_attrs['manpurpose'] = manpurpose
             if document.backend == 'manpage'
               doc_attrs['docname'] = manname
               doc_attrs['outfilesuffix'] = %(.#{manvolnum})
@@ -327,7 +333,7 @@ class Parser
       if current_level == 0
         part = book
       elsif current_level == 1 && section.special
-        # NOTE technically preface and abstract sections are only permitted in the book doctype
+        # NOTE technically preface sections are only permitted in the book doctype
         unless (sectname = section.sectname) == 'appendix' || sectname == 'preface' || sectname == 'abstract'
           expected_next_level = nil
         end
@@ -415,9 +421,6 @@ class Parser
 
           (intro || section).blocks << new_block
           attributes.clear
-        #else
-        #  # don't clear attributes if we don't find a block because they may
-        #  # be trailing attributes that didn't get associated with a block
         end
       end
 
@@ -452,7 +455,7 @@ class Parser
     # of a section that need to get transfered to the next section
     # see "trailing block attributes transfer to the following section" in
     # test/attributes_test.rb for an example
-    [section != parent ? section : nil, attributes.merge]
+    [section == parent ? nil : section, attributes.merge]
   end
 
   # Public: Parse and return the next Block at the Reader's current location
@@ -820,8 +823,8 @@ class Parser
             if comma_idx > 0
               language = (language.slice 0, comma_idx).strip
               attributes['linenums'] = '' if comma_idx < ll - 4
-            else
-              attributes['linenums'] = '' if ll > 4
+            elsif ll > 4
+              attributes['linenums'] = ''
             end
           else
             language = language.lstrip
@@ -902,9 +905,7 @@ class Parser
     # FIXME title and caption should be assigned when block is constructed (though we need to handle all cases)
     if attributes['title']
       block.title = block_title = attributes.delete 'title'
-      if (caption_attr_name = CAPTION_ATTRIBUTE_NAMES[block.context]) && document.attributes[caption_attr_name]
-        block.assign_caption (attributes.delete 'caption')
-      end
+      block.assign_caption attributes.delete 'caption' if CAPTION_ATTRIBUTE_NAMES[block.context]
     end
     # TODO eventually remove the style attribute from the attributes hash
     #block.style = attributes.delete 'style'
@@ -966,17 +967,12 @@ class Parser
       # special case for fenced code blocks
       if Compliance.markdown_syntax && (tip.start_with? '`')
         if tip_len == 4
-          if tip == '````'
-            return
-          elsif (tip = tip.chop) == '```'
-            line = tip
-            line_len = tip_len = 3
-          else
+          if tip == '````' || (tip = tip.chop) != '```'
             return
           end
-        elsif tip == '```'
-          # keep it
-        else
+          line = tip
+          line_len = tip_len = 3
+        elsif tip != '```'
           return
         end
       elsif tip_len == 3
@@ -994,9 +990,10 @@ class Parser
   # if terminator is false, that means the all the lines in the reader should be parsed
   # NOTE could invoke filter in here, before and after parsing
   def self.build_block(block_context, content_model, terminator, parent, reader, attributes, options = {})
-    if content_model == :skip
+    case content_model
+    when :skip
       skip_processing, parse_as_content_model = true, :simple
-    elsif content_model == :raw
+    when :raw
       skip_processing, parse_as_content_model = false, :simple
     else
       skip_processing, parse_as_content_model = false, content_model
@@ -1025,14 +1022,15 @@ class Parser
       block_reader = Reader.new reader.read_lines_until(terminator: terminator, skip_processing: skip_processing, context: block_context, cursor: :at_mark), block_cursor
     end
 
-    if content_model == :verbatim
+    case content_model
+    when :verbatim
       tab_size = (attributes['tabsize'] || parent.document.attributes['tabsize']).to_i
       if (indent = attributes['indent'])
         adjust_indentation! lines, indent.to_i, tab_size
       elsif tab_size > 0
         adjust_indentation! lines, -1, tab_size
       end
-    elsif content_model == :skip
+    when :skip
       # QUESTION should we still invoke process method if extension is specified?
       return
     end
@@ -1293,7 +1291,8 @@ class Parser
       has_text = true
       list_item = ListItem.new(list_block, (item_text = match[2]))
       list_item.source_location = reader.cursor if list_block.document.sourcemap
-      if list_type == :ulist
+      case list_type
+      when :ulist
         list_item.marker = sibling_trait
         if item_text.start_with?('[')
           if style && style == 'bibliography'
@@ -1311,13 +1310,13 @@ class Parser
             list_item.text = item_text.slice(4, item_text.length)
           end
         end
-      elsif list_type == :olist
+      when :olist
         sibling_trait, implicit_style = resolve_ordered_list_marker(sibling_trait, (ordinal = list_block.items.size), true, reader)
         list_item.marker = sibling_trait
         if ordinal == 0 && !style
           # using list level makes more sense, but we don't track it
-          # basing style on marker level is compliant with AsciiDoc Python
-          list_block.style = implicit_style || ((ORDERED_LIST_STYLES[sibling_trait.length - 1] || 'arabic').to_s)
+          # basing style on marker level is compliant with AsciiDoc.py
+          list_block.style = implicit_style || (ORDERED_LIST_STYLES[sibling_trait.length - 1] || 'arabic').to_s
         end
         if item_text.start_with?('[[') && LeadingInlineAnchorRx =~ item_text
           catalog_inline_anchor $1, $2, list_item, reader
@@ -1443,13 +1442,62 @@ class Parser
       # FIXME to be AsciiDoc compliant, we shouldn't break if style in attribute line is "literal" (i.e., [literal])
       elsif dlist && continuation != :active && (BlockAttributeLineRx.match? this_line)
         break
-      else
-        if continuation == :active && !this_line.empty?
-          # literal paragraphs have special considerations (and this is one of
-          # two entry points into one)
-          # if we don't process it as a whole, then a line in it that looks like a
-          # list item will throw off the exit from it
-          if LiteralParagraphRx.match? this_line
+      elsif continuation == :active && !this_line.empty?
+        # literal paragraphs have special considerations (and this is one of
+        # two entry points into one)
+        # if we don't process it as a whole, then a line in it that looks like a
+        # list item will throw off the exit from it
+        if LiteralParagraphRx.match? this_line
+          reader.unshift_line this_line
+          if dlist
+            # we may be in an indented list disguised as a literal paragraph
+            # so we need to make sure we don't slurp up a legitimate sibling
+            buffer.concat reader.read_lines_until(preserve_last_line: true, break_on_blank_lines: true, break_on_list_continuation: true) {|line| is_sibling_list_item? line, list_type, sibling_trait }
+          else
+            buffer.concat reader.read_lines_until(preserve_last_line: true, break_on_blank_lines: true, break_on_list_continuation: true)
+          end
+          continuation = :inactive
+        # let block metadata play out until we find the block
+        elsif (BlockTitleRx.match? this_line) || (BlockAttributeLineRx.match? this_line) || (AttributeEntryRx.match? this_line)
+          buffer << this_line
+        else
+          if (nested_list_type = (within_nested_list ? [:dlist] : NESTABLE_LIST_CONTEXTS).find {|ctx| ListRxMap[ctx].match? this_line })
+            within_nested_list = true
+            if nested_list_type == :dlist && $3.nil_or_empty?
+              # get greedy again
+              has_text = false
+            end
+          end
+          buffer << this_line
+          continuation = :inactive
+        end
+      elsif prev_line && prev_line.empty?
+        # advance to the next line of content
+        if this_line.empty?
+          # stop reading if we reach eof
+          break unless (this_line = reader.skip_blank_lines && reader.read_line)
+          # stop reading if we hit a sibling list item
+          break if is_sibling_list_item? this_line, list_type, sibling_trait
+        end
+
+        if this_line == LIST_CONTINUATION
+          detached_continuation = buffer.size
+          buffer << this_line
+        elsif has_text # has_text only relevant for dlist, which is more greedy until it has text for an item; has_text is always true for all other lists
+          # in this block, we have to see whether we stay in the list
+          # TODO any way to combine this with the check after skipping blank lines?
+          if is_sibling_list_item?(this_line, list_type, sibling_trait)
+            break
+          elsif (nested_list_type = NESTABLE_LIST_CONTEXTS.find {|ctx| ListRxMap[ctx] =~ this_line })
+            buffer << this_line
+            within_nested_list = true
+            if nested_list_type == :dlist && $3.nil_or_empty?
+              # get greedy again
+              has_text = false
+            end
+          # slurp up any literal paragraph offset by blank lines
+          # NOTE we have to check for indented list items first
+          elsif LiteralParagraphRx.match? this_line
             reader.unshift_line this_line
             if dlist
               # we may be in an indented list disguised as a literal paragraph
@@ -1458,80 +1506,25 @@ class Parser
             else
               buffer.concat reader.read_lines_until(preserve_last_line: true, break_on_blank_lines: true, break_on_list_continuation: true)
             end
-            continuation = :inactive
-          # let block metadata play out until we find the block
-          elsif (BlockTitleRx.match? this_line) || (BlockAttributeLineRx.match? this_line) || (AttributeEntryRx.match? this_line)
-            buffer << this_line
           else
-            if nested_list_type = (within_nested_list ? [:dlist] : NESTABLE_LIST_CONTEXTS).find {|ctx| ListRxMap[ctx].match? this_line }
-              within_nested_list = true
-              if nested_list_type == :dlist && $3.nil_or_empty?
-                # get greedy again
-                has_text = false
-              end
-            end
-            buffer << this_line
-            continuation = :inactive
+            break
           end
-        elsif prev_line && prev_line.empty?
-          # advance to the next line of content
-          if this_line.empty?
-            # stop reading if we reach eof
-            break unless (this_line = reader.skip_blank_lines && reader.read_line)
-            # stop reading if we hit a sibling list item
-            break if is_sibling_list_item? this_line, list_type, sibling_trait
-          end
-
-          if this_line == LIST_CONTINUATION
-            detached_continuation = buffer.size
-            buffer << this_line
-          else
-            # has_text is only relevant for dlist, which is more greedy until it has text for an item
-            # for all other lists, has_text is always true
-            # in this block, we have to see whether we stay in the list
-            if has_text
-              # TODO any way to combine this with the check after skipping blank lines?
-              if is_sibling_list_item?(this_line, list_type, sibling_trait)
-                break
-              elsif nested_list_type = NESTABLE_LIST_CONTEXTS.find {|ctx| ListRxMap[ctx] =~ this_line }
-                buffer << this_line
-                within_nested_list = true
-                if nested_list_type == :dlist && $3.nil_or_empty?
-                  # get greedy again
-                  has_text = false
-                end
-              # slurp up any literal paragraph offset by blank lines
-              # NOTE we have to check for indented list items first
-              elsif LiteralParagraphRx.match? this_line
-                reader.unshift_line this_line
-                if dlist
-                  # we may be in an indented list disguised as a literal paragraph
-                  # so we need to make sure we don't slurp up a legitimate sibling
-                  buffer.concat reader.read_lines_until(preserve_last_line: true, break_on_blank_lines: true, break_on_list_continuation: true) {|line| is_sibling_list_item? line, list_type, sibling_trait }
-                else
-                  buffer.concat reader.read_lines_until(preserve_last_line: true, break_on_blank_lines: true, break_on_list_continuation: true)
-                end
-              else
-                break
-              end
-            else # only dlist in need of item text, so slurp it up!
-              # pop the blank line so it's not interpretted as a list continuation
-              buffer.pop unless within_nested_list
-              buffer << this_line
-              has_text = true
-            end
-          end
-        else
-          has_text = true unless this_line.empty?
-          if nested_list_type = (within_nested_list ? [:dlist] : NESTABLE_LIST_CONTEXTS).find {|ctx| ListRxMap[ctx] =~ this_line }
-            within_nested_list = true
-            if nested_list_type == :dlist && $3.nil_or_empty?
-              # get greedy again
-              has_text = false
-            end
-          end
+        else # only dlist in need of item text, so slurp it up!
+          # pop the blank line so it's not interpretted as a list continuation
+          buffer.pop unless within_nested_list
           buffer << this_line
+          has_text = true
         end
+      else
+        has_text = true unless this_line.empty?
+        if (nested_list_type = (within_nested_list ? [:dlist] : NESTABLE_LIST_CONTEXTS).find {|ctx| ListRxMap[ctx] =~ this_line })
+          within_nested_list = true
+          if nested_list_type == :dlist && $3.nil_or_empty?
+            # get greedy again
+            has_text = false
+          end
+        end
+        buffer << this_line
       end
       this_line = nil
     end
@@ -1572,12 +1565,6 @@ class Parser
     sect_style = attributes[1]
     sect_id, sect_reftext, sect_title, sect_level, sect_atx = parse_section_title reader, document, attributes['id']
 
-    if sect_reftext
-      attributes['reftext'] = sect_reftext
-    else
-      sect_reftext = attributes['reftext']
-    end
-
     if sect_style
       if book && sect_style == 'abstract'
         sect_name, sect_level = 'chapter', 1
@@ -1596,6 +1583,7 @@ class Parser
       sect_name = 'section'
     end
 
+    attributes['reftext'] = sect_reftext if sect_reftext
     section = Section.new parent, sect_level
     section.id, section.title, section.sectname, section.source_location = sect_id, sect_title, sect_name, source_location
     if sect_special
@@ -1603,7 +1591,7 @@ class Parser
       if sect_numbered
         section.numbered = true
       elsif document.attributes['sectnums'] == 'all'
-        section.numbered = book && sect_level == 1 ? :chapter : true
+        section.numbered = (book && sect_level == 1 ? :chapter : true)
       end
     elsif document.attributes['sectnums'] && sect_level > 0
       # NOTE a special section here is guaranteed to be nested in another section
@@ -1615,7 +1603,7 @@ class Parser
     # generate an ID if one was not embedded or specified as anchor above section title
     if (id = section.id || (section.id = (document.attributes.key? 'sectids') ? (generated_id = Section.generate_id section.title, document) : nil))
       # convert title to resolve attributes while in scope
-      section.title if sect_title.include? ATTR_REF_HEAD unless generated_id
+      section.title unless generated_id || !(sect_title.include? ATTR_REF_HEAD)
       unless document.register :refs, [id, section]
         logger.warn message_with_context %(id assigned to section already in use: #{id}), source_location: (reader.cursor_at_line reader.lineno - (sect_atx ? 1 : 2))
       end
@@ -1634,9 +1622,8 @@ class Parser
   #
   # Returns the Integer section level if the Reader is positioned at a section title or nil otherwise
   def self.is_next_line_section?(reader, attributes)
-    if (style = attributes[1]) && (style == 'discrete' || style == 'float')
-      return
-    elsif Compliance.underline_style_section_titles
+    return if (style = attributes[1]) && (style == 'discrete' || style == 'float')
+    if Compliance.underline_style_section_titles
       next_lines = reader.peek_lines 2, style && style == 'comment'
       is_section_title?(next_lines[0] || '', next_lines[1])
     else
@@ -1877,13 +1864,12 @@ class Parser
         if explicit
           # rebuild implicit author names to reparse
           authors.each_with_index do |author, idx|
-            unless author
-              authors[idx] = [
-                author_metadata[%(firstname_#{name_idx = idx + 1})],
-                author_metadata[%(middlename_#{name_idx})],
-                author_metadata[%(lastname_#{name_idx})]
-              ].compact.map {|it| it.tr ' ', '_' }.join ' '
-            end
+            next if author
+            authors[idx] = [
+              author_metadata[%(firstname_#{name_idx = idx + 1})],
+              author_metadata[%(middlename_#{name_idx})],
+              author_metadata[%(lastname_#{name_idx})]
+            ].compact.map {|it| it.tr ' ', '_' }.join ' '
           end if sparse
           # process as names only
           author_metadata = process_authors authors, true, false
@@ -2066,6 +2052,7 @@ class Parser
         return true
       end
     end
+    nil
   end
 
   # Process consecutive attribute entry lines, ignoring adjacent line comments and comment blocks.
@@ -2170,9 +2157,10 @@ class Parser
   #
   # Returns the String 0-index marker for this list item
   def self.resolve_list_marker(list_type, marker, ordinal = 0, validate = false, reader = nil)
-    if list_type == :ulist
+    case list_type
+    when :ulist
       marker
-    elsif list_type == :olist
+    when :olist
       resolve_ordered_list_marker(marker, ordinal, validate, reader)[0]
     else # :colist
       '<1>'
@@ -2475,7 +2463,7 @@ class Parser
 
     if pos == :start
       if line.include? delimiter
-        spec_part, delimiter, rest = line.partition delimiter
+        spec_part, _, rest = line.partition delimiter
         if (m = CellSpecStartRx.match spec_part)
           return [{}, rest] if m[0].empty?
         else
@@ -2484,14 +2472,12 @@ class Parser
       else
         return [nil, line]
       end
-    else # pos == :end
-      if (m = CellSpecEndRx.match line)
-        # NOTE return the line stripped of trailing whitespace if no cellspec is found in this case
-        return [{}, line.rstrip] if m[0].lstrip.empty?
-        rest = m.pre_match
-      else
-        return [{}, line]
-      end
+    elsif (m = CellSpecEndRx.match line) # when pos == :end
+      # NOTE return the line stripped of trailing whitespace if no cellspec is found in this case
+      return [{}, line.rstrip] if m[0].lstrip.empty?
+      rest = m.pre_match
+    else
+      return [{}, line]
     end
 
     spec = {}
@@ -2499,10 +2485,11 @@ class Parser
       colspec, rowspec = m[1].split '.'
       colspec = colspec.nil_or_empty? ? 1 : colspec.to_i
       rowspec = rowspec.nil_or_empty? ? 1 : rowspec.to_i
-      if m[2] == '+'
+      case m[2]
+      when '+'
         spec['colspan'] = colspec unless colspec == 1
         spec['rowspan'] = rowspec unless rowspec == 1
-      elsif m[2] == '*'
+      when '*'
         spec['repeatcol'] = colspec unless colspec == 1
       end
     end
@@ -2527,7 +2514,7 @@ class Parser
   # Public: Parse the first positional attribute and assign named attributes
   #
   # Parse the first positional attribute to extract the style, role and id
-  # parts, assign the values to their cooresponding attribute keys and return
+  # parts, assign the values to their corresponding attribute keys and return
   # the parsed style from the first positional attribute.
   #
   # attributes - The Hash of attributes to process and update
@@ -2567,7 +2554,7 @@ class Parser
           accum = ''
           name = :option
         else
-          accum = accum + c
+          accum += c
         end
       end
 
@@ -2658,9 +2645,9 @@ class Parser
     if tab_size > 0 && lines.any? {|line| line.include? TAB }
       full_tab_space = ' ' * tab_size
       lines.map! do |line|
-        if line.empty?
+        if line.empty? || (tab_idx = line.index TAB).nil?
           line
-        elsif (tab_idx = line.index TAB)
+        else
           if tab_idx == 0
             leading_tabs = 0
             line.each_byte do |b|
@@ -2678,22 +2665,20 @@ class Parser
             if c == TAB
               # calculate how many spaces this tab represents, then replace tab with spaces
               if (offset = idx + spaces_added) % tab_size == 0
-                spaces_added += (tab_size - 1)
-                result = result + full_tab_space
+                spaces_added += tab_size - 1
+                result += full_tab_space
               else
                 unless (spaces = tab_size - offset % tab_size) == 1
-                  spaces_added += (spaces - 1)
+                  spaces_added += spaces - 1
                 end
-                result = result + (' ' * spaces)
+                result += ' ' * spaces
               end
             else
-              result = result + c
+              result += c
             end
             idx += 1
           end
           result
-        else
-          line
         end
       end
     end

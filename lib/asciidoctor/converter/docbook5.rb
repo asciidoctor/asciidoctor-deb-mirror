@@ -1,15 +1,15 @@
 # frozen_string_literal: true
 module Asciidoctor
 # A built-in {Converter} implementation that generates DocBook 5 output. The output is inspired by the output produced
-# by the docbook45 backend from AsciiDoc Python, except it has been migrated to the DocBook 5 specification.
+# by the docbook45 backend from AsciiDoc.py, except it has been migrated to the DocBook 5 specification.
 class Converter::DocBook5Converter < Converter::Base
   register_for 'docbook5'
 
   # default represents variablelist
   (DLIST_TAGS = {
-    'qanda' => { list:  'qandaset', entry: 'qandaentry', label: 'question', term:  'simpara', item:  'answer' },
-    'glossary' => { list:  nil, entry: 'glossentry', term:  'glossterm', item:  'glossdef' },
-  }).default = { list:  'variablelist', entry: 'varlistentry', term: 'term', item:  'listitem' }
+    'qanda' => { list: 'qandaset', entry: 'qandaentry', label: 'question', term: 'simpara', item: 'answer' },
+    'glossary' => { list: nil, entry: 'glossentry', term: 'glossterm', item: 'glossdef' },
+  }).default = { list: 'variablelist', entry: 'varlistentry', term: 'term', item: 'listitem' }
 
   (QUOTE_TAGS = {
     monospaced:  ['<literal>', '</literal>'],
@@ -25,7 +25,7 @@ class Converter::DocBook5Converter < Converter::Base
   MANPAGE_SECTION_TAGS = { 'section' => 'refsection', 'synopsis' => 'refsynopsisdiv' }
   TABLE_PI_NAMES = ['dbhtml', 'dbfo', 'dblatex']
 
-  CopyrightRx = /^(#{CC_ANY}+?)(?: ((?:\d{4}\-)?\d{4}))?$/
+  CopyrightRx = /^(#{CC_ANY}+?)(?: ((?:\d{4}-)?\d{4}))?$/
   ImageMacroRx = /^image::?(\S|\S#{CC_ANY}*?\S)\[(#{CC_ANY}+)?\]$/
 
   def initialize backend, opts = {}
@@ -41,7 +41,8 @@ class Converter::DocBook5Converter < Converter::Base
     if (root_tag_name = node.doctype) == 'manpage'
       root_tag_name = 'refentry'
     end
-    result << %(<#{root_tag_name} xmlns="http://docbook.org/ns/docbook" xmlns:xl="http://www.w3.org/1999/xlink" version="5.0"#{lang_attribute}#{common_attributes node.id}>)
+    root_tag_idx = result.size
+    id = node.id
     result << (document_info_tag node) unless node.noheader
     unless (docinfo_content = node.docinfo :header).empty?
       result << docinfo_content
@@ -50,6 +51,9 @@ class Converter::DocBook5Converter < Converter::Base
     unless (docinfo_content = node.docinfo :footer).empty?
       result << docinfo_content
     end
+    id, node.id = node.id, nil unless id
+    # defer adding root tag in case document ID is auto-generated on demand
+    result.insert root_tag_idx, %(<#{root_tag_name} xmlns="http://docbook.org/ns/docbook" xmlns:xl="http://www.w3.org/1999/xlink" version="5.0"#{lang_attribute}#{common_attributes id}>)
     result << %(</#{root_tag_name}>)
     result.join LF
   end
@@ -298,13 +302,13 @@ class Converter::DocBook5Converter < Converter::Base
 </abstract>)
       end
     when 'partintro'
-      unless node.level == 0 && node.parent.context == :section && node.document.doctype == 'book'
-        logger.error 'partintro block can only be used when doctype is book and must be a child of a book part. Excluding block content.'
-        ''
-      else
+      if node.level == 0 && node.parent.context == :section && node.document.doctype == 'book'
         %(<partintro#{common_attributes node.id, node.role, node.reftext}>
 #{title_tag node}#{enclose_content node}
 </partintro>)
+      else
+        logger.error 'partintro block can only be used when doctype is book and must be a child of a book part. Excluding block content.'
+        ''
       end
     else
       reftext = node.reftext if (id = node.id)
@@ -374,19 +378,19 @@ class Converter::DocBook5Converter < Converter::Base
     frame = 'topbot' if (frame = node.attr 'frame', 'all', 'table-frame') == 'ends'
     grid = node.attr 'grid', nil, 'table-grid'
     result << %(<#{tag_name = node.title? ? 'table' : 'informaltable'}#{common_attributes node.id, node.role, node.reftext}#{pgwide_attribute} frame="#{frame}" rowsep="#{['none', 'cols'].include?(grid) ? 0 : 1}" colsep="#{['none', 'rows'].include?(grid) ? 0 : 1}"#{(node.attr? 'orientation', 'landscape', 'table-orientation') ? ' orient="land"' : ''}>)
-    if (node.option? 'unbreakable')
+    if node.option? 'unbreakable'
       result << '<?dbfo keep-together="always"?>'
-    elsif (node.option? 'breakable')
+    elsif node.option? 'breakable'
       result << '<?dbfo keep-together="auto"?>'
     end
     result << %(<title>#{node.title}</title>) if tag_name == 'table'
-    col_width_key = if (width = (node.attr? 'width') ? (node.attr 'width') : nil)
+    if (width = (node.attr? 'width') ? (node.attr 'width') : nil)
       TABLE_PI_NAMES.each do |pi_name|
         result << %(<?#{pi_name} table-width="#{width}"?>)
       end
-      'colabswidth'
+      col_width_key = 'colabswidth'
     else
-      'colpcwidth'
+      col_width_key = 'colpcwidth'
     end
     result << %(<tgroup cols="#{node.attr 'colcount'}">)
     node.columns.each do |col|
@@ -474,10 +478,16 @@ class Converter::DocBook5Converter < Converter::Base
       %(<anchor#{common_attributes((id = node.id), nil, node.reftext || %([#{id}]))}/>)
     when :xref
       if (path = node.attributes['path'])
-        # QUESTION should we use refid as fallback text instead? (like the html5 backend?)
         %(<link xl:href="#{node.target}">#{node.text || path}</link>)
       else
-        linkend = node.attributes['fragment'] || node.target
+        if (linkend = node.attributes['refid']).nil_or_empty?
+          root_doc = get_root_document node
+          # Q: should we warn instead of generating a document ID on demand?
+          linkend = (root_doc.id ||= generate_document_id root_doc)
+        end
+        # NOTE the xref tag in DocBook does not support explicit link text, so the link tag must be used instead
+        # The section at http://www.sagehill.net/docbookxsl/CrossRefs.html#IdrefLinks gives an explanation for this choice
+        # "link - a cross reference where you supply the text of the reference as the content of the link element."
         (text = node.text) ? %(<link linkend="#{linkend}">#{text}</link>) : %(<xref linkend="#{linkend}"/>)
       end
     when :link
@@ -533,9 +543,8 @@ class Converter::DocBook5Converter < Converter::Base
       %(<indexterm>
 <primary>#{node.text}</primary>#{rel}
 </indexterm>#{node.text})
-    else
-      if (numterms = (terms = node.attr 'terms').size) > 2
-        %(<indexterm>
+    elsif (numterms = (terms = node.attr 'terms').size) > 2
+      %(<indexterm>
 <primary>#{terms[0]}</primary><secondary>#{terms[1]}</secondary><tertiary>#{terms[2]}</tertiary>#{rel}
 </indexterm>#{(node.document.option? 'indexterm-promotion') ? %[
 <indexterm>
@@ -544,18 +553,17 @@ class Converter::DocBook5Converter < Converter::Base
 <indexterm>
 <primary>#{terms[2]}</primary>
 </indexterm>] : ''})
-      elsif numterms > 1
-        %(<indexterm>
+    elsif numterms > 1
+      %(<indexterm>
 <primary>#{terms[0]}</primary><secondary>#{terms[1]}</secondary>#{rel}
-</indexterm>#{(node.document.option?  'indexterm-promotion') ? %[
+</indexterm>#{(node.document.option? 'indexterm-promotion') ? %[
 <indexterm>
 <primary>#{terms[1]}</primary>
 </indexterm>] : ''})
-      else
-        %(<indexterm>
+    else
+      %(<indexterm>
 <primary>#{terms[0]}</primary>#{rel}
 </indexterm>)
-      end
     end
   end
 
@@ -708,6 +716,17 @@ class Converter::DocBook5Converter < Converter::Base
     end
 
     result.join LF
+  end
+
+  def get_root_document node
+    while (node = node.document).nested?
+      node = node.parent_document
+    end
+    node
+  end
+
+  def generate_document_id doc
+    %(__#{doc.doctype}-root__)
   end
 
   # FIXME this should be handled through a template mechanism

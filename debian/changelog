@@ -2,6 +2,7 @@ asciidoctor (2.0.16-1) unstable; urgency=medium
 
   * Team upload.
   * New upstream release.
+    - Fixes several issues with manpage backend (closes: #972842).
   * d/control (Standards-Version): Bump to 4.6.0.
     (Build-Depends): Add cucumber to run feature tests.
   * d/copyright: Add Upstream-Contact field.

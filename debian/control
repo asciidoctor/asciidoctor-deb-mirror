@@ -20,7 +20,7 @@ Build-Depends: coderay,
                ruby-rouge,
                ruby-slim,
                ruby-tilt
-Standards-Version: 4.5.1
+Standards-Version: 4.6.0
 Vcs-Git: https://salsa.debian.org/ruby-team/asciidoctor.git
 Vcs-Browser: https://salsa.debian.org/ruby-team/asciidoctor
 Homepage: https://asciidoctor.org

@@ -2,6 +2,10 @@ asciidoctor (2.0.16-1) UNRELEASED; urgency=medium
 
   * Team upload.
   * New upstream release.
+  * d/control (Standards-Version): Bump to 4.6.0.
+  * d/copyright: Add Upstream-Contact field.
+    (Copyright): Update.
+  * d/upstream/metadata: Complete file.
 
  -- Daniel Leidert <dleidert@debian.org>  Sat, 11 Sep 2021 06:03:55 +0200
 

@@ -399,9 +399,9 @@ context 'Document' do
     test 'convert methods on built-in converter are registered by default' do
       doc = document_from_string ''
       assert_equal 'html5', doc.attributes['backend']
-      assert doc.attributes.has_key? 'backend-html5'
+      assert doc.attributes.key? 'backend-html5'
       assert_equal 'html', doc.attributes['basebackend']
-      assert doc.attributes.has_key? 'basebackend-html'
+      assert doc.attributes.key? 'basebackend-html'
       converter = doc.converter
       assert_kind_of Asciidoctor::Converter::Html5Converter, converter
       BUILT_IN_ELEMENTS.each do |element|
@@ -413,9 +413,9 @@ context 'Document' do
       doc = document_from_string '', attributes: { 'backend' => 'docbook5' }
       converter = doc.converter
       assert_equal 'docbook5', doc.attributes['backend']
-      assert doc.attributes.has_key? 'backend-docbook5'
+      assert doc.attributes.key? 'backend-docbook5'
       assert_equal 'docbook', doc.attributes['basebackend']
-      assert doc.attributes.has_key? 'basebackend-docbook'
+      assert doc.attributes.key? 'basebackend-docbook'
       converter = doc.converter
       assert_kind_of Asciidoctor::Converter::DocBook5Converter, converter
       BUILT_IN_ELEMENTS.each do |element|
@@ -634,6 +634,18 @@ context 'Document' do
       assert_xpath '//*[@id="preamble"]//p[text()="Document Title"]', doc.convert, 1
     end
 
+    test 'document header can reference intrinsic doctitle attribute' do
+      input = <<~'EOS'
+      = ACME Documentation
+      :intro: Welcome to the {doctitle}!
+
+      {intro}
+      EOS
+      doc = document_from_string input
+      assert_equal 'Welcome to the ACME Documentation!', (doc.attr 'intro')
+      assert_xpath '//p[text()="Welcome to the ACME Documentation!"]', doc.convert, 1
+    end
+
     test 'document with title attribute entry overrides doctitle attribute entry' do
       input = <<~'EOS'
       = Document Title
@@ -691,19 +703,86 @@ context 'Document' do
       assert_xpath '//*[@id="preamble"]//p[text()="Override"]', doc.convert, 1
     end
 
-    test 'header substitutions should be applied to the value of the doctitle attribute' do
+    test 'should apply header substitutions to value of the doctitle attribute assigned from implicit doctitle' do
       input = <<~'EOS'
-      = <Foo> & <Bar>
+      = <Foo> {plus} <Bar>
 
       The name of the game is {doctitle}.
       EOS
 
       doc = document_from_string input
-      assert_equal '&lt;Foo&gt; &amp; &lt;Bar&gt;', (doc.attr 'doctitle')
-      assert_includes doc.blocks[0].content, '&lt;Foo&gt; &amp; &lt;Bar&gt;'
+      assert_equal '&lt;Foo&gt; &#43; &lt;Bar&gt;', (doc.attr 'doctitle')
+      assert_includes doc.blocks[0].content, '&lt;Foo&gt; &#43; &lt;Bar&gt;'
+    end
+
+    test 'should substitute attribute reference in implicit document title for attribute defined earlier in header' do
+      using_memory_logger do |logger|
+        input = <<~'EOS'
+        :project-name: ACME
+        = {project-name} Docs
+
+        {doctitle}
+        EOS
+        doc = document_from_string input, attributes: { 'attribute-missing' => 'warn' }
+        assert_empty logger
+        assert_equal 'ACME Docs', (doc.attr 'doctitle')
+        assert_equal 'ACME Docs', doc.doctitle
+        assert_xpath '//p[text()="ACME Docs"]', doc.convert, 1
+      end
+    end
+
+    test 'should not warn if implicit document title contains attribute reference for attribute defined later in header' do
+      using_memory_logger do |logger|
+        input = <<~'EOS'
+        = {project-name} Docs
+        :project-name: ACME
+
+        {doctitle}
+        EOS
+        doc = document_from_string input, attributes: { 'attribute-missing' => 'warn' }
+        assert_empty logger
+        assert_equal '{project-name} Docs', (doc.attr 'doctitle')
+        assert_equal 'ACME Docs', doc.doctitle
+        assert_xpath '//p[text()="{project-name} Docs"]', doc.convert, 1
+      end
     end
 
     test 'should recognize document title when preceded by blank lines' do
+      input = <<~'EOS'
+
+      = Title
+
+      preamble
+
+      == Section 1
+
+      text
+      EOS
+      output = convert_string input, safe: Asciidoctor::SafeMode::SAFE
+      assert_css '#header h1', output, 1
+      assert_css '#content h1', output, 0
+    end
+
+    test 'should recognize document title when preceded by blank lines introduced by a preprocessor conditional' do
+      input = <<~'EOS'
+      ifdef::sectids[]
+
+      :foo: bar
+      endif::[]
+      = Title
+
+      preamble
+
+      == Section 1
+
+      text
+      EOS
+      output = convert_string input, safe: Asciidoctor::SafeMode::SAFE
+      assert_css '#header h1', output, 1
+      assert_css '#content h1', output, 0
+    end
+
+    test 'should recognize document title when preceded by blank lines after an attribute entry' do
       input = <<~'EOS'
       :doctype: book
 
@@ -1839,6 +1918,25 @@ context 'Document' do
       assert_xpath '/h2[text()="NAME"]/following-sibling::*[@class="sectionbody"]', output, 1
       assert_xpath '/h2[text()="NAME"]/following-sibling::*[@class="sectionbody"]/p[text()="asciidoctor - converts AsciiDoc source files to HTML, DocBook and other formats"]', output, 1
     end
+
+    test 'should output all mannames in name section in man page output' do
+      input = <<~'EOS'
+      = eve(1)
+      :doctype: manpage
+
+      == NAME
+
+      eve, probe - analyzes an image to determine if it is a picture of a life form
+
+      == SYNOPSIS
+
+      *eve* [OPTION]... FILE...
+      EOS
+
+      output = convert_string input
+      assert_css 'body.manpage', output, 1
+      assert_xpath '//h2[text()="NAME"]/following-sibling::*[@class="sectionbody"]/p[text()="eve, probe - analyzes an image to determine if it is a picture of a life form"]', output, 1
+    end
   end
 
   context 'Secure Asset Path' do
@@ -1919,7 +2017,7 @@ context 'Document' do
 
   context 'Date time attributes' do
     test 'should compute docyear and docdatetime from docdate and doctime' do
-      doc = Asciidoctor::Document.new [], attributes: {'docdate' => '2015-01-01', 'doctime' => '10:00:00-0700'}
+      doc = Asciidoctor::Document.new [], attributes: { 'docdate' => '2015-01-01', 'doctime' => '10:00:00-0700' }
       assert_equal '2015-01-01', (doc.attr 'docdate')
       assert_equal '2015', (doc.attr 'docyear')
       assert_equal '10:00:00-0700', (doc.attr 'doctime')
@@ -1927,7 +2025,7 @@ context 'Document' do
     end
 
     test 'should allow docdate and doctime to be overridden' do
-      doc = Asciidoctor::Document.new [], input_mtime: ::Time.now, attributes: {'docdate' => '2015-01-01', 'doctime' => '10:00:00-0700'}
+      doc = Asciidoctor::Document.new [], input_mtime: ::Time.now, attributes: { 'docdate' => '2015-01-01', 'doctime' => '10:00:00-0700' }
       assert_equal '2015-01-01', (doc.attr 'docdate')
       assert_equal '2015', (doc.attr 'docyear')
       assert_equal '10:00:00-0700', (doc.attr 'doctime')
@@ -1935,13 +2033,13 @@ context 'Document' do
     end
 
     test 'should compute docdatetime from doctime' do
-      doc = Asciidoctor::Document.new [], attributes: {'doctime' => '10:00:00-0700'}
+      doc = Asciidoctor::Document.new [], attributes: { 'doctime' => '10:00:00-0700' }
       assert_equal '10:00:00-0700', (doc.attr 'doctime')
       assert (doc.attr 'docdatetime').end_with?(' 10:00:00-0700')
     end
 
     test 'should compute docyear from docdate' do
-      doc = Asciidoctor::Document.new [], attributes: {'docdate' => '2015-01-01'}
+      doc = Asciidoctor::Document.new [], attributes: { 'docdate' => '2015-01-01' }
       assert_equal '2015', (doc.attr 'docyear')
       assert (doc.attr 'docdatetime').start_with?('2015-01-01 ')
     end
@@ -1949,7 +2047,7 @@ context 'Document' do
     test 'should allow doctime to be overridden' do
       old_source_date_epoch = ENV.delete 'SOURCE_DATE_EPOCH'
       begin
-        doc = Asciidoctor::Document.new [], input_mtime: ::Time.new(2019, 01, 02, 3, 4, 5, "+06:00"), attributes: {'doctime' => '10:00:00-0700'}
+        doc = Asciidoctor::Document.new [], input_mtime: ::Time.new(2019, 1, 2, 3, 4, 5, "+06:00"), attributes: { 'doctime' => '10:00:00-0700' }
         assert_equal '2019-01-02', (doc.attr 'docdate')
         assert_equal '2019', (doc.attr 'docyear')
         assert_equal '10:00:00-0700', (doc.attr 'doctime')
@@ -1962,7 +2060,7 @@ context 'Document' do
     test 'should allow docdate to be overridden' do
       old_source_date_epoch = ENV.delete 'SOURCE_DATE_EPOCH'
       begin
-        doc = Asciidoctor::Document.new [], input_mtime: ::Time.new(2019, 01, 02, 3, 4, 5, "+06:00"), attributes: {'docdate' => '2015-01-01'}
+        doc = Asciidoctor::Document.new [], input_mtime: ::Time.new(2019, 1, 2, 3, 4, 5, "+06:00"), attributes: { 'docdate' => '2015-01-01' }
         assert_equal '2015-01-01', (doc.attr 'docdate')
         assert_equal '2015', (doc.attr 'docyear')
         assert_equal '2015-01-01 03:04:05 +0600', (doc.attr 'docdatetime')

@@ -1,3 +1,4 @@
+# frozen_string_literal: true
 module Asciidoctor
   class << self
     # Public: Parse the AsciiDoc source input into a {Document}
@@ -20,8 +21,8 @@ module Asciidoctor
         timings.start :read
       end
 
-      if (logger = options[:logger]) && logger != LoggerManager.logger
-        LoggerManager.logger = logger
+      if (options.key? :logger) && (logger = options[:logger]) != LoggerManager.logger
+        LoggerManager.logger = logger || NullLogger.new
       end
 
       if !(attrs = options[:attributes])
@@ -53,7 +54,8 @@ module Asciidoctor
       end
 
       if ::File === input
-        options[:input_mtime] = input.mtime
+        # File#mtime on JRuby 9.1 for Windows doesn't honor TZ environment variable; see https://github.com/jruby/jruby/issues/6659
+        options[:input_mtime] = RUBY_ENGINE == 'jruby' ? (::Time.at input.mtime.to_i) : input.mtime
         # NOTE defer setting infile and indir until we get a better sense of their purpose
         # TODO cli checks if input path can be read and is file, but might want to add check to API too
         attrs['docfile'] = input_path = ::File.absolute_path input.path
@@ -83,23 +85,23 @@ module Asciidoctor
 
       timings.record :parse if timings
       doc
-    rescue => ex
+    rescue => e
       begin
         context = %(asciidoctor: FAILED: #{attrs['docfile'] || '<stdin>'}: Failed to load AsciiDoc document)
-        if ex.respond_to? :exception
+        if e.respond_to? :exception
           # The original message must be explicitly preserved when wrapping a Ruby exception
-          wrapped_ex = ex.exception %(#{context} - #{ex.message})
+          wrapped_e = e.exception %(#{context} - #{e.message})
           # JRuby automatically sets backtrace; MRI did not until 2.6
-          wrapped_ex.set_backtrace ex.backtrace
+          wrapped_e.set_backtrace e.backtrace
         else
           # Likely a Java exception class
-          wrapped_ex = ex.class.new context, ex
-          wrapped_ex.stack_trace = ex.stack_trace
+          wrapped_e = e.class.new context, e
+          wrapped_e.stack_trace = e.stack_trace
         end
       rescue
-        wrapped_ex = ex
+        wrapped_e = e
       end
-      raise wrapped_ex
+      raise wrapped_e
     end
 
     # Public: Parse the contents of the AsciiDoc source file into an Asciidoctor::Document

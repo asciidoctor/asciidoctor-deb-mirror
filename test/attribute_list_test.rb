@@ -56,7 +56,7 @@ context 'AttributeList' do
     expected = { 1 => '\'' }
     doc = empty_document
     def doc.apply_subs *args
-      fail 'apply_subs should not be called'
+      raise 'apply_subs should not be called'
     end
     Asciidoctor::AttributeList.new(line, doc).parse_into(attributes)
     assert_equal expected, attributes
@@ -68,7 +68,7 @@ context 'AttributeList' do
     expected = { 'name' => '\'' }
     doc = empty_document
     def doc.apply_subs *args
-      fail 'apply_subs should not be called'
+      raise 'apply_subs should not be called'
     end
     Asciidoctor::AttributeList.new(line, doc).parse_into(attributes)
     assert_equal expected, attributes
@@ -80,7 +80,7 @@ context 'AttributeList' do
     expected = { 'name' => '\'{val}' }
     doc = empty_document attributes: { 'val' => 'val' }
     def doc.apply_subs *args
-      fail 'apply_subs should not be called'
+      raise 'apply_subs should not be called'
     end
     Asciidoctor::AttributeList.new(line, doc).parse_into(attributes)
     assert_equal expected, attributes
@@ -259,6 +259,14 @@ context 'AttributeList' do
     line = 'first, second one, third, fourth'
     expected = { 1 => 'first', 2 => 'second one', 3 => 'third', 4 => 'fourth', 'a' => 'first', 'b' => 'second one', 'c' => 'third' }
     Asciidoctor::AttributeList.new(line).parse_into(attributes, ['a', 'b', 'c'])
+    assert_equal expected, attributes
+  end
+
+  test 'should not assign nil to attribute mapped to missing positional attribute' do
+    attributes = {}
+    line = 'alt text,,100'
+    expected = { 1 => 'alt text', 2 => nil, 3 => '100', 'alt' => 'alt text', 'height' => '100' }
+    Asciidoctor::AttributeList.new(line).parse_into(attributes, %w(alt width height))
     assert_equal expected, attributes
   end
 

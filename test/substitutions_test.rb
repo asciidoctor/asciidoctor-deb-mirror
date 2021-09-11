@@ -505,6 +505,16 @@ context 'Substitutions' do
       assert_equal para.source, para.sub_quotes(para.source)
     end
 
+    test 'allow spaces in superscript if spaces are inserted using an attribute reference' do
+      para = block_from_string 'Night ^A{sp}poem{sp}by{sp}Jane{sp}Kondo^.'
+      assert_equal 'Night <sup>A poem by Jane Kondo</sup>.', para.apply_subs(para.source)
+    end
+
+    test 'allow spaces in superscript if text is wrapped in a passthrough' do
+      para = block_from_string 'Night ^+A poem by Jane Kondo+^.'
+      assert_equal 'Night <sup>A poem by Jane Kondo</sup>.', para.apply_subs(para.source)
+    end
+
     test 'does not match adjacent superscript chars' do
       para = block_from_string 'a ^^ b'
       assert_equal 'a ^^ b', para.sub_quotes(para.source)
@@ -555,9 +565,29 @@ context 'Substitutions' do
       assert_equal '<span id="bond" class="white red-background">007</span>', para.sub_quotes(para.source)
     end
 
+    test 'quoted text with id and role shorthand with roles before id' do
+      para = block_from_string(%q{[.white.red-background#bond]#007#})
+      assert_equal '<span id="bond" class="white red-background">007</span>', para.sub_quotes(para.source)
+    end
+
+    test 'quoted text with id and role shorthand with roles around id' do
+      para = block_from_string(%q{[.white#bond.red-background]#007#})
+      assert_equal '<span id="bond" class="white red-background">007</span>', para.sub_quotes(para.source)
+    end
+
     test 'quoted text with id and role shorthand using docbook backend' do
       para = block_from_string(%q{[#bond.white.red-background]#007#}, backend: 'docbook')
       assert_equal '<anchor xml:id="bond" xreflabel="007"/><phrase role="white red-background">007</phrase>', para.sub_quotes(para.source)
+    end
+
+    test 'should not assign role attribute if shorthand style has no roles' do
+      para = block_from_string '[#idname]*blah*'
+      assert_equal '<strong id="idname">blah</strong>', para.content
+    end
+
+    test 'should remove trailing spaces from role defined using shorthand' do
+      para = block_from_string '[.rolename ]*blah*'
+      assert_equal '<strong class="rolename">blah</strong>', para.content
     end
 
     test 'should ignore attributes after comma' do
@@ -565,16 +595,21 @@ context 'Substitutions' do
       assert_equal '<span class="red">alert</span>', para.sub_quotes(para.source)
     end
 
+    test 'should remove leading and trailing spaces around role after ignoring attributes after comma' do
+      para = block_from_string(%q{[ red , foobar]#alert#})
+      assert_equal '<span class="red">alert</span>', para.sub_quotes(para.source)
+    end
+
+    test 'should not assign role if value before comma is empty' do
+      para = block_from_string(%q{[,]#anonymous#})
+      assert_equal 'anonymous', para.sub_quotes(para.source)
+    end
+
     test 'inline passthrough with id and role set using shorthand' do
       %w(#idname.rolename .rolename#idname).each do |attrlist|
         para = block_from_string %([#{attrlist}]+pass+)
         assert_equal '<span id="idname" class="rolename">pass</span>', para.content
       end
-    end
-
-    test 'should not assign role attribute if shorthand style has no roles' do
-      para = block_from_string '[#idname]*blah*'
-      assert_equal '<strong id="idname">blah</strong>', para.content
     end
   end
 
@@ -612,6 +647,11 @@ context 'Substitutions' do
     test 'a mailto macro with subject and body only should use e-mail as text' do
       para = block_from_string('mailto:doc.writer@asciidoc.org[,Pull request,Please accept my pull request]')
       assert_equal %q{<a href="mailto:doc.writer@asciidoc.org?subject=Pull+request&amp;body=Please+accept+my+pull+request">doc.writer@asciidoc.org</a>}, para.sub_macros(para.source)
+    end
+
+    test 'a mailto macro supports id and role attributes' do
+      para = block_from_string('mailto:doc.writer@asciidoc.org[,id=contact,role=icon]')
+      assert_equal %q{<a href="mailto:doc.writer@asciidoc.org" id="contact" class="icon">doc.writer@asciidoc.org</a>}, para.sub_macros(para.source)
     end
 
     test 'should recognize inline email addresses' do
@@ -968,6 +1008,27 @@ context 'Substitutions' do
       assert_equal 1, para.document.catalog[:footnotes].size
       fn1 = para.document.catalog[:footnotes].first
       assert_equal '<a href="https://github.com/jline/jline2" class="bare">https://github.com/jline/jline2</a>', fn1.text
+    end
+
+    test 'a footnote macro may contain text formatting' do
+      para = block_from_string 'You can download patches from the product page.footnote:[Only available with an _active_ subscription.]'
+      para.convert
+      footnotes = para.document.catalog[:footnotes]
+      assert_equal 1, footnotes.size
+      assert_equal 'Only available with an <em>active</em> subscription.', footnotes[0].text
+    end
+
+    test 'an externalized footnote macro may contain text formatting' do
+      input = <<~'EOS'
+      :fn-disclaimer: pass:q[footnote:[Only available with an _active_ subscription.]]
+
+      You can download patches from the production page.{fn-disclaimer}
+      EOS
+      doc = document_from_string input
+      doc.convert
+      footnotes = doc.catalog[:footnotes]
+      assert_equal 1, footnotes.size
+      assert_equal 'Only available with an <em>active</em> subscription.', footnotes[0].text
     end
 
     test 'a footnote macro may contain a shorthand xref' do

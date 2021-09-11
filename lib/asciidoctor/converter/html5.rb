@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 module Asciidoctor
 # A built-in {Converter} implementation that generates HTML 5 output
-# consistent with the html5 backend from AsciiDoc Python.
+# consistent with the html5 backend from AsciiDoc.py.
 class Converter::Html5Converter < Converter::Base
   register_for 'html5'
 
@@ -21,7 +21,7 @@ class Converter::Html5Converter < Converter::Base
     #latexmath:  INLINE_MATH_DELIMITERS[:latexmath] + [false],
   }).default = ['', '']
 
-  DropAnchorRx = /<(?:a\b[^>]*|\/a)>/
+  DropAnchorRx = %r(<(?:a\b[^>]*|/a)>)
   StemBreakRx = / *\\\n(?:\\?\n)*|\n\n+/
   if RUBY_ENGINE == 'opal'
     # NOTE In JavaScript, ^ matches the start of the string when the m flag is not set
@@ -48,44 +48,45 @@ class Converter::Html5Converter < Converter::Base
   end
 
   def convert node, transform = node.node_name, opts = nil
-    if transform == 'inline_quoted'; return convert_inline_quoted node
-    elsif transform == 'paragraph'; return convert_paragraph node
-    elsif transform == 'inline_anchor'; return convert_inline_anchor node
-    elsif transform == 'section'; return convert_section node
-    elsif transform == 'listing'; return convert_listing node
-    elsif transform == 'literal'; return convert_literal node
-    elsif transform == 'ulist'; return convert_ulist node
-    elsif transform == 'olist'; return convert_olist node
-    elsif transform == 'dlist'; return convert_dlist node
-    elsif transform == 'admonition'; return convert_admonition node
-    elsif transform == 'colist'; return convert_colist node
-    elsif transform == 'embedded'; return convert_embedded node
-    elsif transform == 'example'; return convert_example node
-    elsif transform == 'floating_title'; return convert_floating_title node
-    elsif transform == 'image'; return convert_image node
-    elsif transform == 'inline_break'; return convert_inline_break node
-    elsif transform == 'inline_button'; return convert_inline_button node
-    elsif transform == 'inline_callout'; return convert_inline_callout node
-    elsif transform == 'inline_footnote'; return convert_inline_footnote node
-    elsif transform == 'inline_image'; return convert_inline_image node
-    elsif transform == 'inline_indexterm'; return convert_inline_indexterm node
-    elsif transform == 'inline_kbd'; return convert_inline_kbd node
-    elsif transform == 'inline_menu'; return convert_inline_menu node
-    elsif transform == 'open'; return convert_open node
-    elsif transform == 'page_break'; return convert_page_break node
-    elsif transform == 'preamble'; return convert_preamble node
-    elsif transform == 'quote'; return convert_quote node
-    elsif transform == 'sidebar'; return convert_sidebar node
-    elsif transform == 'stem'; return convert_stem node
-    elsif transform == 'table'; return convert_table node
-    elsif transform == 'thematic_break'; return convert_thematic_break node
-    elsif transform == 'verse'; return convert_verse node
-    elsif transform == 'video'; return convert_video node
-    elsif transform == 'document'; return convert_document node
-    elsif transform == 'toc'; return convert_toc node
-    elsif transform == 'pass'; return convert_pass node
-    elsif transform == 'audio'; return convert_audio node
-    else; return super
+    case transform
+    when 'inline_quoted' then convert_inline_quoted node
+    when 'paragraph' then convert_paragraph node
+    when 'inline_anchor' then convert_inline_anchor node
+    when 'section' then convert_section node
+    when 'listing' then convert_listing node
+    when 'literal' then convert_literal node
+    when 'ulist' then convert_ulist node
+    when 'olist' then convert_olist node
+    when 'dlist' then convert_dlist node
+    when 'admonition' then convert_admonition node
+    when 'colist' then convert_colist node
+    when 'embedded' then convert_embedded node
+    when 'example' then convert_example node
+    when 'floating_title' then convert_floating_title node
+    when 'image' then convert_image node
+    when 'inline_break' then convert_inline_break node
+    when 'inline_button' then convert_inline_button node
+    when 'inline_callout' then convert_inline_callout node
+    when 'inline_footnote' then convert_inline_footnote node
+    when 'inline_image' then convert_inline_image node
+    when 'inline_indexterm' then convert_inline_indexterm node
+    when 'inline_kbd' then convert_inline_kbd node
+    when 'inline_menu' then convert_inline_menu node
+    when 'open' then convert_open node
+    when 'page_break' then convert_page_break node
+    when 'preamble' then convert_preamble node
+    when 'quote' then convert_quote node
+    when 'sidebar' then convert_sidebar node
+    when 'stem' then convert_stem node
+    when 'table' then convert_table node
+    when 'thematic_break' then convert_thematic_break node
+    when 'verse' then convert_verse node
+    when 'video' then convert_video node
+    when 'document' then convert_document node
+    when 'toc' then convert_toc node
+    when 'pass' then convert_pass node
+    when 'audio' then convert_audio node
+    else; super
     end
   end
 
@@ -350,9 +351,10 @@ MathJax.Hub.Register.StartupHook("AsciiMath Jax Ready", function () {
         stitle = section.captioned_title
       elsif section.numbered && slevel <= sectnumlevels
         if slevel < 2 && node.document.doctype == 'book'
-          if section.sectname == 'chapter'
+          case section.sectname
+          when 'chapter'
             stitle =  %(#{(signifier = node.document.attributes['chapter-signifier']) ? "#{signifier} " : ''}#{section.sectnum} #{section.title})
-          elsif section.sectname == 'part'
+          when 'part'
             stitle =  %(#{(signifier = node.document.attributes['part-signifier']) ? "#{signifier} " : ''}#{section.sectnum nil, ':'} #{section.title})
           else
             stitle = %(#{section.sectnum} #{section.title})
@@ -383,9 +385,10 @@ MathJax.Hub.Register.StartupHook("AsciiMath Jax Ready", function () {
       title = node.captioned_title
     elsif node.numbered && level <= (doc_attrs['sectnumlevels'] || 3).to_i
       if level < 2 && node.document.doctype == 'book'
-        if node.sectname == 'chapter'
+        case node.sectname
+        when 'chapter'
           title = %(#{(signifier = doc_attrs['chapter-signifier']) ? "#{signifier} " : ''}#{node.sectnum} #{node.title})
-        elsif node.sectname == 'part'
+        when 'part'
           title = %(#{(signifier = doc_attrs['part-signifier']) ? "#{signifier} " : ''}#{node.sectnum nil, ':'} #{node.title})
         else
           title = %(#{node.sectnum} #{node.title})
@@ -513,16 +516,16 @@ Your browser does not support the audio tag.
     result = []
     id_attribute = node.id ? %( id="#{node.id}") : ''
 
-    classes = case node.style
+    case node.style
     when 'qanda'
-      ['qlist', 'qanda', node.role]
+      classes = ['qlist', 'qanda', node.role]
     when 'horizontal'
-      ['hdlist', node.role]
+      classes = ['hdlist', node.role]
     else
-      ['dlist', node.style, node.role]
-    end.compact
+      classes = ['dlist', node.style, node.role]
+    end
 
-    class_attribute = %( class="#{classes.join ' '}")
+    class_attribute = %( class="#{classes.compact.join ' '}")
 
     result << %(<div#{id_attribute}#{class_attribute}>)
     result << %(<div class="title">#{node.title}</div>) if node.title?
@@ -578,12 +581,11 @@ Your browser does not support the audio tag.
         terms.each do |dt|
           result << %(<dt#{dt_style_attribute}>#{dt.text}</dt>)
         end
-        if dd
-          result << '<dd>'
-          result << %(<p>#{dd.text}</p>) if dd.text?
-          result << dd.content if dd.blocks?
-          result << '</dd>'
-        end
+        next unless dd
+        result << '<dd>'
+        result << %(<p>#{dd.text}</p>) if dd.text?
+        result << dd.content if dd.blocks?
+        result << '</dd>'
       end
       result << '</dl>'
     end
@@ -759,8 +761,8 @@ Your browser does not support the audio tag.
       logger.error 'partintro block can only be used when doctype is book and must be a child of a book part. Excluding block content.'
       ''
     else
-        id_attr = node.id ? %( id="#{node.id}") : ''
-        title_el = node.title? ? %(<div class="title">#{node.title}</div>\n) : ''
+      id_attr = node.id ? %( id="#{node.id}") : ''
+      title_el = node.title? ? %(<div class="title">#{node.title}</div>\n) : ''
       %(<div#{id_attr} class="openblock#{style && style != 'open' ? " #{style}" : ''}#{(role = node.role) ? " #{role}" : ''}">
 #{title_el}<div class="content">
 #{node.content}
@@ -1111,14 +1113,17 @@ Your browser does not support the video tag.
       else
         attrs = node.role ? %( class="#{node.role}") : ''
         unless (text = node.text)
-          refid = node.attributes['refid']
-          if AbstractNode === (ref = (@refs ||= node.document.catalog[:refs])[refid]) && (@resolving_xref ||= (outer = true)) && outer
-            if !(text = ref.xreftext node.attr 'xrefstyle', nil, true)
-              text = %([#{refid}])
-            elsif text.include? '<a'
-              text = text.gsub DropAnchorRx, ''
+          if AbstractNode === (ref = (@refs ||= node.document.catalog[:refs])[refid = node.attributes['refid']] || (refid.nil_or_empty? ? (top = get_root_document node) : nil))
+            if (@resolving_xref ||= (outer = true)) && outer
+              if (text = ref.xreftext node.attr 'xrefstyle', nil, true)
+                text = text.gsub DropAnchorRx, '' if text.include? '<a'
+              else
+                text = top ? '[^top]' : %([#{refid}])
+              end
+              @resolving_xref = nil
+            else
+              text = top ? '[^top]' : %([#{refid}])
             end
-            @resolving_xref = nil
           else
             text = %([#{refid}])
           end
@@ -1186,7 +1191,11 @@ Your browser does not support the video tag.
       img = %([#{node.alt}])
     else
       target = node.target
-      attrs = ['width', 'height', 'title'].map {|name| (node.attr? name) ? %( #{name}="#{node.attr name}") : '' }.join
+      attrs = []
+      attrs << %( width="#{node.attr 'width'}") if node.attr? 'width'
+      attrs << %( height="#{node.attr 'height'}") if node.attr? 'height'
+      attrs << %( title="#{node.attr 'title'}") if node.attr? 'title'
+      attrs = attrs.empty? ? '' : attrs.join
       if type != 'icon' && ((node.attr? 'format', 'svg') || (target.include? '.svg')) &&
           node.document.safe < SafeMode::SECURE && ((svg = (node.option? 'inline')) || (obj = (node.option? 'interactive')))
         if svg
@@ -1310,13 +1319,24 @@ Your browser does not support the video tag.
     manname_id_attr = (manname_id = node.attr 'manname-id') ? %( id="#{manname_id}") : ''
     %(<h2#{manname_id_attr}>#{manname_title}</h2>
 <div class="sectionbody">
-<p>#{node.attr 'manname'} - #{node.attr 'manpurpose'}</p>
+<p>#{(node.attr 'mannames').join ', '} - #{node.attr 'manpurpose'}</p>
 </div>)
   end
 
+  def get_root_document node
+    while (node = node.document).nested?
+      node = node.parent_document
+    end
+    node
+  end
+
   # NOTE adapt to older converters that relied on unprefixed method names
-  def method_missing id, *params
-    !((name = id.to_s).start_with? 'convert_') && (handles? name) ? (send %(convert_#{name}), *params) : super
+  def method_missing id, *args
+    !((name = id.to_s).start_with? 'convert_') && (handles? name) ? (send %(convert_#{name}), *args) : super
+  end
+
+  def respond_to_missing? id, *options
+    !((name = id.to_s).start_with? 'convert_') && (handles? name)
   end
 end
 end

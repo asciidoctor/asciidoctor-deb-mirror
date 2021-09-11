@@ -109,7 +109,7 @@ class PathResolver
   SLASH = '/'
   BACKSLASH = '\\'
   DOUBLE_SLASH = '//'
-  WindowsRootRx = /^(?:[a-zA-Z]:)?[\\\/]/
+  WindowsRootRx = %r(^(?:[a-zA-Z]:)?[\\/])
 
   attr_accessor :file_separator
   attr_accessor :working_dir
@@ -290,8 +290,8 @@ class PathResolver
       # ex. ./sample/path
       elsif posix_path.start_with? DOT_SLASH
         root = DOT_SLASH
-      # else ex. sample/path
       end
+      # otherwise ex. sample/path
     elsif root? posix_path
       # ex. //sample/path
       if unc? posix_path
@@ -306,8 +306,8 @@ class PathResolver
     # ex. ./sample/path
     elsif posix_path.start_with? DOT_SLASH
       root = DOT_SLASH
-    # else ex. sample/path
     end
+    # otherwise ex. sample/path
 
     path_segments = (root ? (posix_path.slice root.length, posix_path.length) : posix_path).split SLASH
     # strip out all dot entries

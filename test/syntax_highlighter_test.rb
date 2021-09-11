@@ -758,7 +758,7 @@ context 'Syntax Highlighter' do
       output = convert_string_to_embedded input, safe: :safe, attributes: { 'source-highlighter' => 'rouge' }
       assert_css 'pre.rouge > code[data-lang="php"]', output, 1
       # if class is "nb", then the funcnamehighlighting option is not honored
-      assert_include '<span class="nx">cal_days_in_month</span>', output
+      refute_include '<span class="nb">cal_days_in_month</span>', output
       assert_include '<span class="mi">2019</span>', output
     end
 
@@ -1095,14 +1095,14 @@ context 'Syntax Highlighter' do
       assert_includes css, 'background-color: #49483e;'
     end
 
-    test 'should not fail to load rouge if the Asciidoctor module is included into the global namespace' do
+    test 'should not fail to load rouge if the Asciidoctor module is included into the global namespace', unless: jruby_9_1_windows? do
       result = run_command(asciidoctor_cmd, '-r', (fixture_path 'include-asciidoctor.rb'), '-s', '-o', '-', '-a', 'source-highlighter=rouge', (fixture_path 'source-block.adoc'), use_bundler: true) {|out| out.read }
       assert_xpath '//pre[@class="rouge highlight"]', result, 1
     end
   end
 
   context 'Pygments', if: ENV['PYGMENTS_VERSION'] do
-    test 'wip should syntax highlight source if source-highlighter attribute is set' do
+    test 'should syntax highlight source if source-highlighter attribute is set' do
       input = <<~'EOS'
       :source-highlighter: pygments
       :pygments-style: monokai
@@ -1163,7 +1163,10 @@ context 'Syntax Highlighter' do
       assert_css 'table.linenotable td.linenos .linenodiv pre:not([class])', output, 1
       assert_css 'table.linenotable td.code', output, 1
       assert_css 'table.linenotable td.code pre:not([class])', output, 1
-      assert_xpath %(//*[@class="linenodiv"]/pre[text()="1\n2"]), output, 1
+      # NOTE new versions of Pygments wrap the numbers in span
+      linenos_node = xmlnodes_at_xpath %(//*[@class="linenodiv"]/pre), output, 1
+      linenos = linenos_node.content.gsub %r(<span class="normal">\d+</span>), '\1'
+      assert_equal %(1\n2), linenos
     end
 
     test 'should restore callout marks to correct lines if table line numbering is enabled' do
@@ -1227,7 +1230,7 @@ context 'Syntax Highlighter' do
       assert_css 'pre:not([style])', output, 2
     end
 
-    test 'should not hardcode inline styles on lineno spans when linenums are enabled and source-highlighter is pygments' do
+    test 'should replace inline styles on lineno spans with class and preserve trailing space when linenums are enabled and source-highlighter is pygments' do
       input = <<~'EOS'
       :source-highlighter: pygments
       :pygments-css: inline

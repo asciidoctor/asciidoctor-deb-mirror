@@ -53,12 +53,12 @@ module Asciidoctor
   module SafeMode
     # A safe mode level that disables any of the security features enforced
     # by Asciidoctor (Ruby is still subject to its own restrictions).
-    UNSAFE = 0;
+    UNSAFE = 0
 
     # A safe mode level that closely parallels safe mode in AsciiDoc. This value
     # prevents access to files which reside outside of the parent directory of
     # the source file and disables any macro other than the include::[] directive.
-    SAFE = 1;
+    SAFE = 1
 
     # A safe mode level that disallows the document from setting attributes
     # that would affect the conversion of the document, in addition to all the
@@ -66,19 +66,19 @@ module Asciidoctor
     # changing the backend or source-highlighter using an attribute defined
     # in the source document header. This is the most fundamental level of
     # security for server deployments (hence the name).
-    SERVER = 10;
+    SERVER = 10
 
     # A safe mode level that disallows the document from attempting to read
     # files from the file system and including the contents of them into the
     # document, in additional to all the security features of SafeMode::SERVER.
     # For instance, this level disallows use of the include::[] directive and the
     # embedding of binary content (data uri), stylesheets and JavaScripts
-    # referenced by the document.(Asciidoctor and trusted extensions may still
+    # referenced by the document. (Asciidoctor and trusted extensions may still
     # be allowed to embed trusted content into the document).
     #
     # Since Asciidoctor is aiming for wide adoption, this level is the default
     # and is recommended for server deployments.
-    SECURE = 20;
+    SECURE = 20
 
     # A planned safe mode level that disallows the use of passthrough macros and
     # prevents the document from setting any known attributes, in addition to all
@@ -86,9 +86,9 @@ module Asciidoctor
     #
     # Please note that this level is not currently implemented (and therefore not
     # enforced)!
-    #PARANOID = 100;
+    #PARANOID = 100
 
-    @names_by_value = {}.tap {|accum| (constants false).each {|sym| accum[const_get sym, false] = sym.to_s.downcase } }
+    @names_by_value = (constants false).map {|sym| [(const_get sym), sym.to_s.downcase] }.sort {|(a), (b)| a <=> b }.to_h
 
     def self.value_for_name name
       const_get name.upcase, false
@@ -136,8 +136,8 @@ module Asciidoctor
     # Compliance value: true
     define :underline_style_section_titles, true
 
-    # Asciidoctor will unwrap the content in a preamble
-    # if the document has a title and no sections.
+    # Asciidoctor will unwrap the content in a preamble if the document has a
+    # title and no sections, then discard the empty preamble.
     # Compliance value: false
     define :unwrap_standalone_preamble, true
 
@@ -332,7 +332,7 @@ module Asciidoctor
 
   LIST_CONTINUATION = '+'
 
-  # NOTE AsciiDoc Python allows + to be preceded by TAB; Asciidoctor does not
+  # NOTE AsciiDoc.py allows + to be preceded by TAB; Asciidoctor does not
   HARD_LINE_BREAK = ' +'
 
   LINE_CONTINUATION = ' \\'
@@ -459,9 +459,9 @@ module Asciidoctor
       [:emphasis, :unconstrained, /\\?(?:\[([^\]]+)\])?__(#{CC_ALL}+?)__/m],
       # _emphasis_
       [:emphasis, :constrained, /(^|[^#{CC_WORD};:}])(?:\[([^\]]+)\])?_(\S|\S#{CC_ALL}*?\S)_(?!#{CG_WORD})/m],
-      # ##mark## (referred to in AsciiDoc Python as unquoted)
+      # ##mark## (referred to in AsciiDoc.py as unquoted)
       [:mark, :unconstrained, /\\?(?:\[([^\]]+)\])?##(#{CC_ALL}+?)##/m],
-      # #mark# (referred to in AsciiDoc Python as unquoted)
+      # #mark# (referred to in AsciiDoc.py as unquoted)
       [:mark, :constrained, /(^|[^#{CC_WORD}&;:}])(?:\[([^\]]+)\])?#(\S|\S#{CC_ALL}*?\S)#(?!#{CG_WORD})/m],
       # ^superscript^
       [:superscript, :unconstrained, /\\?(?:\[([^\]]+)\])?\^(\S+?)\^/],

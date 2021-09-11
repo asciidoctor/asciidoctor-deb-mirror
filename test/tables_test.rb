@@ -14,7 +14,7 @@ context 'Tables' do
       cells = [%w(A B C), %w(a b c), %w(1 2 3)]
       doc = document_from_string input, standalone: false
       table = doc.blocks[0]
-      assert 100, table.columns.map {|col| col.attributes['colpcwidth'] }.reduce(:+)
+      assert_equal 100, table.columns.map {|col| col.attributes['colpcwidth'] }.reduce(:+)
       output = doc.convert
       assert_css 'table', output, 1
       assert_css 'table.tableblock.frame-all.grid-all.stretch', output, 1
@@ -805,7 +805,7 @@ context 'Tables' do
       assert_css 'tbody p.tableblock', output, 1
     end
 
-    test 'wip should format first cell as AsciiDoc if there is no implicit header row and column has a style' do
+    test 'should format first cell as AsciiDoc if there is no implicit header row and column has a style' do
       input = <<~'EOS'
       [cols="1a,1"]
       |===
@@ -1390,6 +1390,191 @@ context 'Tables' do
       assert_includes result, '{backend-html5-doctype-article}'
     end
 
+    test 'should not allow AsciiDoc table cell to set a document attribute that was hard set by the API' do
+      input = <<~'EOS'
+      |===
+      a|
+      :icons:
+
+      NOTE: This admonition does not have a font-based icon.
+      |===
+      EOS
+
+      result = convert_string_to_embedded input, safe: :safe, attributes: { 'icons' => 'font' }
+      assert_css 'td.icon .title', result, 0
+      assert_css 'td.icon i.icon-note', result, 1
+    end
+
+    test 'should not allow AsciiDoc table cell to set a document attribute that was hard unset by the API' do
+      input = <<~'EOS'
+      |===
+      a|
+      :icons: font
+
+      NOTE: This admonition does not have a font-based icon.
+      |===
+      EOS
+
+      result = convert_string_to_embedded input, safe: :safe, attributes: { 'icons' => nil }
+      assert_css 'td.icon .title', result, 1
+      assert_css 'td.icon i.icon-note', result, 0
+      assert_xpath '//td[@class="icon"]/*[@class="title"][text()="Note"]', result, 1
+    end
+
+    test 'should keep attribute unset in AsciiDoc table cell if unset in parent document' do
+      input = <<~'EOS'
+      :!sectids:
+      :!table-caption:
+
+      == Outer Heading
+
+      .Outer Table
+      |===
+      a|
+
+      == Inner Heading
+
+      .Inner Table
+      !===
+      ! table cell
+      !===
+      |===
+      EOS
+
+      result = convert_string_to_embedded input
+      assert_xpath 'h2[id]', result, 0
+      assert_xpath '//caption[text()="Outer Table"]', result, 1
+      assert_xpath '//caption[text()="Inner Table"]', result, 1
+    end
+
+    test 'should allow attribute unset in parent document to be set in AsciiDoc table cell' do
+      input = <<~'EOS'
+      :!sectids:
+
+      == No ID
+
+      |===
+      a|
+
+      == No ID
+
+      :sectids:
+
+      == Has ID
+      |===
+      EOS
+
+      result = convert_string_to_embedded input
+      headings = xmlnodes_at_css 'h2', result
+      assert_equal 3, headings.size
+      assert_nil headings[0].attr :id
+      assert_nil headings[1].attr :id
+      assert_equal '_has_id', (headings[2].attr :id)
+    end
+
+    test 'should not allow locked attribute unset in parent document to be set in AsciiDoc table cell' do
+      input = <<~'EOS'
+      == No ID
+
+      |===
+      a|
+
+      == No ID
+
+      :sectids:
+
+      == Has ID
+      |===
+      EOS
+
+      result = convert_string_to_embedded input, attributes: { 'sectids' => nil }
+      headings = xmlnodes_at_css 'h2', result
+      assert_equal 3, headings.size
+      headings.each {|heading| assert_nil heading.attr :id }
+    end
+
+    test 'showtitle can be enabled in AsciiDoc table cell if unset in parent document' do
+      %w(showtitle notitle).each do |name|
+        input = <<~EOS
+        = Document Title
+        :#{name == 'showtitle' ? '!' : ''}#{name}:
+
+        |===
+        a|
+        = Nested Document Title
+        :#{name == 'showtitle' ? '' : '!'}#{name}:
+
+        content
+        |===
+        EOS
+
+        result = convert_string_to_embedded input
+        assert_css 'h1', result, 1
+        assert_css '.tableblock h1', result, 1
+      end
+    end
+
+    test 'showtitle can be enabled in AsciiDoc table cell if unset by API' do
+      %w(showtitle notitle).each do |name|
+        input = <<~EOS
+        = Document Title
+
+        |===
+        a|
+        = Nested Document Title
+        :#{name == 'showtitle' ? '' : '!'}#{name}:
+
+        content
+        |===
+        EOS
+
+        result = convert_string_to_embedded input, attributes: { name => (name == 'showtitle' ? nil : '') }
+        assert_css 'h1', result, 1
+        assert_css '.tableblock h1', result, 1
+      end
+    end
+
+    test 'showtitle can be disabled in AsciiDoc table cell if set in parent document' do
+      %w(showtitle notitle).each do |name|
+        input = <<~EOS
+        = Document Title
+        :#{name == 'showtitle' ? '' : '!'}#{name}:
+
+        |===
+        a|
+        = Nested Document Title
+        :#{name == 'showtitle' ? '!' : ''}#{name}:
+
+        content
+        |===
+        EOS
+
+        result = convert_string_to_embedded input
+        assert_css 'h1', result, 1
+        assert_css '.tableblock h1', result, 0
+      end
+    end
+
+    test 'showtitle can be disabled in AsciiDoc table cell if set by API' do
+      %w(showtitle notitle).each do |name|
+        input = <<~EOS
+        = Document Title
+
+        |===
+        a|
+        = Nested Document Title
+        :#{name == 'showtitle' ? '!' : ''}#{name}:
+
+        content
+        |===
+        EOS
+
+        result = convert_string_to_embedded input, attributes: { name => (name == 'showtitle' ? '' : nil) }
+        assert_css 'h1', result, 1
+        assert_css '.tableblock h1', result, 0
+      end
+    end
+
     test 'AsciiDoc content' do
       input = <<~'EOS'
       [cols="1e,1,5a"]
@@ -1719,15 +1904,18 @@ context 'Tables' do
       assert_css 'table > tbody > tr > td:nth-child(2) table > tbody > tr > td', output, 1
     end
 
-    test 'toc from parent document should not be included in an AsciiDoc table cell' do
+    test 'AsciiDoc table cell should not inherit toc setting from parent document' do
       input = <<~'EOS'
       = Document Title
       :toc:
 
-      == Section A
+      == Section
 
       |===
-      a|AsciiDoc content
+      a|
+      == Section in Nested Document
+
+      content
       |===
       EOS
 
@@ -1754,6 +1942,28 @@ context 'Tables' do
       EOS
 
       output = convert_string input
+      assert_css '.toc', output, 1
+      assert_css 'table .toc', output, 1
+    end
+
+    test 'should be able to enable toc in an AsciiDoc table cell even if hard unset by API' do
+      input = <<~'EOS'
+      = Document Title
+
+      == Section A
+
+      |===
+      a|
+      = Subdocument Title
+      :toc:
+
+      == Subdocument Section A
+
+      content
+      |===
+      EOS
+
+      output = convert_string input, attributes: { 'toc' => nil }
       assert_css '.toc', output, 1
       assert_css 'table .toc', output, 1
     end
@@ -1948,7 +2158,7 @@ context 'Tables' do
       EOS
       doc = document_from_string input, standalone: false
       table = doc.blocks[0]
-      assert 100, table.columns.map {|col| col.attributes['colpcwidth'] }.reduce(:+)
+      assert_equal 100, table.columns.map {|col| col.attributes['colpcwidth'] }.reduce(:+)
       output = doc.convert
       assert_css 'table', output, 1
       assert_css 'table > colgroup > col[style*="width: 14.2857"]', output, 6

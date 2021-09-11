@@ -39,19 +39,20 @@ module Asciidoctor
           # NOTE don't use squiggly heredoc to maintain compatibility with Ruby < 2.3
           opts.banner = <<-'EOS'.gsub '          ', ''
           Usage: asciidoctor [OPTION]... FILE...
-          Translate the AsciiDoc source FILE or FILE(s) into the backend output format (e.g., HTML 5, DocBook 5, etc.)
-          By default, the output is written to a file with the basename of the source file and the appropriate extension.
-          Example: asciidoctor -b html5 source.asciidoc
+          Convert the AsciiDoc input FILE(s) to the backend output format (e.g., HTML 5, DocBook 5, etc.)
+          Unless specified otherwise, the output is written to a file whose name is derived from the input file.
+          Application log messages are printed to STDERR.
+          Example: asciidoctor input.adoc
 
           EOS
 
-          opts.on('-b', '--backend BACKEND', 'set output format backend: [html5, xhtml5, docbook5, manpage] (default: html5)',
-                  'additional backends are supported via extensions (e.g., pdf, latex)') do |backend|
+          opts.on('-b', '--backend BACKEND', 'set backend output format: [html5, xhtml5, docbook5, manpage] (default: html5)',
+              'additional backends are supported via extended converters (e.g., pdf, epub3)') do |backend|
             self[:attributes]['backend'] = backend
           end
           opts.on('-d', '--doctype DOCTYPE', ['article', 'book', 'manpage', 'inline'],
-                  'document type to use when converting document: [article, book, manpage, inline] (default: article)') do |doc_type|
-            self[:attributes]['doctype'] = doc_type
+              'document type to use when converting document: [article, book, manpage, inline] (default: article)') do |doctype|
+            self[:attributes]['doctype'] = doctype
           end
           opts.on('-e', '--embedded', 'suppress enclosing document structure and output an embedded document (default: false)') do
             self[:standalone] = false
@@ -60,14 +61,14 @@ module Asciidoctor
             self[:output_file] = output_file
           end
           opts.on('--safe',
-                  'set safe mode level to safe (default: unsafe)',
-                  'enables include directives, but prevents access to ancestor paths of source file',
-                  'provided for compatibility with the asciidoc command') do
+              'set safe mode level to safe (default: unsafe)',
+              'enables include directives, but prevents access to ancestor paths of source file',
+              'provided for compatibility with the asciidoc command') do
             self[:safe] = SafeMode::SAFE
           end
           opts.on('-S', '--safe-mode SAFE_MODE', (safe_mode_names = SafeMode.names),
-                  %(set safe mode level explicitly: [#{safe_mode_names.join ', '}] (default: unsafe)),
-                  'disables potentially dangerous macros in source files, such as include::[]') do |name|
+              %(set safe mode level explicitly: [#{safe_mode_names.join ', '}] (default: unsafe)),
+              'disables potentially dangerous macros in source files, such as include::[]') do |name|
             self[:safe] = SafeMode.value_for_name name
           end
           opts.on('-s', '--no-header-footer', 'suppress enclosing document structure and output an embedded document (default: false)') do
@@ -77,19 +78,19 @@ module Asciidoctor
             self[:attributes]['sectnums'] = ''
           end
           opts.on('--eruby ERUBY', ['erb', 'erubi', 'erubis'],
-                  'specify eRuby implementation to use when rendering custom ERB templates: [erb, erubi, erubis] (default: erb)') do |eruby|
+              'specify eRuby implementation to use when rendering custom ERB templates: [erb, erubi, erubis] (default: erb)') do |eruby|
             self[:eruby] = eruby
           end
           opts.on('-a', '--attribute name[=value]', 'a document attribute to set in the form of name, name!, or name=value pair',
-                  'this attribute takes precedence over the same attribute defined in the source document',
-                  'unless either the name or value ends in @ (i.e., name@=value or name=value@)') do |attr|
+              'this attribute takes precedence over the same attribute defined in the source document',
+              'unless either the name or value ends in @ (i.e., name@=value or name=value@)') do |attr|
             next if (attr = attr.rstrip).empty? || attr == '='
             attr = attr.encode UTF_8 unless attr.encoding == UTF_8
             name, _, val = attr.partition '='
             self[:attributes][name] = val
           end
           opts.on('-T', '--template-dir DIR', 'a directory containing custom converter templates that override the built-in converter (requires tilt gem)',
-                  'may be specified multiple times') do |template_dir|
+              'may be specified multiple times') do |template_dir|
             if self[:template_dirs].nil?
               self[:template_dirs] = [template_dir]
             elsif ::Array === self[:template_dirs]
@@ -120,21 +121,21 @@ module Asciidoctor
           end
           opts.on('--failure-level LEVEL', %w(warning WARNING error ERROR info INFO), 'set minimum logging level that triggers non-zero exit code: [WARN, ERROR, INFO] (default: FATAL)') do |level|
             level = 'WARN' if (level = level.upcase) == 'WARNING'
-            self[:failure_level] = ::Logger::Severity.const_get level, false
+            self[:failure_level] = ::Logger::Severity.const_get level
           end
-          opts.on('-q', '--quiet', 'silence application log messages and script warnings (default: false)') do |verbose|
+          opts.on('-q', '--quiet', 'silence application log messages and script warnings (default: false)') do
             self[:verbose] = 0
           end
-          opts.on('--trace', 'include backtrace information when reporting errors (default: false)') do |trace|
+          opts.on('--trace', 'include backtrace information when reporting errors (default: false)') do
             self[:trace] = true
           end
-          opts.on('-v', '--verbose', 'enable verbose mode (default: false)') do |verbose|
+          opts.on('-v', '--verbose', 'directs application messages logged at DEBUG or INFO level to STDERR (default: false)') do
             self[:verbose] = 2
           end
-          opts.on('-w', '--warnings', 'turn on script warnings (default: false)') do |warnings|
+          opts.on('-w', '--warnings', 'turn on script warnings (default: false)') do
             self[:warnings] = true
           end
-          opts.on('-t', '--timings', 'print timings report (default: false)') do |timing|
+          opts.on('-t', '--timings', 'print timings report (default: false)') do
             self[:timings] = true
           end
           opts.on_tail('-h', '--help [TOPIC]', 'print a help message',
@@ -160,7 +161,7 @@ module Asciidoctor
               elsif ::File.exist? (manpage_path = (::File.join ROOT_DIR, 'man', 'asciidoctor.1'))
                 $stdout.puts ::File.read manpage_path
               else
-                manpage_path = `man -w asciidoctor`.chop rescue ''
+                manpage_path = %x(man -w asciidoctor).chop rescue ''
                 if manpage_path.empty?
                   $stderr.puts 'asciidoctor: FAILED: manual page not found; try `man asciidoctor`'
                   return 1
@@ -248,7 +249,7 @@ module Asciidoctor
 
         self[:input_files] = infiles
 
-        self.delete :attributes if self[:attributes].empty?
+        delete :attributes if self[:attributes].empty?
 
         if self[:template_dirs]
           begin
@@ -289,11 +290,11 @@ module Asciidoctor
       rescue ::OptionParser::MissingArgument
         $stderr.puts %(asciidoctor: option #{$!.message})
         $stdout.puts opts_parser
-        return 1
+        1
       rescue ::OptionParser::InvalidOption, ::OptionParser::InvalidArgument
         $stderr.puts %(asciidoctor: #{$!.message})
         $stdout.puts opts_parser
-        return 1
+        1
       ensure
         $VERBOSE = old_verbose
       end

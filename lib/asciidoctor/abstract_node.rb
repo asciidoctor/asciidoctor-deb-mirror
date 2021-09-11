@@ -4,7 +4,8 @@ module Asciidoctor
 # node of AsciiDoc content. The state and methods on this class are common to
 # all content segments in an AsciiDoc document.
 class AbstractNode
-  include Substitutors, Logging
+  include Logging
+  include Substitutors
 
   # Public: Get the Hash of attributes for this node
   attr_reader :attributes
@@ -65,7 +66,7 @@ class AbstractNode
   #
   # parent - The Block to set as the parent of this Block
   #
-  # Returns the value of the parent argument
+  # Returns the the specified Block parent
   def parent= parent
     @parent, @document = parent, parent.document
   end
@@ -155,7 +156,7 @@ class AbstractNode
   #
   # name - the String name of the option
   #
-  # Returns Nothing
+  # Returns nothing
   def set_option name
     @attributes[%(#{name}-option)] = ''
     nil
@@ -216,11 +217,11 @@ class AbstractNode
     (val = @attributes['role']) ? (%( #{val} ).include? %( #{name} )) : false
   end
 
-  # Public: Sets the value of the role attribute on this ndoe.
+  # Public: Sets the value of the role attribute on this node.
   #
   # names - A single role name, a space-separated String of role names, or an Array of role names
   #
-  # Returns the value of the names argument
+  # Returns the specified String role name or Array of role names
   def role= names
     @attributes['role'] = (::Array === names) ? (names.join ' ') : names
   end
@@ -462,8 +463,8 @@ class AbstractNode
         start = doc.base_dir
       end
     else
-      start = doc.base_dir unless start
-      jail = doc.base_dir unless jail
+      start ||= doc.base_dir
+      jail ||= doc.base_dir
     end
     doc.path_resolver.system_path target, start, jail, opts
   end
@@ -542,8 +543,8 @@ class AbstractNode
         rescue
           logger.warn %(could not retrieve contents of #{opts[:label] || 'asset'} at URI: #{target}) if opts.fetch :warn_on_failure, true
         end
-      else
-        logger.warn %(cannot retrieve contents of #{opts[:label] || 'asset'} at URI: #{target} (allow-uri-read attribute not enabled)) if opts.fetch :warn_on_failure, true
+      elsif opts.fetch :warn_on_failure, true
+        logger.warn %(cannot retrieve contents of #{opts[:label] || 'asset'} at URI: #{target} (allow-uri-read attribute not enabled))
       end
     else
       target = normalize_system_path target, opts[:start], nil, target_name: (opts[:label] || 'asset')

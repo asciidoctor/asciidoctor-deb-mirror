@@ -1,6 +1,6 @@
 = Asciidoctor
 Dan Allen <https://github.com/mojavelinux[@mojavelinux]>; Sarah White <https://github.com/graphitefriction[@graphitefriction]>; Ryan Waldron <https://github.com/erebor[@erebor]>
-v2.0.12, 2020-11-10
+v2.0.16, 2021-08-03
 // settings:
 :idprefix:
 :idseparator: -
@@ -8,6 +8,7 @@ v2.0.12, 2020-11-10
 :language: {source-language}
 ifndef::env-github[:icons: font]
 ifdef::env-github[]
+:status:
 :outfilesuffix: .adoc
 :caution-caption: :fire:
 :important-caption: :exclamation:
@@ -16,7 +17,7 @@ ifdef::env-github[]
 :warning-caption: :warning:
 endif::[]
 // Variables:
-:release-version: 2.0.12
+:release-version: 2.0.16
 // URIs:
 :uri-org: https://github.com/asciidoctor
 :uri-repo: {uri-org}/asciidoctor
@@ -40,7 +41,7 @@ endif::[]
 :uri-license: {uri-rel-file-base}LICENSE
 :uri-tests: {uri-rel-tree-base}test
 :uri-discuss: https://discuss.asciidoctor.org
-:uri-irc: irc://irc.freenode.org/#asciidoctor
+:uri-chat: https://asciidoctor.zulipchat.com
 :uri-rubygem: https://rubygems.org/gems/asciidoctor
 :uri-what-is-asciidoc: {uri-docs}/what-is-asciidoc
 :uri-user-manual: {uri-docs}/user-manual
@@ -82,6 +83,14 @@ endif::[]
 * {uri-docs}/asciidoc-writers-guide[Asciidoctor Benutzerhandbuch]
 * {uri-docs}/user-manual[Asciidoctor Gebrauchshandbuch]
 * {uri-docs}/asciidoc-syntax-quick-reference[AsciiDoc Syntax-Referenz]
+
+ifdef::status[]
+image:https://img.shields.io/gem/v/asciidoctor.svg[Latest Release, link={uri-gem}]
+image:https://img.shields.io/badge/rubydoc.info-{release-version}-blue.svg[library (API) docs,link=https://www.rubydoc.info/gems/asciidoctor/{release-version}]
+image:https://github.com/asciidoctor/asciidoctor/workflows/CI/badge.svg[Build Status (GitHub Actions),link={uri-repo}/actions]
+image:https://inch-ci.org/github/asciidoctor/asciidoctor.svg?branch=master[Inline docs,link=https://inch-ci.org/github/asciidoctor/asciidoctor]
+image:https://img.shields.io/badge/zulip-join_chat-brightgreen.svg[project chat,link=https://asciidoctor.zulipchat.com/]
+endif::[]
 
 == Sponsoren
 
@@ -425,9 +434,9 @@ Asciidoctor wurde entwickelt, um Ihnen das Schreiben und Veröffentlichen Ihrer 
 Aber wir können es nicht ohne ihr Feedback machen!
 Wir ermutigen Sie, Fragen zu stellen und alle Aspekte des Projekts auf der Diskussionsliste, auf Twitter oder im Chatroom zu diskutieren.
 
-Chat (Gitter):: image:https://badges.gitter.im/Join%20In.svg[Gitter, link=https://gitter.im/asciidoctor/asciidoctor]
+Chat (Zulip):: {uri-chat}
 Discussionsliste (Nabble):: {uri-discuss}
-Twitter:: https://twitter.com/search?f=tweets&q=%23asciidoctor[#asciidoctor] hashtag or https://twitter.com/asciidoctor[@asciidoctor] mention
+Twitter:: Follow https://twitter.com/asciidoctor[@asciidoctor] or search for the https://twitter.com/search?f=tweets&q=%23asciidoctor[#asciidoctor] hashtag
 
 ifdef::env-github[]
 Weitere Informationen und Dokumentation zu Asciidoctor finden Sie auf der Website des Projekts.
@@ -443,7 +452,7 @@ Asciidoctor Organization auf GitHub:: {uri-org}
 
 == Lizenz
 
-Copyright (C) 2012-2020 Dan Allen, Sarah White, Ryan Waldron, und die einzelnen Mitarbeiter von Asciidoctor.
+Copyright (C) 2012-present Dan Allen, Sarah White, Ryan Waldron, und die einzelnen Mitarbeiter von Asciidoctor.
 Die Nutzung dieser Software wird unter den Bedingungen der MIT-Lizenz gewährt.
 
 Siehe die {uri-license}[LIZENZ] für den vollen Lizenztext.

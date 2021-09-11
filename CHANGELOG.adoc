@@ -11,9 +11,127 @@ endif::[]
 {uri-asciidoctor}[Asciidoctor] is a _fast_, open source text processor and publishing toolchain for converting {uri-asciidoc}[AsciiDoc] content into HTML 5, DocBook 5, and other formats.
 
 This document provides a high-level view of the changes introduced in Asciidoctor by release.
-For a detailed view of what has changed, refer to the {uri-repo}/commits/master[commit history] on GitHub.
+For an even more detailed look at what has changed, refer to the {uri-repo}/commits/master[commit history] on GitHub.
 
-== 2.0.12.rc.1 (2020-11-10) - @mojavelinux
+This project utilizes semantic versioning.
+
+// tag::compact[]
+== 2.0.16 (2021-08-03) - @mojavelinux
+
+Bug Fixes::
+
+  * Include all lines outside of specified tagged region when tag filter on include directive is a single negated tag (#4048)
+  * Only interpret negated wildcard in tag filter on include directive as implicit globstar if it precedes other tags (#4086)
+  * Change ifeval directive to resolve to false if comparison operation cannot be performed (#4046)
+  * Don't crash if `:to_file` option is passed to `load` or `load_file` and value is not a string (#4055)
+  * Use automatic link text if ID in shorthand xref is followed by dangling comma (e.g., `+<<idname,>>+`)
+  * Update default stylesheet to indent blocks attached to list item in checklist (#2550)
+  * Update default stylesheet to reenable styling of implicit lead role on first paragraph of preamble inside AsciiDoc table cell
+  * Update default stylesheet to fix conflict between text decoration and bottom border on abbr[title] element
+  * Change invalid font family "sans" in default stylesheet to "sans-serif"
+  * Fix missing automatic reftext for internal xrefs in manpage output (#4110)
+  * Replace numeric character reference for plus in manpage output (#4059)
+  * Replace numeric character reference for degree sign in manpage output (#4059)
+  * Convert apostrophe to the portable `+\*(Aq+` variable instead of the groff-specific escape `\(aq` (#4060) (*@felipec*)
+  * Document the `-e, --embedded` option flag in the man page, which replaces the outdated `-e, --eruby` option flag
+
+Improvements::
+
+  * Use queue to iterate over lines in reader instead of stack (#4106)
+  * Uppercase automatic reftext for level-2 section titles in manpage output if reftext matches section title (#4110)
+  * Show safe modes in strictness order in CLI help (#4065)
+  * Remove redundant styles from the default stylesheet
+  * Update font styles for summary element in default stylesheet to match font styles of paragraph (#4114)
+  * Update default stylesheet to indent content of details element (#4116)
+  * Update default stylesheet to use custom marker for summary element to make appearance consistent (#4116)
+  * Add Vietnamese translation of built-in attributes (PR #4066) (*@nguyenhoa93*)
+  * Add Thai translation of built-in attributes (PR #4113) (*@ammaneena*)
+
+Build / Infrastructure::
+
+  * Import source of default stylesheet into this repository; use PostCSS with cssnano to minify (#4062)
+  * Use autoprefixer to manage browser prefixes in default stylesheet (#4118)
+
+// end::compact[]
+== 2.0.15 (2021-04-27) - @mojavelinux
+
+Bug Fixes::
+
+  * Don't include trailing period, question mark, or exclamation point in target (URL) of autolink (#3860)
+  * Don't assign nil value to named attribute mapped to absent positional attribute when parsing attrlist (#4033)
+  * Remove leading and trailing spaces around role on inline phrase (#4035)
+  * Ignore empty role on inline phrase defined using legacy syntax and followed by comma (#4035)
+  * Use xreftext on document as fallback link text in HTML output for inter-document xref that resolves to current document when no link text is provided (#4032)
+  * Use xreftext on document as fallback link text in HTML output for internal xref with empty fragment when no link text is provided (#4032)
+  * Use document ID as linkend in DocBook output for internal xref with empty fragment; auto-generating one if necessary (#4032)
+
+Improvements::
+
+  * Format keyboard references in monospace in manpage output
+
+Build / Infrastructure::
+
+  * Get remaining invoker tests working on JRuby 9.1 for Windows
+
+== 2.0.14 (2021-04-19) - @mojavelinux
+
+Bug Fixes::
+
+  * Don't allow AsciiDoc table cell to set document attribute that was unset from the API (exceptions include: `compat-mode`, `toc`, `showtitle`, and `notitle`) (#4017)
+  * Ensure default document attributes unset in parent document remain unset in AsciiDoc table cell (#2586)
+  * Allow the `showtitle` / `notitle` attribute to be toggled in an AsciiDoc table cell if set or unset in parent document (#4018)
+  * Ensure mtime of input file honors TZ environment variable on JRuby for Windows (affects value of `docdatetime` attribute) (#3550)
+  * Honor caption attribute on blocks that support captioned title even if corresponding `*-caption` document attribute (e.g., `example-caption`) is not set (#4023)
+  * Suppress missing attribute warning when applying substitutions to implicit document title for assignment to intrinsic `doctitle` attribute (#4024)
+  * Increment counter (but not the corresponding attribute) if attribute is locked (#4013)
+
+Improvements::
+
+  * Use attribute, if set, as seed value for counter even if not already registered as a counter (#4014)
+  * Allow subs attribute value on Inline node returned by process method for custom inline macro to be a String (#3938)
+  * Allow value of `user-home` attribute to be overridden by API or CLI (#3732)
+
+Build / Infrastructure::
+
+  * Run tests on JRuby for Windows (#3550)
+
+== 2.0.13 (2021-04-10) - @mojavelinux
+
+Bug Fixes::
+
+  * Rollback change for #3470, which added logic to remove leading and trailing empty lines in an AsciiDoc include file; instead skip empty lines before processing document header (#3997)
+  * Don't allow `counter` and `counter2` attribute directives to override locked attributes (#3939) (*@mogztter*)
+  * Fix crash when resolving next value in sequence for counter with non-numeric value (#3940)
+  * Honor list of tags following negated wildcard on include directive (#3932)
+  * Update default stylesheet to remove dash in front of cite on nested quote block (#3847)
+  * Don't mangle formatting macros when uppercasing section titles in man page output (#3892)
+  * Don't escape hyphen in `manname` in man page output
+  * Remove extra `.sp` line before content of verse block in man page output
+  * Fix layout of footnotes in man page output (#3989)
+  * Fix formatting of footnote text with URL in man page output (#3988)
+  * Remove redundant trailing space on URL followed by non-adjacent text in man page output (#4004)
+  * Use `.bp` macro at location of page break in man page output (#3992)
+
+Improvements::
+
+  * Extract method to create lexer and formatter in Rouge adapter (#3953) (*@Oblomov*)
+  * Add support for pygments.rb 2.x (#3969) (*@slonopotamus*)
+  * Allow `NullLogger` to be enabled by setting the `:logger` option to a falsy value (#3982)
+  * Substitute attributes in manpurpose part of NAME section in manpage doctype (#4000)
+  * Output all mannames in name section of HTML output for manpage doctype (#3757)
+
+Build / Infrastructure::
+
+  * Enable running tests as root (PR #3874) (*@mikemckiernan*)
+  * Run tests against both pygments.rb 1.x and 2.x (#3969) (*@slonopotamus*)
+  * Speed up CI by using Bundler cache (PR #3901) (*@slonopotamus*)
+
+Documentation::
+
+  * Import documentation for processor into this repository (#3861) (*@graphitefriction*)
+  * Add Belarusian translation of built-in attributes (PR #3928) (*@morganov*)
+
+== 2.0.12 (2020-11-10) - @mojavelinux
 
 Bug Fixes::
 
@@ -80,6 +198,7 @@ Bug Fixes::
 
 Compliance::
 
+  * Account for empty positional attribute when parsing attrlist (#3813)
   * Add support for muted option to self-hosted video (#3408)
   * Move style tag for convert-time syntax highlighters (coderay, rouge, pygments) into head (#3462)
   * Move style tag for client-side syntax highlighters (highlight.js, prettify) into head (#3503)
@@ -172,7 +291,7 @@ Also see https://github.com/asciidoctor/asciidoctor/milestone/33?closed=1[issues
 
 Bug Fixes::
 
-  * assume implicit AsciiDoc extension on interdoc xref macro target with no extension (e.g., `document#`); restores 1.5.x behavior (#3231)
+  * assume implicit AsciiDoc extension on inter-document xref macro target with no extension (e.g., `document#`); restores 1.5.x behavior (#3231)
   * don't fail to load application if call to Dir.home fails; use a rescue with fallback values (#3238)
   * Helpers.rootname should only consider final path segment when dropping file extension
 
@@ -285,7 +404,7 @@ Enhancements / Compliance::
   * change default value of third argument to Abstractnode#attr / AbstractNode#attr? to nil so attribute doesn't inherit by default (#3059)
   * look for table-frame, table-grid, and table-stripes attributes on document as fallback for frame, grid, and stripes attributes on table (#3059)
   * add support for hover mode for table stripes (stripes=hover) (#3110)
-  * always assume the target of a shorthand interdocument xref is a reference to an AsciiDoc document (source-to-source) (#3021)
+  * always assume the target of a shorthand inter-document xref is a reference to an AsciiDoc document (source-to-source) (#3021)
   * if the target of a formal xref macro has a file extension, assume it's a path reference (#3021)
   * never assume target of a formal xref macro is a path reference unless a file extension or fragment is present (#3021)
   * encode characters in URI to comply with RFC-3986
@@ -306,7 +425,7 @@ Enhancements / Compliance::
   * AbstractBlock#find_by looks inside AsciiDoc table cells if traverse_documents selector option is true (#3101)
   * AbstractBlock#find_by finds table cells, which can be selected using the :table_cell context in the selector (#2524)
   * allow ampersand to be used in e-mail address (#2553)
-  * propogate ID assigned to inline passthrough (#2912)
+  * propagate ID assigned to inline passthrough (#2912)
   * rename control keywords in find_by to better align with the standard NodeFilter terminology
   * stop find_by iteration if filter block returns :stop directive
   * rename header_footer option to standalone (while still honoring header_footer for backwards compatibility) (#1444)
@@ -324,6 +443,7 @@ Enhancements / Compliance::
   * require space after semi-colon that separates multiple authors (#2441)
   * catalog inline anchors at start of callout list items (#2818) (*@owenh000*)
   * add parse_attributes helper method to base extension Processor class (#2134)
+  * require at least one character in the term position of a description list (#2766)
 
 Improvements::
 
@@ -405,7 +525,7 @@ Bug Fixes::
 Build / Infrastructure::
 
   * clear SOURCE_DATE_EPOCH env var when testing timezones (PR #2969) (*@aerostitch*)
-  * remove compat folder (removes the AsciiDoc Python config file that provides pseudo-compliance with Asciidoctor and a stylesheet for an old Font Awesome migration)
+  * remove compat folder (removes the AsciiDoc.py config file that provides pseudo-compliance with Asciidoctor and a stylesheet for an old Font Awesome migration)
   * add Ruby 2.6.0 to build matrix
   * stop running CI job on unsupported versions of Ruby
   * exclude test suite, build script, and Gemfile from gem (#3044)
@@ -522,11 +642,11 @@ Enhancements::
 
   * BREAKING: drop XML tags, character refs, and non-word characters (except hyphen, dot, and space) when auto-generating section IDs (#794)
    ** hyphen, dot, and space are replaced with value of idseparator, if set; otherwise, spaces are dropped
-  * BREAKING: disable interdocument xrefs in compat mode (#2740)
+  * BREAKING: disable inter-document xrefs in compat mode (#2740)
   * BREAKING: automatically parse attributes in link macro if equals is present, ignoring linkattrs (except in compat mode) (#2059)
   * pass non-AsciiDoc file extensions in target of xref through unprocessed (#2740)
-  * process any known AsciiDoc file extension in target of shorthand interdocument xref if hash is also present (e.g., `<<target.asciidoc#,text>>`) (#2740)
-  * only allow .adoc to be used in target of formal xref macro to create an interdocument xref (with or without a hash) (#2740)
+  * process any known AsciiDoc file extension in target of shorthand inter-document xref if hash is also present (e.g., `<<target.asciidoc#,text>>`) (#2740)
+  * only allow .adoc to be used in target of formal xref macro to create an inter-document xref (with or without a hash) (#2740)
   * allow attribute names to contain any word character defined by Unicode (#2376, PR #2393)
   * do not recognize attribute entry line if name contains a colon (PR #2377)
   * route all processor messages through a logger instead of using Kernel#warn (#44, PR #2660)
@@ -538,9 +658,9 @@ Enhancements::
   * add `--failure-level=LEVEL` option to CLI to force non-zero exit code if specified logging level is reached (#2003, PR #2674)
   * parse text of xref macro as attributes if attribute signature found (equal sign) (#2381)
   * allow xrefstyle to be specified per xref by assigning the xrefstyle attribute on the xref macro (#2365)
-  * recognize target with .adoc extension in xref macro as an interdocument xref
+  * recognize target with .adoc extension in xref macro as an inter-document xref
   * resolve nested includes in remote documents relative to URI (#2506, PR #2511)
-  * allow `relfilesuffix` attribute to control file extension used for interdoc xrefs (#1273)
+  * allow `relfilesuffix` attribute to control file extension used for inter-document xrefs (#1273)
   * support `!name@` (preferred), `!name=@`, `name!@`, and `name!=@` syntax to soft unset attribute from API or CLI (#642, PR #2649)
   * allow modifier to be placed at end of name to soft set an attribute (e.g., `icons@=font`) (#642, PR #2649)
   * interpret `false` attribute value defined using API as a soft unset (#642, PR #2649)
@@ -654,7 +774,7 @@ Improvements / Refactoring::
   * add methods to read results from timings (#2578, PR #2580)
   * collapse bottom margin of last block in AsciiDoc table cell (#2568, PR #2593)
   * set authorcount to 0 if there are no authors (#2519, PR #2520)
-  * validate fragment of interdoc xref that resolves to current doc (#2448, PR #2449)
+  * validate fragment of inter-document xref that resolves to current doc (#2448, PR #2449)
   * put id attribute on tag around phrase instead of preceding anchor (#2445, PR #2446)
   * add .plist extension to XML circumfix comment family (#2430, PR #2431) (*@akosma*)
   * alias Document#title method to no args Document#doctitle method (#2429, PR #2432)
@@ -1596,13 +1716,13 @@ Compliance::
   * skip include directives when processing comment blocks
   * added xmlns to root element in docbook45 backend, set noxmlns attribute to disable
   * added a Compliance module to control compliance-related behavior
-  * added linkattrs feature to AsciiDoc compatibility file (#441)
-  * added level-5 heading to AsciiDoc compatibility file (#388)
-  * added new XML-based callouts to AsciiDoc compatibility file
-  * added absolute and uri image target matching to AsciiDoc compatibility file
-  * added float attribute on inline image macro to AsciiDoc compatibility file
-  * removed linkcss in AsciiDoc compatibility file
-  * fixed fenced code entry in compatibility file
+  * added linkattrs feature to AsciiDoc.py compatibility file (#441)
+  * added level-5 heading to AsciiDoc.py compatibility file (#388)
+  * added new XML-based callouts to AsciiDoc.py compatibility file
+  * added absolute and uri image target matching to AsciiDoc.py compatibility file
+  * added float attribute on inline image macro to AsciiDoc.py compatibility file
+  * removed linkcss in AsciiDoc.py compatibility file
+  * fixed fenced code entry in AsciiDoc.py compatibility file
 
 Bug Fixes::
 
@@ -1700,7 +1820,7 @@ Enhancements::
 
 Compliance::
 
-  * ~ 99.5% compliance with AsciiDoc
+  * ~ 99.5% compliance with AsciiDoc.py
   * drop line if target of include directive is blank (#376)
   * resolve attribute references in target of include directive (#367)
   * added irc scheme to link detection (#314)
@@ -1761,7 +1881,7 @@ Enhancements::
 
 Compliance::
 
-  * added AsciiDoc compatibility file to make AsciiDoc behave like Asciidoctor (#257)
+  * added compatibility file to make AsciiDoc.py behave like Asciidoctor (#257)
   * restore alpha-based xml entities (#211)
   * implement video and audio block macros (#155)
   * implement toc block macro (#269)
@@ -1861,7 +1981,7 @@ Enhancements::
   * added hardbreaks option to preserve line breaks in paragraph text (#119)
   * :header_footer option defaults to false when using the API, unless rendering to file
   * added idseparator attribute to customized separator used in generated section ids
-  * do not number special sections (differs from AsciiDoc)
+  * do not number special sections (differs from AsciiDoc.py)
 
 Compliance::
 

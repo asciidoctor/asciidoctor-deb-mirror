@@ -34,6 +34,14 @@ class Minitest::Test
     RUBY_ENGINE == 'jruby'
   end
 
+  def self.jruby_9_1_windows?
+    RUBY_ENGINE == 'jruby' && windows? && (JRUBY_VERSION.start_with? '9.1.')
+  end
+
+  def jruby_9_1_windows?
+    Minitest::Test.jruby_9_1_windows?
+  end
+
   def self.windows?
     /mswin|msys|mingw/.match? RbConfig::CONFIG['host_os']
   end
@@ -99,7 +107,7 @@ class Minitest::Test
     case type
     when :xpath
       namespaces = (doc.respond_to? :root) ? doc.root.namespaces : {}
-      results = doc.xpath %(#{path.sub '/', './'}), namespaces
+      results = doc.xpath (path.sub '/', './'), namespaces
     when :css
       results = doc.css path
     end
@@ -184,7 +192,7 @@ class Minitest::Test
   def xmldoc_from_string content
     if (content.start_with? '<?xml ') || (RE_XMLNS_ATTRIBUTE.match? content)
       Nokogiri::XML::Document.parse content
-    elsif !(RE_DOCTYPE =~ content)
+    elsif RE_DOCTYPE !~ content
       Nokogiri::HTML::DocumentFragment.parse content
     elsif $1.start_with? 'html'
       Nokogiri::HTML::Document.parse content
@@ -331,6 +339,8 @@ class Minitest::Test
     [Gem.ruby, *ruby_args, (File.join bindir, 'asciidoctor')]
   end
 
+  # NOTE run_command fails on JRuby 9.1 for Windows with the following error:
+  # Java::JavaLang::ClassCastException at org.jruby.util.ShellLauncher.getModifiedEnv(ShellLauncher.java:271)
   def run_command cmd, *args, &block
     if Array === cmd
       args.unshift(*cmd)
@@ -339,30 +349,43 @@ class Minitest::Test
     kw_args = Hash === args[-1] ? args.pop : {}
     env = kw_args[:env]
     (env ||= {})['RUBYOPT'] = nil unless kw_args[:use_bundler]
-    opts = { err: [:child, :out] }
+    # JRuby 9.1 on Windows doesn't support popen options; therefore, test cannot capture / assert on stderr
+    opts = jruby_9_1_windows? ? {} : { err: [:child, :out] }
     if env
       # NOTE while JRuby 9.2.10.0 implements support for unsetenv_others, it doesn't work in child
       #if jruby? && (Gem::Version.new JRUBY_VERSION) < (Gem::Version.new '9.2.10.0')
       if jruby?
         begin
-          old_env, env = ENV, (ENV.merge env)
+          old_env, env = ENV.merge, (ENV.merge env)
           env.each {|key, val| env.delete key if val.nil? } if env.value? nil
           ENV.replace env
-          IO.popen [cmd, *args, opts], &block
+          popen [cmd, *args, opts], &block
         ensure
           ENV.replace old_env
         end
       elsif env.value? nil
-        env = env.reduce ENV.to_h do |accum, (key, val)|
+        env = env.each_with_object ENV.to_h do |(key, val), accum|
           val.nil? ? (accum.delete key) : (accum[key] = val)
-          accum
         end
-        IO.popen [env, cmd, *args, (opts.merge unsetenv_others: true)], &block
+        popen [env, cmd, *args, (opts.merge unsetenv_others: true)], &block
       else
-        IO.popen [env, cmd, *args, opts], &block
+        popen [env, cmd, *args, opts], &block
       end
     else
-      IO.popen [cmd, *args, opts], &block
+      popen [cmd, *args, opts], &block
+    end
+  end
+
+  def popen args, &block
+    # When block is passed to IO.popen, JRuby for Windows does not return value of block as return value
+    if jruby? && windows?
+      result = nil
+      IO.popen args do |io|
+        result = yield io
+      end
+      result
+    else
+      IO.popen args, &block
     end
   end
 
@@ -391,7 +414,7 @@ class Minitest::Test
           end
           session.print %(HTTP/1.1 200 OK\r\nContent-Type: #{mimetype}\r\n\r\n)
           File.open resource_file, Asciidoctor::FILE_READ_MODE do |fd|
-            until fd.eof? do
+            until fd.eof?
               buffer = fd.read 256
               session.write buffer
             end
@@ -478,7 +501,7 @@ class Minitest::Test
     end
 
     def test_name name
-      %(test_#{((sanitize_name name).gsub %r/\s+/, '_')}).to_sym
+      %(test_#{(sanitize_name name).gsub %r/\s+/, '_'}).to_sym
     end
 
     def sanitize_name name

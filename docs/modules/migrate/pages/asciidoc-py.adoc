@@ -1,0 +1,439 @@
+= Migrate from AsciiDoc.py
+:url-tests: {url-org}/asciidoctor/tree/master/test
+:url-doctest: {url-org}/asciidoctor-doctest
+:url-asciidoctor-1: {url-project}/man/asciidoctor
+
+AsciiDoc.py is the original and legacy Python-based processor for the AsciiDoc language.
+It has been superseded by Asciidoctor.
+If you're currently using AsciiDoc.py to convert your AsciiDoc documents and are ready to switch to Asciidoctor, you'll need to migrate your legacy AsciiDoc content to the official AsciiDoc syntax defined and supported by Asciidoctor.
+In doing so, you'll also benefit from the enhancements that have been added to the AsciiDoc language since Asciidoctor took over development of the language.
+This page covers those differences and how to migrate.
+
+NOTE: This documentation specifically covers migration from AsciiDoc.py 8.6.
+
+== Processor call
+
+The Asciidoctor processor is a drop-in replacement for AsciiDoc.py.
+You can replace the call to AsciiDoc.py (`asciidoc`) with the equivalent call to Asciidoctor (`asciidoctor`).
+
+ $ asciidoctor document.adoc
+
+If your document makes heavy use of the legacy AsciiDoc syntax supported by AsciiDoc.py, you may have better luck enabling compat mode:
+
+ $ asciidoctor -a compat-mode document.adoc
+
+However, compat mode is strictly a migration aid.
+You should only use it as an interim measure while you're migrating your content.
+It's not something you want to rely on long term and is considered deprecated.
+
+== Default HTML backend
+
+AsciiDoc.py used XHTML 1.1 as its default output.
+Asciidoctor's default output is HTML 5 (i.e., `backend=html5`) and the `html` backend maps to `html5`.
+
+== Themes
+
+AsciiDoc.py provided a theming mechanism that encapsulated CSS, JavaScript, and images.
+The `--theme` option activated one of these themes, which was resolved from your home directory.
+In Asciidoctor, you control the theme using CSS stylesheets, which you specify using `-a stylesheet=<stylesheet>`.
+
+If you require more advanced theming, you can inject additional resources using a xref:ROOT:docinfo.adoc[docinfo file] or a xref:extensions:postprocessor.adoc[postprocessor extension].
+
+[#migrate-stylesheet]
+=== Default HTML stylesheet
+
+The Asciidoctor and AsciiDoc.py stylesheets look quite different, but they're mostly interchangable since the underlying HTML structure of the two processors is nearly identical.
+
+If you prefer the AsciiDoc.py stylesheet, you can use it by copying it from the AsciiDoc.py [.path]_stylesheets_ directory and instructing Asciidoctor to apply it using:
+
+ $ asciidoctor -a stylesheet=asciidoc.css document.adoc
+
+Keep in mind that the default stylesheet in Asciidoctor is just that, a default.
+If you don't like its appearance, you can customize it.
+
+IMPORTANT: Unlike AsciiDoc.py, Asciidoctor loads some resources from a CDN.
+It's possible to configure Asciidoctor to load all resources from local files.
+For instance, you can unset the `webfonts` attribute so that the generated HTML does not use fonts from Google Fonts.
+There are similar attributes to control how additional resources are resolved.
+
+== Updated and deprecated AsciiDoc syntax
+
+As the steward of the AsciiDoc language, Asciidoctor reworked some of the AsciiDoc syntax originally introduced by AsciiDoc.py in an effort to make it more consistent, easier to learn, and, in some cases, more concise.
+This section outlines those improvements to the modern AsciiDoc syntax and how it differs from the legacy AsciiDoc recognized by AsciiDoc.py.
+
+*If a feature or attribute isn't mentioned in the following tables, than it works in Asciidoctor just like it worked in AsciiDoc.py.*
+
+=== Inline formatting
+
+[cols="~,~,~,~"]
+|===
+|Feature |AsciiDoc.py |Asciidoctor |Notes
+
+|_italic text_
+|pass:['italic text'] or pass:[_italic text_]
+|pass:[_italic text_]
+|See xref:asciidoc:text:italic.adoc[]. +
+Reverts to AsciiDoc.py syntax when `compat-mode` is enabled.
+
+|`monospace text`
+|pass:[+monospace text+]
+|pass:[`monospace text`] or pass:[[x-\]+monospace text+]
+|See xref:asciidoc:text:monospace.adoc[]. +
+Reverts to AsciiDoc.py syntax when `compat-mode` is enabled.
+
+|`literal monospace text`
+|pass:[`literal monospace text`]
+|pass:[`+literal monospace text+`] or pass:[[x-\]`literal monospace text`]
+|See xref:asciidoc:text:monospace.adoc#literal-monospace[Literal monospace]. +
+Reverts to AsciiDoc.py syntax when `compat-mode` is enabled.
+
+|Curved "`double quotes`"
+|pass:[``double quotes'']
+|pass:["`double quotes`"]
+|See xref:asciidoc:text:quotation-marks-and-apostrophes.adoc[]. +
+Reverts to AsciiDoc.py syntax when `compat-mode` is enabled.
+
+|Curved '`single quotes`'
+|pass:[`single quotes']
+|pass:['`single quotes`']
+|See xref:asciidoc:text:quotation-marks-and-apostrophes.adoc[]. +
+Reverts to AsciiDoc.py syntax when `compat-mode` is enabled.
+
+|Inline role(s)
+|pass:[[role\]#text#] or pass:[[role1 role2\]#text#]
+|pass:[[.role\]#text#] or pass:[[.role1.role2\]#text#]
+|See xref:asciidoc:text:text-span-built-in-roles.adoc[]. +
+While Asciidoctor still recognizes the bare, space-separated syntax for inline roles, the shorthand-style with the leading dot is preferred.
+
+|Font size roles
+|`big`, `small`
+|user-specified role (e.g., `+[.details]+`) with corresponding CSS rules provided by stylesheet
+|See xref:asciidoc:text:custom-inline-styles.adoc[]. +
+The default stylesheet in Asciidoctor still provides CSS for these built-in roles, but they are considered deprecated.
+
+|Color roles
+|`aqua`, `aqua-background`, etc.
+|user-specified role `+[.brand-primary]+` with corresponding CSS rules provided by stylesheet
+|See xref:asciidoc:text:custom-inline-styles.adoc[]. +
+The default stylesheet in Asciidoctor still provides CSS for these built-in roles, but they are considered deprecated.
+|===
+
+=== Table of contents
+
+[cols="~,~,~,~"]
+|===
+|Feature |AsciiDoc.py |Asciidoctor |Notes
+
+|Scrollable, left margin TOC
+|`toc2`
+|`+:toc: left+`
+|See xref:asciidoc:toc:position.adoc[].
+
+|TOC location
+|`toc-placement` and `toc-position`
+|`+:toc: <value>+`
+|See xref:asciidoc:toc:position.adoc[].
+
+|User-specified TOC location
+|`+:toc-placement: manual+`
+|`+:toc: macro+`
+|See xref:asciidoc:toc:position.adoc[].
+|===
+
+=== Document and section titles
+
+[cols="~,~,30%,~"]
+|===
+|Feature |AsciiDoc.py |Asciidoctor |Notes
+
+|Two-line style (setext) document title
+|`Title` +
+`+=====+`
+|`= Title`
+|See xref:asciidoc:document:title.adoc[]. +
+When Asciidoctor detects the two-line style document title, it switches to compat mode by implicitly setting `compat-mode`.
+To revert this behavior, explicitly unset `compat-mode`.
+
+|Underlined section titles
+|Underline length must match title length +/- 2 characters.
+|`== Level 1 title` +
+`=== Level 2 title` +
+`==== Level 3 title` +
+`===== Level 4 title`
+|See xref:asciidoc:sections:titles-and-levels.adoc[].
+
+|Section numbers
+|`numbered`
+|`sectnums`
+|See xref:asciidoc:sections:numbers.adoc[].
+|===
+
+=== Tables
+
+[cols="~,~,~,~"]
+|===
+|Feature |AsciiDoc.py |Asciidoctor |Notes
+
+|Table cell
+|`a{vbar}` or `asciidoc{vbar}`
+|`a{vbar}` only
+|See xref:asciidoc:tables:add-cells-and-rows.adoc[].
+
+|Table cell separator
+|A Python regular expression.
+|One or more literal characters or `\t` for tab.
+|See xref:asciidoc:tables:add-cells-and-rows.adoc[], xref:asciidoc:tables:data-format.adoc[], and xref:asciidoc:tables:data-format.adoc#custom-delimiters[custom separators].
+
+|Horizontal and vertical alignment for tables cells
+|`halign`, `valign`
+|Column and cell specifiers
+|See xref:asciidoc:tables:align-by-column.adoc[] and xref:asciidoc:tables:align-by-cell.adoc[].
+
+|Make tables full page width in DocBook
+|`options="pgwide"`
+|_not implemented_
+|
+|===
+
+=== Blocks
+
+[cols="~,~,~,~"]
+|===
+|Feature |AsciiDoc.py |Asciidoctor |Notes
+
+|Block delimiters
+|Delimiter lines do not have to match in length.
+|The length of start and end delimiter lines must match exactly.
+|See xref:asciidoc:blocks:build-basic-block.adoc#delimited-blocks[Delimited blocks].
+
+|Default substitutions for passthrough blocks
+|Applies attributes and macros substitutions to passthrough blocks
+|Does not apply any substitutions to passthrough blocks
+|Add `[subs="attributes,macros"]` above block to restore behavior.
+|===
+
+=== Substitutions
+
+[cols="~,~,~,~"]
+|===
+|Feature |AsciiDoc.py |Asciidoctor |Notes
+
+|Substitute `+`
+|`replacements2`
+|`post_replacements`
+|See xref:asciidoc:subs:post-replacements.adoc[].
+
+|Suppress inline substitutions and retain block indents when importing large blocks of plain text
+|`plaintext`
+|_not implemented_
+|Close equivalent is a xref:asciidoc:pass:pass-block.adoc[passthrough block] or a listing block with xref:asciidoc:directives:include-with-indent.adoc#the-indent-attribute[the indent attribute].
+|===
+
+=== Mathematical expressions
+
+AsciiDoc.py and Asciidoctor can convert embedded LaTeX and AsciiMath expressions (e.g., `pass:[asciimath:[expression]]`, `pass:[latexmath:[expression]]`, etc.).
+In Asciidoctor, activate STEM support first using the xref:asciidoc:stem:stem.adoc[stem attribute].
+
+=== Miscellaneous
+
+[cols="~,~,~,30%"]
+|===
+|Feature |AsciiDoc.py |Asciidoctor |Notes
+
+|`+ifeval::[ ]+`
+|Evaluates any Python expression.
+|Evaluates simple logical expressions testing the value of attributes.
+|See xref:asciidoc:directives:ifeval.adoc[].
+
+|Provide name of current document
+|`infile`
+|_not implemented_
+|
+
+|Provide directory of current document
+|`indir`
+|_not implemented_
+|
+
+|Apply special formatting to named text
+|`specialwords`
+|_not implemented_
+|
+
+|Replace tabs with spaces in all text, using a default tab size of 8
+|`tabsize` (in-document and include directive)
+|in-document only
+|Asciidoctor only replaces tabs with spaces in verbatim blocks, and the attribute has no default.
+In other words, tabs are not expanded in verbatim content blocks unless this attribute is set on the block or the document.
+For all other text, Asciidoctor tabs are fixed at 4 spaces by the CSS.
+See xref:asciidoc:directives:include-with-indent.adoc[normalize block indentation].
+|===
+
+=== showcomments
+
+In AsciiDoc.py, single line comments could be turned into DocBook `<remark>` elements using `showcomments`.
+This feature isn't implemented in Asciidoctor, but you can send remarks to the output, using an extension, or ifdef directives and passthrough blocks like the example shown below.
+
+[source,asciidoc]
+----
+ ifdef::showcomments+basebackend-docbook[]
+ ++++
+ <remark>Your comment here</remark>
+ ++++
+ endif::[]
+----
+
+== Compatibility mode
+
+We want to continue to evolve and refine the AsciiDoc syntax, but we also recognize that compatibility is very important.
+That's why Asciidoctor provides a compatibility mode (aka compat mode) with AsciiDoc.py (as well as some inline transitional syntax).
+
+Compat mode will help you either stay with or transition away from the legacy AsciiDoc syntax recognized by AsciiDoc.py to the modern AsciiDoc syntax recognized by Asciidoctor.
+This mode should only be used as a tool to assist with migration, not as a long-term strategy.
+
+If you can't migrate right now, you can activate compat mode by setting the `compat-mode` document attribute in the document header or by passing it to the processor:
+
+ $ asciidoctor -a compat-mode document.adoc
+
+You can also enable compat mode implicitly by beginning the document with an setext-style (i.e., two-line) document title:
+
+[,asciidoc]
+----
+Compat Mode
+===========
+
+ifdef::compat-mode[Compat mode is on!]
+----
+
+When compat mode is enabled, Asciidoctor adapts some of its behavior and its interpretation of AsciiDoc to more closely align with AsciiDoc.py.
+The most noticable difference is that backticks now only indicate monospace text as oppossed to literal monospace.
+Literal monospace is signified using a compound markup that combines an inline passthrough with monospace formatting.
+
+[cols=3*,width=75%]
+|===
+| Feature | Source | Result
+
+| Monospace
+| pass:[`1...10`]
+| `1...10`
+
+| Literal monospace
+| pass:[`+1...10+`]
+| `+1...10+`
+|===
+
+To learn more about the adaptations that are activated by compat mode, refer to <<inline-formatting,inline formatting>>.
+
+If you've written content to be processed with AsciiDoc.py, and you aren't yet ready to migrate, or need to ease into that migration, Asciidoctor's compatibility mode will help ensure that your existing content will continue to work (to the extent possible).
+
+== Configuration files
+
+Asciidoctor does not use [.path]_.conf_ files or filters, so `--conf-file`, `--dump-conf`, and `--filter` are not applicable.
+Instead, Asciidoctor provides an xref:extensions:register.adoc[extension API] that replaces the configuration-based extension and filter mechanisms in AsciiDoc.py.
+
+=== Localization
+
+AsciiDoc.py had built-in [.path]_.conf_ files that translated built-in labels.
+In Asciidoctor, you must define the translations for these labels explicitly.
+See xref:ROOT:localization-support.adoc[] for details.
+
+[#migrate-extensions]
+== AsciiDoc.py extensions
+
+The extension mechanism is completely different in Asciidoctor, but most of the standard extensions have been re-implemented, so they should work with minor changes.
+
+[cols="~,~"]
+|===
+|AsciiDoc.py |Asciidoctor
+
+|`source`
+a|
+* You can choose from a number of xref:asciidoc:verbatim:source-highlighter.adoc#built-in-values[source highlighters].
+* Source highlighter values are built-in.
+* `src_numbered`, `src_tab`, `args` are not implemented directly, but check the highlighter you are using for what features it has and how to configure them.
+
+|music
+|Not implemented.
+
+|`[latex]` block macro
+|Use a xref:asciidoc:stem:stem.adoc#block[stem block].
+
+|`graphviz`
+|Use xref:diagram-extension::index.adoc[Asciidoctor Diagram].
+|===
+
+=== Custom extensions
+
+AsciiDoc.py custom extensions are Python commands, so they don't work with Asciidoctor.
+Depending on the Asciidoctor processor you choose, you can re-write your xref:extensions:index.adoc[extensions in Ruby, Java, or JavaScript].
+
+== Doctest
+
+AsciiDoc.py `--doctest` ran its unit tests.
+See the {url-tests}[test suite^] for how to run the Asciidoctor unit tests.
+Asciidoctor also has a {url-doctest}[doctest tool^] which you can use when creating custom HTML or XML-based converters.
+
+== Help topics
+
+In both AsciiDoc.py and Asciidoctor, the `--help` CLI option shows the command usage by default.
+It can also show a syntax crib sheet using `--help syntax` or the man page using `--help manpage`.
+
+In AsciiDoc.py, the `--help manpage` option emits a plaintext version of the man page.
+Asciidoctor, on the other hand, outputs the formatted man page so you can use it with a man pager.
+To view it, you need to pipe the result to the `man` command as follows:
+
+ $ asciidoctor --help manpage | man /dev/stdin
+
+or
+
+ $ asciidoctor --help manpage | man -l -
+
+If you want to view the plaintext version with Asciidoctor, you can route the output through the `col` command as follows:
+
+ $ asciidoctor --help manpage | man -l - | col -bx
+
+Alternately, you can view the man page for Asciidoctor online at {url-asciidoctor-1}[asciidoctor(1)].
+
+////
+This content needs to be move to the specific subject docs pages if applicable
+
+== Features Introduced by Asciidoctor
+
+=== New Syntax
+
+Asciidoctor has shorthand for id, role, style and options.
+The following longhand syntax in AsciiDoc.py:
+
+[source,asciidoc]
+----
+[[id]]
+[style,role="role",options="option1,option2"]
+----
+
+can be written using the shorthand supported by Asciidoctor:
+
+[source,asciidoc]
+----
+[style#id.role%option1%option2]
+----
+
+The longhand forms still work, but you should use the new forms for future compatibility, convenience and readability.
+
+=== Enhancements
+
+There are lots of new features and improvements Asciidoctor.
+These are some of the more interesting ones when migrating:
+
+* xref:directives:include-lines-and-tags.adoc[Partial includes]
+* xref:attributes:safe-modes.adoc[Additional safe modes]
+* xref:macros:icons.adoc[Icon-based fonts and inline icons]
+* xref:diagram-extension::index.adoc[Asciidoctor Diagram]
+
+A detailed list of the improvements is shown in #Differences between Asciidoctor and AsciiDoc.py#.
+
+This is the compat mode summary which needs a page.
+
+These changes are not backward-compatible, but if you set the `compat-mode` attribute, Asciidoctor will accept the AsciiDoc.py syntax.
+For the long term, you should update to the Asciidoctor syntax.
+Consult the {uri-migrate}[Migration Guide] to get the full details and learn how to migrate smoothly.
+////

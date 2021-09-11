@@ -33,13 +33,13 @@ class SyntaxHighlighter::PygmentsAdapter < SyntaxHighlighter::Base
         highlighted = highlighted.sub WrapperTagRx, PreTagCs
         opts[:callouts] ? [highlighted, (idx = highlighted.index CodeCellStartTagCs) ? idx + CodeCellStartTagCs.length : nil] : highlighted
       else
-        node.sub_specialchars source # handles nil response from ::Pygments::Lexer#highlight
+        node.sub_source source, false # handles nil response from ::Pygments::Lexer#highlight
       end
     elsif (highlighted = lexer.highlight source, options: highlight_opts)
       highlighted = highlighted.gsub StyledLinenoSpanTagRx, LinenoSpanTagCs if linenos && noclasses
       highlighted.sub WrapperTagRx, '\1'
     else
-      node.sub_specialchars source # handles nil response from ::Pygments::Lexer#highlight
+      node.sub_source source, false # handles nil response from ::Pygments::Lexer#highlight
     end
   end
 
@@ -129,14 +129,15 @@ class SyntaxHighlighter::PygmentsAdapter < SyntaxHighlighter::Base
   end
 
   extend Styles # exports static methods
-  include Loader, Styles # adds methods to instance
+  include Styles # adds methods to instance
+  include Loader # adds methods to instance
 
   CodeCellStartTagCs = '<td class="code">'
   LinenoColumnStartTagsCs = '<td class="linenos"><div class="linenodiv"><pre>'
-  LinenoSpanTagCs = '<span class="lineno">\1</span>'
+  LinenoSpanTagCs = '<span class="lineno">\1 </span>'
   PreTagCs = '<pre>\1</pre>'
   StyledLinenoColumnStartTagsRx = /<td><div class="linenodiv" style="[^"]+?"><pre style="[^"]+?">/
-  StyledLinenoSpanTagRx = %r(<span style="background-color: #f0f0f0; padding: 0 5px 0 5px">( *\d+ )</span>)
+  StyledLinenoSpanTagRx = %r((?<=^|<span></span>)<span style="[^"]+">( *\d+) ?</span>)
   WRAPPER_CLASS = 'lineno' # doesn't appear in output; Pygments appends "table" to this value to make nested table class
   # NOTE <pre> has style attribute when pygments-css=style
   # NOTE <div> has trailing newline when pygments-linenums-mode=table

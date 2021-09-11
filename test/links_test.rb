@@ -85,10 +85,46 @@ context 'Links' do
     assert_xpath '//a[@href="http://asciidoc.org"][text()="http://asciidoc.org"]', convert_string('(http://asciidoc.org) is the project page for AsciiDoc.'), 1
   end
 
+  test 'qualified url with trailing period' do
+    result = convert_string_to_embedded 'The homepage for Asciidoctor is https://asciidoctor.org.'
+    assert_xpath '//a[@href="https://asciidoctor.org"][text()="https://asciidoctor.org"]', result, 1
+    assert_xpath '//a[@href="https://asciidoctor.org"][text()="https://asciidoctor.org"]/following-sibling::text()[starts-with(.,".")]', result, 1
+  end
+
+  test 'qualified url with trailing explanation point' do
+    result = convert_string_to_embedded 'Check out https://asciidoctor.org!'
+    assert_xpath '//a[@href="https://asciidoctor.org"][text()="https://asciidoctor.org"]', result, 1
+    assert_xpath '//a[@href="https://asciidoctor.org"][text()="https://asciidoctor.org"]/following-sibling::text()[starts-with(.,"!")]', result, 1
+  end
+
+  test 'qualified url with trailing question mark' do
+    result = convert_string_to_embedded 'Is the homepage for Asciidoctor https://asciidoctor.org?'
+    assert_xpath '//a[@href="https://asciidoctor.org"][text()="https://asciidoctor.org"]', result, 1
+    assert_xpath '//a[@href="https://asciidoctor.org"][text()="https://asciidoctor.org"]/following-sibling::text()[starts-with(.,"?")]', result, 1
+  end
+
   test 'qualified url with trailing round bracket' do
     result = convert_string_to_embedded 'Asciidoctor is a Ruby-based AsciiDoc processor (see https://asciidoctor.org)'
     assert_xpath '//a[@href="https://asciidoctor.org"][text()="https://asciidoctor.org"]', result, 1
     assert_xpath '//a[@href="https://asciidoctor.org"][text()="https://asciidoctor.org"]/following-sibling::text()[starts-with(.,")")]', result, 1
+  end
+
+  test 'qualified url with trailing period followed by round bracket' do
+    result = convert_string_to_embedded '(The homepage for Asciidoctor is https://asciidoctor.org.)'
+    assert_xpath '//a[@href="https://asciidoctor.org"][text()="https://asciidoctor.org"]', result, 1
+    assert_xpath '//a[@href="https://asciidoctor.org"][text()="https://asciidoctor.org"]/following-sibling::text()[starts-with(.,".)")]', result, 1
+  end
+
+  test 'qualified url with trailing exclamation point followed by round bracket' do
+    result = convert_string_to_embedded '(Check out https://asciidoctor.org!)'
+    assert_xpath '//a[@href="https://asciidoctor.org"][text()="https://asciidoctor.org"]', result, 1
+    assert_xpath '//a[@href="https://asciidoctor.org"][text()="https://asciidoctor.org"]/following-sibling::text()[starts-with(.,"!)")]', result, 1
+  end
+
+  test 'qualified url with trailing question mark followed by round bracket' do
+    result = convert_string_to_embedded '(Is the homepage for Asciidoctor https://asciidoctor.org?)'
+    assert_xpath '//a[@href="https://asciidoctor.org"][text()="https://asciidoctor.org"]', result, 1
+    assert_xpath '//a[@href="https://asciidoctor.org"][text()="https://asciidoctor.org"]/following-sibling::text()[starts-with(.,"?)")]', result, 1
   end
 
   test 'qualified url with trailing semi-colon' do
@@ -263,6 +299,11 @@ context 'Links' do
     assert_xpath %(//a[@href="#{url}"][text()="Roboto,400"]), convert_string_to_embedded(%(link:#{url}[Roboto,400])), 1
   end
 
+  test 'link macro should support id and role attributes' do
+    url = 'https://fonts.googleapis.com/css?family=Roboto:400'
+    assert_xpath %(//a[@href="#{url}"][@id="roboto-regular"][@class="bare font"][text()="#{url}"]), convert_string_to_embedded(%(link:#{url}[,id=roboto-regular,role=font])), 1
+  end
+
   test 'link text that ends in ^ should set link window to _blank' do
     assert_xpath '//a[@href="http://google.com"][@target="_blank"]', convert_string_to_embedded('http://google.com[Google^]'), 1
   end
@@ -434,6 +475,26 @@ context 'Links' do
     assert_xpath '//a[@href="#tigers"][text() = "About Tigers"]', convert_string(input), 1
   end
 
+  test 'xref should use title of target as link text when no explicit reftext is specified' do
+    input = <<~'EOS'
+    <<tigers>>
+
+    [#tigers]
+    == Tigers
+    EOS
+    assert_xpath '//a[@href="#tigers"][text() = "Tigers"]', convert_string(input), 1
+  end
+
+  test 'xref should use title of target as link text when explicit link text is empty' do
+    input = <<~'EOS'
+    <<tigers,>>
+
+    [#tigers]
+    == Tigers
+    EOS
+    assert_xpath '//a[@href="#tigers"][text() = "Tigers"]', convert_string(input), 1
+  end
+
   test 'xref using angled bracket syntax with quoted label' do
     input = <<~'EOS'
     <<tigers,"About Tigers">>
@@ -511,6 +572,16 @@ context 'Links' do
     assert_xpath '//a[@href="using-.net-web-services"][text() = "Using .NET web services"]', result, 1
     result = convert_string_to_embedded 'xref:#using-.net-web-services[Using .NET web services]'
     assert_xpath '//a[@href="#using-.net-web-services"][text() = "Using .NET web services"]', result, 1
+  end
+
+  test 'should not interpret double underscore in target of xref macro if sequence is preceded by a backslash' do
+    result = convert_string_to_embedded 'xref:doc\__with_double__underscore.adoc[text]'
+    assert_xpath '//a[@href="doc__with_double__underscore.html"][text() = "text"]', result, 1
+  end
+
+  test 'should not interpret double underscore in target of xref shorthand if sequence is preceded by a backslash' do
+    result = convert_string_to_embedded '<<doc\__with_double__underscore.adoc#,text>>'
+    assert_xpath '//a[@href="doc__with_double__underscore.html"][text() = "text"]', result, 1
   end
 
   test 'xref using angled bracket syntax with path sans extension using docbook backend' do
@@ -882,6 +953,91 @@ context 'Links' do
         assert_message logger, :INFO, 'possible invalid reference: foobaz'
       end
     end
+  end
+
+  test 'should use doctitle as fallback link text if inter-document xref points to current doc and no link text is provided' do
+    input = <<~'EOS'
+    = Links & Stuff at https://example.org
+
+    See xref:test.adoc[]
+    EOS
+    output = convert_string_to_embedded input, attributes: { 'docname' => 'test' }
+    assert_include '<a href="#">Links &amp; Stuff at https://example.org</a>', output
+  end
+
+  test 'should use doctitle of root document as fallback link text for inter-document xref in AsciiDoc table cell that resolves to current doc' do
+    input = <<~'EOS'
+    = Document Title
+
+    |===
+    a|See xref:test.adoc[]
+    |===
+    EOS
+    output = convert_string_to_embedded input, attributes: { 'docname' => 'test' }
+    assert_include '<a href="#">Document Title</a>', output
+  end
+
+  test 'should use reftext on document as fallback link text if inter-document xref points to current doc and no link text is provided' do
+    input = <<~'EOS'
+    [reftext="Links and Stuff"]
+    = Links & Stuff
+
+    See xref:test.adoc[]
+    EOS
+    output = convert_string_to_embedded input, attributes: { 'docname' => 'test' }
+    assert_include '<a href="#">Links and Stuff</a>', output
+  end
+
+  test 'should use reftext on document as fallback link text if xref points to empty fragment and no link text is provided' do
+    input = <<~'EOS'
+    [reftext="Links and Stuff"]
+    = Links & Stuff
+
+    See xref:#[]
+    EOS
+    output = convert_string_to_embedded input, attributes: { 'docname' => 'test' }
+    assert_include '<a href="#">Links and Stuff</a>', output
+  end
+
+  test 'should use fallback link text if inter-document xref points to current doc without header and no link text is provided' do
+    input = <<~'EOS'
+    See xref:test.adoc[]
+    EOS
+    output = convert_string_to_embedded input, attributes: { 'docname' => 'test' }
+    assert_include '<a href="#">[^top]</a>', output
+  end
+
+  test 'should use fallback link text if fragment of internal xref is empty and no link text is provided' do
+    input = <<~'EOS'
+    See xref:#[]
+    EOS
+    output = convert_string_to_embedded input, attributes: { 'docname' => 'test' }
+    assert_include '<a href="#">[^top]</a>', output
+  end
+
+  test 'should use document id as linkend for self xref in DocBook backend' do
+    input = <<~'EOS'
+    [#docid]
+    = Document Title
+
+    See xref:test.adoc[]
+    EOS
+    output = convert_string_to_embedded input, backend: :docbook, attributes: { 'docname' => 'test' }
+    assert_include '<xref linkend="docid"/>', output
+  end
+
+  test 'should auto-generate document id to use as linkend for self xref in DocBook backend' do
+    input = <<~'EOS'
+    = Document Title
+
+    See xref:test.adoc[]
+    EOS
+    doc = document_from_string input, backend: :docbook, attributes: { 'docname' => 'test' }
+    assert_nil doc.id
+    output = doc.convert
+    assert_nil doc.id
+    assert_include ' xml:id="__article-root__"', output
+    assert_include '<xref linkend="__article-root__"/>', output
   end
 
   test 'should produce an internal anchor for inter-document xref to file outside of base directory' do

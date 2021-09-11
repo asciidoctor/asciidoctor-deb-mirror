@@ -134,14 +134,14 @@ module Extensions
         if opts.fetch :numbered, (style == 'appendix')
           sect.numbered = true
         elsif !(opts.key? :numbered) && (doc.attr? 'sectnums', 'all')
-          sect.numbered = book && level == 1 ? :chapter : true
+          sect.numbered = (book && level == 1 ? :chapter : true)
         end
       elsif level > 0
         if opts.fetch :numbered, (doc.attr? 'sectnums')
           sect.numbered = sect.special ? parent.numbered && true : true
         end
-      else
-        sect.numbered = true if opts.fetch :numbered, (book && (doc.attr? 'partnums'))
+      elsif opts.fetch :numbered, (book && (doc.attr? 'partnums'))
+        sect.numbered = true
       end
       if (id = attrs['id']) == false
         attrs.delete 'id'
@@ -229,7 +229,7 @@ module Extensions
     def parse_attributes block, attrlist, opts = {}
       return {} if attrlist ? attrlist.empty? : true
       attrlist = block.sub_attributes attrlist if opts[:sub_attributes] && (attrlist.include? ATTR_REF_HEAD)
-      (AttributeList.new attrlist).parse (opts[:positional_attributes] || [])
+      (AttributeList.new attrlist).parse opts[:positional_attributes] || []
     end
 
     # TODO fill out remaining methods
@@ -1021,8 +1021,6 @@ module Extensions
         else
           @docinfo_processor_extensions
         end
-      else
-        nil
       end
     end
 
@@ -1201,7 +1199,7 @@ module Extensions
     # name - the String or Symbol (coersed to a Symbol) macro name
     #
     # Returns the [Extension] object stored in the registry that proxies the
-    # cooresponding BlockMacroProcessor or nil if a match is not found.
+    # corresponding BlockMacroProcessor or nil if a match is not found.
     def find_block_macro_extension name
       @block_macro_extensions[name.to_sym]
     end
@@ -1288,7 +1286,7 @@ module Extensions
     # name - the String or Symbol (coersed to a Symbol) macro name
     #
     # Returns the [Extension] object stored in the registry that proxies the
-    # cooresponding InlineMacroProcessor or nil if a match is not found.
+    # corresponding InlineMacroProcessor or nil if a match is not found.
     def find_inline_macro_extension name
       @inline_macro_extensions[name.to_sym]
     end
@@ -1330,7 +1328,7 @@ module Extensions
       kind_java_class = (defined? ::AsciidoctorJ) ? (::AsciidoctorJ::Extensions.const_get kind_class_symbol, false) : nil
       kind_store = instance_variable_get(%(@#{kind}_extensions).to_sym) || instance_variable_set(%(@#{kind}_extensions).to_sym, [])
       # style 1: specified as block
-      extension = if block_given?
+      if block_given?
         config = resolve_args args, 1
         (processor = kind_class.new config).singleton_class.enable_dsl
         if block.arity == 0
@@ -1342,7 +1340,7 @@ module Extensions
           raise ::ArgumentError, %(No block specified to process #{kind_name} extension at #{block.source_location})
         end
         processor.freeze
-        ProcessorExtension.new kind, processor
+        extension = ProcessorExtension.new kind, processor
       else
         processor, config = resolve_args args, 2
         # style 2: specified as Class or String class name
@@ -1352,12 +1350,12 @@ module Extensions
           end
           processor_instance = processor_class.new config
           processor_instance.freeze
-          ProcessorExtension.new kind, processor_instance
+          extension = ProcessorExtension.new kind, processor_instance
         # style 3: specified as instance
         elsif kind_class === processor || (kind_java_class && kind_java_class === processor)
           processor.update_config config
           processor.freeze
-          ProcessorExtension.new kind, processor
+          extension = ProcessorExtension.new kind, processor
         else
           raise ::ArgumentError, %(Invalid arguments specified for registering #{kind_name} extension: #{args})
         end

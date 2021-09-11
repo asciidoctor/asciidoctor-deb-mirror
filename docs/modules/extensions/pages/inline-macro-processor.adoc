@@ -1,0 +1,80 @@
+= Inline Macro Processor Extension Example
+:navtitle: Inline Macro Processor
+
+Purpose::
+Create an inline macro named `man` that links to another man page.
+
+== sample-with-man-link.adoc
+
+[source,asciidoc]
+----
+See man:gittutorial[7] to get started.
+----
+
+== ManpageInlineMacro
+
+[source,ruby]
+----
+require 'asciidoctor'
+require 'asciidoctor/extensions'
+
+class ManInlineMacro < Asciidoctor::Extensions::InlineMacroProcessor
+  use_dsl
+
+  named :man
+  name_positional_attributes 'volnum'
+
+  def process parent, target, attrs
+    text = manname = target
+    suffix = ''
+    target = %(#{manname}.html)
+    suffix = if (volnum = attrs['volnum'])
+      "(#{volnum})"
+    else
+      nil
+    end
+    parent.document.register :links, target
+    %(#{(create_anchor parent, text, type: :link, target: target).convert}#{suffix})
+  end
+end
+----
+
+== Usage
+
+[source,ruby]
+----
+Asciidoctor::Extensions.register do
+  inline_macro ManInlineMacro
+end
+
+Asciidoctor.convert_file 'sample-with-man-link.adoc', safe: :safe
+----
+
+== Tips & Techniques
+
+=== Apply substitutions
+
+By the time an inline macro is processed, most substitutions have already been applied (since macros is one of the last substitutions).
+In order to get the processor to apply substitutions to the text of the Inline node returned by the extension, you must specify those extensions on the node instance itself.
+
+You can specify substitutions to apply to the text of the node using the `subs` attribute.
+This attribute accepts a symbol, an array of symbols, or a comma-separated string.
+
+Let's say that we want normal substitutions to be applied to the text.
+Here's how that can be done:
+
+[source,ruby]
+----
+create_inline_pass parent, '*https://asciidoctor.org[Asciidoctor]*', attributes: { 'subs' => :normal }
+----
+
+This node will be converted into a link with bold link text.
+
+You can also specify the substitutions as a string, which is parsed just like the value of the subs attribute on a block.
+
+[source,ruby]
+----
+create_inline_pass parent, '*https://asciidoctor.org[Asciidoctor]*', attributes: { 'subs' => 'quotes,macros' }
+----
+
+You can specify whichever substitutions you want applied, and in what order.

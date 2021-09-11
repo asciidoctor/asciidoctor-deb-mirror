@@ -84,7 +84,8 @@ context 'API' do
       assert_match(/reader\.rb.*prepare_lines/, exception.backtrace[0..4].join(?\n))
     end
 
-    test 'should convert filename that contains non-ASCII characters independent of default encodings' do
+    # NOTE JRuby for Windows does not permit creating a file with non-Windows-1252 characters in the filename
+    test 'should convert filename that contains non-ASCII characters independent of default encodings', unless: (jruby? && windows?) do
       old_external = Encoding.default_external
       old_internal = Encoding.default_internal
       old_verbose = $VERBOSE
@@ -157,6 +158,23 @@ context 'API' do
       assert_empty doc.blocks
     end
 
+    test 'should ignore :to_file option if value is truthy but not a string' do
+      sample_input_path = fixture_path 'sample.adoc'
+      doc = Asciidoctor.load_file sample_input_path, safe: :safe, to_file: true
+      refute_nil doc
+      assert_equal 'Document Title', doc.doctitle
+      assert_equal '.html', (doc.attr 'outfilesuffix')
+      assert_equal doc.convert, (Asciidoctor.convert_file sample_input_path, safe: :safe, to_file: false)
+    end
+
+    test 'should set outfilesuffix attribute to file extension of value of :to_file option if value is a string' do
+      sample_input_path = fixture_path 'sample.adoc'
+      doc = Asciidoctor.load_file sample_input_path, safe: :safe, to_file: 'out.htm'
+      refute_nil doc
+      assert_equal 'Document Title', doc.doctitle
+      assert_equal '.htm', (doc.attr 'outfilesuffix')
+    end
+
     test 'should accept attributes as array' do
       # NOTE there's a tab character before idseparator
       doc = Asciidoctor.load('text', attributes: %w(toc sectnums   source-highlighter=coderay idprefix	idseparator=-))
@@ -215,7 +233,7 @@ context 'API' do
     end
 
     test 'should accept attributes if hash like' do
-      class Hashish
+      class Hashlike
         def initialize
           @table = { 'toc' => '' }
         end
@@ -229,9 +247,9 @@ context 'API' do
         end
       end
 
-      doc = Asciidoctor.load('text', attributes: Hashish.new)
+      doc = Asciidoctor.load 'text', attributes: Hashlike.new
       assert_kind_of Hash, doc.attributes
-      assert doc.attributes.has_key?('toc')
+      assert doc.attributes.key?('toc')
     end
 
     test 'should not expand value of docdir attribute if specified via API' do
@@ -519,6 +537,43 @@ context 'API' do
       assert_equal 96, unordered_complex_items[4].lineno
     end
 
+    # FIXME see #3966
+    test 'should assign incorrect lineno for single-line paragraph inside a conditional preprocessor directive' do
+      input = <<~'EOS'
+      :conditional-attribute:
+
+      before
+
+      ifdef::conditional-attribute[]
+      subject
+      endif::[]
+
+      after
+      EOS
+
+      doc = document_from_string input, sourcemap: true
+      # FIXME the second line number should be 6 instead of 7
+      assert_equal [3, 7, 9], (doc.find_by context: :paragraph).map(&:lineno)
+    end
+
+    test 'should assign correct lineno for multi-line paragraph inside a conditional preprocessor directive' do
+      input = <<~'EOS'
+      :conditional-attribute:
+
+      before
+
+      ifdef::conditional-attribute[]
+      subject
+      subject
+      endif::[]
+
+      after
+      EOS
+
+      doc = document_from_string input, sourcemap: true
+      assert_equal [3, 6, 10], (doc.find_by context: :paragraph).map(&:lineno)
+    end
+
     # NOTE this does not work for a list continuation that attached to a grandparent
     test 'should assign correct source location to blocks that follow a detached list continuation' do
       input = <<~'EOS'
@@ -786,10 +841,10 @@ context 'API' do
       EOS
       doc = Asciidoctor.load input
       result = doc.find_by do |candidate|
-        ctx = candidate.context
-        if ctx == :example
+        case candidate.context
+        when :example
           :reject
-        elsif ctx == :paragraph
+        when :paragraph
           true
         end
       end
@@ -1413,7 +1468,7 @@ context 'API' do
 
     test 'should resolve :to_dir option correctly when both :to_dir and :to_file options are set to an absolute path' do
       begin
-        sample_input_path = fixture_path 'sample.adoc' 
+        sample_input_path = fixture_path 'sample.adoc'
         sample_output_file = Tempfile.new %w(out- .html)
         sample_output_path = sample_output_file.path
         sample_output_dir = File.dirname sample_output_path
@@ -1477,7 +1532,7 @@ context 'API' do
     test 'output should be relative to to_dir option' do
       sample_input_path = fixture_path('sample.adoc')
       output_dir = File.join(File.dirname(sample_input_path), 'test_output')
-      Dir.mkdir output_dir if !File.exist? output_dir
+      Dir.mkdir output_dir unless File.exist? output_dir
       sample_output_path = File.join(output_dir, 'sample.html')
       begin
         Asciidoctor.convert_file sample_input_path, to_dir: output_dir
@@ -1516,7 +1571,7 @@ context 'API' do
       base_dir = File.dirname(sample_input_path)
       sample_rel_output_path = File.join('test_output', 'result.html')
       output_dir = File.dirname(File.join(base_dir, sample_rel_output_path))
-      Dir.mkdir output_dir if !File.exist? output_dir
+      Dir.mkdir output_dir unless File.exist? output_dir
       sample_output_path = File.join(base_dir, sample_rel_output_path)
       begin
         Asciidoctor.convert_file sample_input_path, to_dir: base_dir, to_file: sample_rel_output_path

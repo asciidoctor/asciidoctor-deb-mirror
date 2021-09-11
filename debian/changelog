@@ -5,6 +5,9 @@ asciidoctor (2.0.16-1) UNRELEASED; urgency=medium
   * d/control (Standards-Version): Bump to 4.6.0.
   * d/copyright: Add Upstream-Contact field.
     (Copyright): Update.
+  * d/patches/fix-test-with-rouge-3.26.0.patch: Drop file. Patch applied.
+  * d/patches/privacy_breach.patch: Drop file. Upstream changed sources.
+  * d/patches/series: Adjust.
   * d/upstream/metadata: Complete file.
 
  -- Daniel Leidert <dleidert@debian.org>  Sat, 11 Sep 2021 06:03:55 +0200

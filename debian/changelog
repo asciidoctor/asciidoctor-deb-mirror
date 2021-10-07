@@ -1,7 +1,7 @@
 asciidoctor (2.0.16-2) UNRELEASED; urgency=medium
 
   * Team upload.
-  * 
+  * d/control (Depends): Fix ruby-script-but-no-ruby-dep.
 
  -- Daniel Leidert <dleidert@debian.org>  Thu, 07 Oct 2021 06:17:55 +0200
 

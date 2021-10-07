@@ -47,7 +47,7 @@ Package: asciidoctor
 Architecture: all
 Multi-Arch: foreign
 XB-Ruby-Versions: ${ruby:Versions}
-Depends: ruby,
+Depends: ruby:any,
          ruby-asciidoctor (>= ${source:Version}),
          ${misc:Depends},
          ${ruby:Depends},

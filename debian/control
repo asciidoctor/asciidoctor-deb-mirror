@@ -17,7 +17,7 @@ Build-Depends: coderay,
                ruby-haml,
                ruby-htmlentities,
                ruby-mocha,
-               ruby-nokogiri (>= 1.5.10),
+               ruby-nokogiri,
                ruby-rouge,
                ruby-slim,
                ruby-tilt
@@ -31,8 +31,6 @@ Rules-Requires-Root: no
 Package: ruby-asciidoctor
 Section: ruby
 Architecture: all
-Replaces: asciidoctor (<< 1.5.6.2-1)
-Breaks: asciidoctor (<< 1.5.6.2-1)
 XB-Ruby-Versions: ${ruby:Versions}
 Depends: ${misc:Depends},
          ${ruby:Depends},
